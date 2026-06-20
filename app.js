@@ -375,11 +375,10 @@ function sidebarTemplate() {
     ["home", "Início", "home"],
     ["add", "Adicionar", "add"],
     ["lists", "Listas", "lists"],
+    ["discover", "Descobrir", "compass"],
     ["club", "Doramigas", "club"],
     ["profile", "Perfil", "profile"],
   ];
-  // Descobrir temporariamente desativado (estava pesando). Reativar: voltar o
-  // item ["discover", "Descobrir", "compass"] aqui.
   if (isAdmin()) items.push(["admin", "Admin", "admin"]);
 
   return `
@@ -1495,7 +1494,15 @@ async function loadDiscover(force = false) {
       discoverDramas("top"),
       discoverDramas("novos"),
     ]);
-    discover = { loaded: true, loading: false, error: "", semana, alta, top, novos };
+    discover = {
+      loaded: true,
+      loading: false,
+      error: "",
+      semana: Array.isArray(semana) ? semana : [],
+      alta: Array.isArray(alta) ? alta : [],
+      top: Array.isArray(top) ? top : [],
+      novos: Array.isArray(novos) ? novos : [],
+    };
   } catch {
     // loaded:true mesmo no erro, pra NÃO re-disparar em loop.
     discover = { ...discover, loaded: true, loading: false, error: "Não consegui carregar agora. Confira a conexão." };
@@ -1589,8 +1596,6 @@ async function init() {
   if (initStarted) return;
   initStarted = true;
   aplicarTema(temaAtual());
-  // Descobrir está desativado: se ficou salvo como tela atual, volta pra Início.
-  if (state.view === "discover") state.view = "home";
   if (supabaseReady()) {
     try {
       authUser = await getCurrentUser();
