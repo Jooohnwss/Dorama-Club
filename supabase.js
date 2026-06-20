@@ -1,5 +1,7 @@
 // Cliente Supabase: auth + sincronização da lista de doramas na nuvem.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Usamos ?bundle (versão fixada) para baixar TUDO num arquivo só, em vez de
+// uma cascata de ~10 requests ao CDN — isso deixava o primeiro load lento.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.108.2?bundle";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 
 export function supabaseReady() {
