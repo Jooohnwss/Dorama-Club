@@ -10,7 +10,8 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | # | Arquivo | O que faz | Fase |
 |---|---------|-----------|------|
 | 01 | `01 - criar-tabelas-perfil-e-doramas.sql` | Cria `profiles` e `dramas` + RLS + trigger de novo usuário | A (pronta) |
-| 02 | `02 - criar-clube-feed-e-comentarios.sql` | Cria `clubs`, `club_members`, `activities`, `comments` + RLS + funções `create_club` / `join_club` / `my_clubs` | B |
+| 02 | `02 - criar-clube-feed-e-comentarios.sql` | Cria `clubs`, `club_members`, `activities`, `comments` + RLS + funções `create_club` / `join_club` / `my_clubs` / `club_members_list` | B |
+| 03 | `03 - area-de-administradores.sql` | Função `is_admin()` + funções de painel (`admin_overview`, `admin_users`, `admin_clubs`, `admin_comments`, `admin_delete_comment`) | Admin |
 
 ## Convenção de nome
 

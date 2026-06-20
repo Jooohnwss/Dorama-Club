@@ -11,6 +11,17 @@ import {
   loadDramas,
   upsertDrama,
   deleteDramaRemote,
+  createClub,
+  joinClub,
+  myClubs,
+  clubMembersList,
+  leaveClub,
+  isAdminEmail,
+  adminOverview,
+  adminUsers,
+  adminClubs,
+  adminComments,
+  adminDeleteComment,
 } from "./supabase.js";
 
 const STORAGE_KEY = "dorama-club-state-v1";
@@ -40,63 +51,6 @@ const dramaTypes = [
   "A que só assiste romance",
   "A que ama sofrer",
   "A que sempre recomenda dorama triste",
-];
-
-const sampleDramas = [
-  {
-    title: "Rainha das Lágrimas",
-    year: 2024,
-    episodes: 16,
-    genres: ["Romance", "Drama", "Família"],
-    rating: 9.1,
-    cover: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=420&q=80",
-    synopsis: "Um casal em crise reaprende a se escolher quando a vida decide testar tudo de uma vez.",
-  },
-  {
-    title: "Pretendente Surpresa",
-    year: 2022,
-    episodes: 12,
-    genres: ["Romance", "Comédia"],
-    rating: 8.7,
-    cover: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=420&q=80",
-    synopsis: "Um encontro às cegas vira confusão corporativa, contrato falso e romance fofo.",
-  },
-  {
-    title: "Pousando no Amor",
-    year: 2019,
-    episodes: 16,
-    genres: ["Romance", "Drama"],
-    rating: 9.0,
-    cover: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=420&q=80",
-    synopsis: "Uma herdeira sul-coreana cai onde não devia e encontra um amor improvável.",
-  },
-  {
-    title: "Beleza Verdadeira",
-    year: 2020,
-    episodes: 16,
-    genres: ["Romance", "Escola"],
-    rating: 8.2,
-    cover: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=420&q=80",
-    synopsis: "Autoestima, triângulo amoroso e adolescência em uma história cheia de coração.",
-  },
-  {
-    title: "Vincenzo",
-    year: 2021,
-    episodes: 20,
-    genres: ["Crime", "Comédia", "Vingança"],
-    rating: 8.9,
-    cover: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=420&q=80",
-    synopsis: "Um advogado com métodos nada tradicionais enfrenta poderosos com estilo e caos.",
-  },
-  {
-    title: "Uma Advogada Extraordinária",
-    year: 2022,
-    episodes: 16,
-    genres: ["Drama", "Tribunal"],
-    rating: 9.0,
-    cover: "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=420&q=80",
-    synopsis: "Uma advogada brilhante encontra seu lugar resolvendo casos e relações delicadas.",
-  },
 ];
 
 function createId() {
@@ -143,61 +97,8 @@ const defaults = {
   view: "home",
   activeList: "watching",
   profile: null,
-  dramas: [
-    {
-      ...sampleDramas[0],
-      id: createId(),
-      status: "watching",
-      currentEpisode: 4,
-      mood: "Passando raiva, mas amando",
-      priority: "Quero muito",
-      reason: "Está todo mundo falando",
-      favorite: true,
-      comfort: false,
-      note: "",
-      cry: 8,
-      hype: 9,
-      rage: 6,
-      personalRating: "",
-    },
-    {
-      ...sampleDramas[1],
-      id: createId(),
-      status: "wishlist",
-      currentEpisode: 0,
-      mood: "",
-      priority: "Ver com as doramigas",
-      reason: "Romance fofo",
-      favorite: false,
-      comfort: true,
-      note: "",
-      cry: "",
-      hype: "",
-      rage: "",
-      personalRating: "",
-    },
-    {
-      ...sampleDramas[2],
-      id: createId(),
-      status: "paused",
-      currentEpisode: 7,
-      mood: "",
-      priority: "",
-      reason: "Quero voltar depois",
-      favorite: false,
-      comfort: false,
-      note: "",
-      cry: "",
-      hype: "",
-      rage: "",
-      personalRating: "",
-    },
-  ],
-  club: {
-    name: "Clube das Doramigas",
-    code: "DORAMA-1234",
-    friends: ["Bia", "Carol", "Júlia", "Mari"],
-  },
+  dramas: [],
+  club: null,
 };
 
 let state = loadState();
@@ -209,6 +110,10 @@ let search = { query: "", loading: false, results: [], selected: null, error: ""
 let authUser = null;
 let authMode = "signin"; // "signin" | "signup"
 let authBusy = false;
+// Membros do clube atual (carregados sob demanda).
+let clubMembers = [];
+// Dados da área de administradores (carregados sob demanda).
+let admin = { loaded: false, loading: false, error: "", overview: null, users: [], clubs: [], comments: [] };
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -222,7 +127,7 @@ function loadState() {
     const merged = { ...cloneDefaults(), ...saved };
     // Migração: garante que doramas salvos antigos recebam campos novos.
     merged.dramas = Array.isArray(saved.dramas) ? saved.dramas.map(normalizeDrama) : merged.dramas;
-    merged.club = { ...cloneDefaults().club, ...(saved.club || {}) };
+    merged.club = saved.club || null;
     return merged;
   } catch {
     return cloneDefaults();
@@ -370,6 +275,10 @@ function welcomeTemplate() {
   `;
 }
 
+function isAdmin() {
+  return supabaseReady() && authUser && isAdminEmail(authUser.email);
+}
+
 function sidebarTemplate() {
   const items = [
     ["home", "Início"],
@@ -378,6 +287,7 @@ function sidebarTemplate() {
     ["club", "Doramigas"],
     ["profile", "Perfil"],
   ];
+  if (isAdmin()) items.push(["admin", "Admin"]);
 
   return `
     <aside class="sidebar">
@@ -403,8 +313,54 @@ function viewTemplate() {
     lists: listsTemplate,
     club: clubTemplate,
     profile: profileTemplate,
+    admin: adminTemplate,
   };
-  return views[state.view]();
+  if (state.view === "admin" && !isAdmin()) return homeTemplate();
+  return (views[state.view] || homeTemplate)();
+}
+
+function adminTemplate() {
+  if (admin.loading && !admin.loaded) return `<div class="section-title"><h2>Admin</h2></div><div class="empty">Carregando painel…</div>`;
+  if (admin.error) return `<div class="section-title"><h2>Admin</h2></div><div class="empty">${esc(admin.error)}</div>`;
+
+  const o = admin.overview || {};
+  const overviewStats = [
+    ["Usuárias", o.users ?? 0],
+    ["Doramas", o.dramas ?? 0],
+    ["Clubes", o.clubs ?? 0],
+    ["Comentários", o.comments ?? 0],
+  ];
+
+  return `
+    <div class="section-title">
+      <h2>Administradores</h2>
+      <button class="btn ghost" data-admin-refresh>Atualizar</button>
+    </div>
+    <section class="grid stats">
+      ${overviewStats.map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
+    </section>
+
+    <div class="section-title"><h2>Usuárias (${admin.users.length})</h2></div>
+    <section class="grid cards">
+      ${admin.users.length
+        ? admin.users.map((u) => `<div class="card"><strong>${esc(u.name || "(sem nome)")}</strong><p class="muted">${esc(u.email || "")}</p><div class="chips">${u.nickname ? `<span class="chip">${esc(u.nickname)}</span>` : ""}<span class="chip">${u.dramas || 0} doramas</span>${u.since ? `<span class="chip">desde ${u.since}</span>` : ""}</div></div>`).join("")
+        : `<div class="empty">Nenhuma usuária ainda.</div>`}
+    </section>
+
+    <div class="section-title"><h2>Clubes (${admin.clubs.length})</h2></div>
+    <section class="grid cards">
+      ${admin.clubs.length
+        ? admin.clubs.map((c) => `<div class="card"><strong>${esc(c.name)}</strong><p class="muted">${esc(c.code)}</p><div class="chips"><span class="chip">${c.members || 0} membros</span></div></div>`).join("")
+        : `<div class="empty">Nenhum clube criado ainda.</div>`}
+    </section>
+
+    <div class="section-title"><h2>Comentários (${admin.comments.length})</h2></div>
+    <section class="grid">
+      ${admin.comments.length
+        ? admin.comments.map((c) => `<div class="card"><strong>${esc(c.author || "")}</strong><p class="muted">${esc(c.club || "")}${c.spoiler_episode ? ` · spoiler ep. ${c.spoiler_episode}` : ""}</p><p>${esc(c.body)}</p><div class="mini-actions"><button data-admin-del-comment="${c.id}">Apagar</button></div></div>`).join("")
+        : `<div class="empty">Nenhum comentário ainda.</div>`}
+    </section>
+  `;
 }
 
 function homeTemplate() {
@@ -413,7 +369,7 @@ function homeTemplate() {
     ["Assistindo", byStatus("watching").length],
     ["Watchlist", byStatus("wishlist").length],
     ["Finalizados", byStatus("finished").length],
-    ["Doramigas", state.club.friends.length],
+    ["Favoritos", byStatus("favorites").length],
     ["Desde", profile.since || "Hoje"],
   ];
 
@@ -445,7 +401,7 @@ function homeTemplate() {
         .slice(0, 6)
         .map((status) => `<button class="card" data-list="${status.key}"><strong>${status.label}</strong><p class="muted">${byStatus(status.key).length} doramas</p></button>`)
         .join("")}
-      <button class="card" data-view="club"><strong>Clube das Doramigas</strong><p class="muted">${state.club.code}</p></button>
+      <button class="card" data-view="club"><strong>${state.club ? esc(state.club.name) : "Clube das Doramigas"}</strong><p class="muted">${state.club ? esc(state.club.code) : "Criar ou entrar com código"}</p></button>
       <button class="card" data-view="add"><strong>Adicionar dorama</strong><p class="muted">Buscar e colocar em uma lista</p></button>
     </section>
     <div class="section-title">
@@ -558,35 +514,53 @@ function listsTemplate() {
 }
 
 function clubTemplate() {
-  const activities = [
-    "Ana começou Rainha das Lágrimas.",
-    "Bia terminou Beleza Verdadeira e deu 9/10.",
-    "Carol adicionou Pretendente Surpresa em Quero assistir.",
-    "Júlia chegou no episódio 8 de Pousando no Amor.",
-  ];
+  if (!state.club) {
+    return `
+      <div class="section-title"><h2>Clube das Doramigas</h2></div>
+      <section class="form-card">
+        <p class="muted">Você ainda não está em um clube. Crie o seu e convide suas doramigas pelo código — ou entre em um clube com o código que te passaram.</p>
+        <form id="create-club-form" class="form-grid">
+          <div class="field full">
+            <label for="club-name">Criar um clube</label>
+            <input id="club-name" name="name" placeholder="Clube das Doramigas" required />
+          </div>
+          <div class="actions field full"><button class="btn" type="submit">Criar clube</button></div>
+        </form>
+      </section>
+      <section class="form-card">
+        <form id="join-club-form" class="form-grid">
+          <div class="field full">
+            <label for="club-code">Entrar com código</label>
+            <input id="club-code" name="code" placeholder="DORAMA-1234" autocomplete="off" required />
+          </div>
+          <div class="actions field full"><button class="btn secondary" type="submit">Entrar no clube</button></div>
+        </form>
+      </section>
+    `;
+  }
 
   return `
     <div class="section-title">
-      <h2>${state.club.name}</h2>
+      <h2>${esc(state.club.name)}</h2>
       <button class="btn ghost" data-copy-code>Copiar código</button>
     </div>
     <section class="grid cards">
-      <div class="card"><span class="muted">Código do clube</span><strong>${state.club.code}</strong></div>
-      <div class="card"><span class="muted">Membros</span><strong>${state.club.friends.length + 1}</strong></div>
-      <div class="card"><span class="muted">Dorama do mês</span><strong>Rainha das Lágrimas</strong></div>
+      <div class="card"><span class="muted">Código do clube</span><strong>${esc(state.club.code)}</strong></div>
+      <div class="card"><span class="muted">Membros</span><strong>${clubMembers.length || "…"}</strong></div>
     </section>
-    <div class="section-title">
-      <h2>Ver listas das doramigas</h2>
-    </div>
+    <div class="section-title"><h2>Doramigas no clube</h2></div>
     <section class="grid cards">
-      ${state.club.friends.map((friend, index) => `<div class="card"><strong>${friend}</strong><p class="muted">${index + 1} doramas em comum</p><div class="chips"><span class="chip">episódio ${index + 3}</span><span class="chip">sem spoilers</span></div></div>`).join("")}
+      ${clubMembers.length
+        ? clubMembers.map((member) => `<div class="card"><strong>${esc(member.name || "(sem nome)")}</strong>${member.nickname ? `<p class="muted">${esc(member.nickname)}</p>` : ""}</div>`).join("")
+        : `<div class="empty">Carregando membros…</div>`}
     </section>
-    <div class="section-title">
-      <h2>Feed</h2>
-    </div>
-    <section class="grid">
-      ${activities.map((activity) => `<div class="card"><strong>${activity}</strong><div class="chips"><span class="chip">Surtei</span><span class="chip">Não superei</span><span class="chip">Eu avisei</span></div></div>`).join("")}
+    <div class="section-title"><h2>Convidar e gerenciar</h2></div>
+    <section class="grid cards">
+      <button class="card" data-share-club><strong>Chamar doramiga no WhatsApp</strong><p class="muted">Envia o código ${esc(state.club.code)}</p></button>
+      <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">Você deixa de ver este clube</p></button>
     </section>
+    <div class="section-title"><h2>Feed e comentários</h2></div>
+    <div class="empty">Em breve: feed das doramigas e comentários com trava de spoiler.</div>
   `;
 }
 
@@ -838,6 +812,10 @@ async function handleLogout() {
   authUser = null;
   state.profile = null;
   state.dramas = [];
+  state.club = null;
+  state.view = "home";
+  clubMembers = [];
+  admin = { loaded: false, loading: false, error: "", overview: null, users: [], clubs: [], comments: [] };
   saveState();
   render();
 }
@@ -874,12 +852,25 @@ function bindShell() {
     button.addEventListener("click", () => pickResult(Number(button.dataset.pick)));
   });
 
+  document.querySelectorAll("[data-admin-del-comment]").forEach((button) => {
+    button.addEventListener("click", () => handleAdminDeleteComment(button.dataset.adminDelComment));
+  });
+
   document.querySelector("[data-random]")?.addEventListener("click", randomDrama);
   document.querySelector("[data-copy-code]")?.addEventListener("click", copyClubCode);
   document.querySelector("[data-logout]")?.addEventListener("click", handleLogout);
+  document.querySelector("[data-share-club]")?.addEventListener("click", shareClub);
+  document.querySelector("[data-leave-club]")?.addEventListener("click", handleLeaveClub);
+  document.querySelector("[data-admin-refresh]")?.addEventListener("click", () => loadAdmin(true));
   document.querySelector("#search-form")?.addEventListener("submit", runSearch);
   document.querySelector("#add-form")?.addEventListener("submit", addDrama);
   document.querySelector("#profile-form")?.addEventListener("submit", saveProfile);
+  document.querySelector("#create-club-form")?.addEventListener("submit", handleCreateClub);
+  document.querySelector("#join-club-form")?.addEventListener("submit", handleJoinClub);
+
+  // Carrega dados sob demanda ao abrir as telas.
+  if (state.view === "admin" && isAdmin() && !admin.loaded && !admin.loading) loadAdmin();
+  if (state.view === "club" && state.club && !clubMembers.length) loadClubMembers();
 }
 
 async function runSearch(event) {
@@ -1040,10 +1031,101 @@ function randomDrama() {
 }
 
 async function copyClubCode() {
+  if (!state.club) return;
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(state.club.code);
   }
   toast(`Código ${state.club.code} copiado.`);
+}
+
+// ---------- Clube ----------
+async function loadClubMembers() {
+  if (!state.club) return;
+  try {
+    clubMembers = await clubMembersList(state.club.id);
+    render();
+  } catch {
+    // silencioso; mostra "carregando" até reconectar
+  }
+}
+
+async function handleCreateClub(event) {
+  event.preventDefault();
+  const name = String(new FormData(event.currentTarget).get("name") || "").trim();
+  try {
+    const club = await createClub(name);
+    state.club = { id: club.id, name: club.name, code: club.code };
+    clubMembers = [];
+    setState({ club: state.club });
+    loadClubMembers();
+    toast(`Clube criado! Código: ${club.code}`);
+  } catch (error) {
+    toast(error?.message || "Não consegui criar o clube.");
+  }
+}
+
+async function handleJoinClub(event) {
+  event.preventDefault();
+  const code = String(new FormData(event.currentTarget).get("code") || "").trim();
+  try {
+    const club = await joinClub(code);
+    state.club = { id: club.id, name: club.name, code: club.code };
+    clubMembers = [];
+    setState({ club: state.club });
+    loadClubMembers();
+    toast(`Você entrou em ${club.name}.`);
+  } catch (error) {
+    toast(error?.message?.includes("não encontrado") ? "Código não encontrado." : "Não consegui entrar no clube.");
+  }
+}
+
+async function handleLeaveClub() {
+  if (!state.club) return;
+  try {
+    await leaveClub(state.club.id);
+    clubMembers = [];
+    setState({ club: null });
+    toast("Você saiu do clube.");
+  } catch {
+    toast("Não consegui sair do clube agora.");
+  }
+}
+
+function shareClub() {
+  if (!state.club) return;
+  const text = `Entra no meu ${state.club.name} no Dorama Club. Código: ${state.club.code}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+}
+
+// ---------- Admin ----------
+async function loadAdmin(force = false) {
+  if (admin.loading) return;
+  if (admin.loaded && !force) return;
+  admin = { ...admin, loading: true, error: "" };
+  render();
+  try {
+    const [overview, users, clubs, comments] = await Promise.all([
+      adminOverview(),
+      adminUsers(),
+      adminClubs(),
+      adminComments(),
+    ]);
+    admin = { loaded: true, loading: false, error: "", overview, users, clubs, comments };
+  } catch (error) {
+    admin = { ...admin, loading: false, error: error?.message || "Não consegui carregar o painel. Rode as migrações 01, 02 e 03 no Supabase." };
+  }
+  render();
+}
+
+async function handleAdminDeleteComment(id) {
+  try {
+    await adminDeleteComment(id);
+    admin.comments = admin.comments.filter((comment) => comment.id !== id);
+    toast("Comentário apagado.");
+    render();
+  } catch {
+    toast("Não consegui apagar o comentário.");
+  }
 }
 
 function shareWhatsApp(event) {
@@ -1071,6 +1153,14 @@ async function hydrateFromCloud() {
   ]);
   state.profile = profile;
   state.dramas = dramas;
+  // Clube (Fase B): se as migrações ainda não rodaram, falha em silêncio.
+  clubMembers = [];
+  try {
+    const clubs = await myClubs();
+    state.club = clubs.length ? { id: clubs[0].id, name: clubs[0].name, code: clubs[0].code } : null;
+  } catch {
+    state.club = null;
+  }
   saveState();
 }
 

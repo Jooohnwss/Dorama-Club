@@ -152,3 +152,69 @@ export async function deleteDramaRemote(id) {
   const { error } = await supabase.from("dramas").delete().eq("id", id);
   if (error) throw error;
 }
+
+// ---------- CLUBES ----------
+export async function createClub(name) {
+  const { data, error } = await supabase.rpc("create_club", { p_name: name });
+  if (error) throw error;
+  return data; // linha de clubs
+}
+
+export async function joinClub(code) {
+  const { data, error } = await supabase.rpc("join_club", { p_code: code });
+  if (error) throw error;
+  return data;
+}
+
+export async function myClubs() {
+  const { data, error } = await supabase.rpc("my_clubs");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function clubMembersList(clubId) {
+  const { data, error } = await supabase.rpc("club_members_list", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function leaveClub(clubId) {
+  const { error } = await supabase.from("club_members").delete().eq("club_id", clubId);
+  if (error) throw error;
+}
+
+// ---------- ADMIN ----------
+export const ADMIN_EMAILS = ["jonatas.w.silva.w@gmail.com", "abikeila_2001@outlook.com"];
+
+export function isAdminEmail(email) {
+  return ADMIN_EMAILS.includes(String(email || "").toLowerCase());
+}
+
+export async function adminOverview() {
+  const { data, error } = await supabase.rpc("admin_overview");
+  if (error) throw error;
+  return data;
+}
+
+export async function adminUsers() {
+  const { data, error } = await supabase.rpc("admin_users");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function adminClubs() {
+  const { data, error } = await supabase.rpc("admin_clubs");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function adminComments() {
+  const { data, error } = await supabase.rpc("admin_comments");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function adminDeleteComment(id) {
+  const { error } = await supabase.rpc("admin_delete_comment", { p_id: id });
+  if (error) throw error;
+}

@@ -168,3 +168,24 @@ as $$
   where m.user_id = auth.uid()
   order by c.created_at;
 $$;
+
+-- ---------- Membros de um clube (com nomes) ----------
+create or replace function public.club_members_list(p_club uuid)
+returns table (user_id uuid, name text, nickname text)
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+begin
+  if not public.is_club_member(p_club, auth.uid()) then
+    raise exception 'Acesso negado';
+  end if;
+  return query
+    select m.user_id, coalesce(p.name, ''), coalesce(p.nickname, '')
+    from public.club_members m
+    left join public.profiles p on p.id = m.user_id
+    where m.club_id = p_club
+    order by m.joined_at;
+end;
+$$;

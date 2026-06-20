@@ -1,4 +1,4 @@
-const CACHE = "dorama-club-v1";
+const CACHE = "dorama-club-v2";
 const SHELL = ["/", "/index.html", "/styles.css", "/app.js", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -14,6 +14,8 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Network-first: sempre tenta a rede (mostra atualizações na hora) e
+// guarda uma cópia para servir offline. Só usa o cache quando a rede falha.
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
@@ -21,10 +23,13 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/index.html")));
-    return;
-  }
-
-  event.respondWith(caches.match(request).then((cached) => cached || fetch(request)));
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+        return response;
+      })
+      .catch(() => caches.match(request).then((cached) => cached || caches.match("/index.html"))),
+  );
 });
