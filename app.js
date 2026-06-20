@@ -358,11 +358,13 @@ function isAdmin() {
 function sidebarTemplate() {
   const items = [
     ["home", "Início", "home"],
-    ["discover", "Descobrir", "compass"],
+    ["add", "Adicionar", "add"],
     ["lists", "Minhas listas", "lists"],
     ["club", "Doramigas", "club"],
     ["profile", "Perfil", "profile"],
   ];
+  // Descobrir temporariamente desativado (estava pesando). Reativar: voltar o
+  // item ["discover", "Descobrir", "compass"] aqui.
   if (isAdmin()) items.push(["admin", "Admin", "admin"]);
 
   return `
@@ -1566,6 +1568,8 @@ async function hydrateFromCloud() {
 
 async function init() {
   aplicarTema(temaAtual());
+  // Descobrir está desativado: se ficou salvo como tela atual, volta pra Início.
+  if (state.view === "discover") state.view = "home";
   if (supabaseReady()) {
     try {
       authUser = await getCurrentUser();
