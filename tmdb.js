@@ -46,6 +46,45 @@ export async function searchDramas(query) {
     .sort((a, b) => (b.cover ? 1 : 0) - (a.cover ? 1 : 0));
 }
 
+// Gêneros que NÃO são dorama: animação, reality, talk show, news, documentário.
+const GENEROS_FORA = [16, 10764, 10767, 10763, 99];
+
+// Dorama da semana / em alta: tendências da semana, só séries asiáticas (sem anime/variedade).
+export async function trendingWeek() {
+  const data = await tmdb("/trending/tv/week");
+  const asia = ["ko", "zh", "ja", "th"];
+  return (data.results || [])
+    .filter((r) => asia.includes(r.original_language) && r.poster_path)
+    .filter((r) => !(r.genre_ids || []).some((g) => GENEROS_FORA.includes(g)))
+    .map(toBrief);
+}
+
+// Descobrir doramas (coreanos) por critério.
+// criterio: "popular" | "top" | "novos"
+export async function discoverDramas(criterio) {
+  const params = {
+    with_original_language: "ko",
+    without_genres: GENEROS_FORA.join(","),
+    include_adult: "false",
+    page: "1",
+  };
+  if (criterio === "top") {
+    params.sort_by = "vote_average.desc";
+    params["vote_count.gte"] = "200";
+  } else if (criterio === "novos") {
+    const desde = new Date();
+    desde.setMonth(desde.getMonth() - 4);
+    params.sort_by = "first_air_date.desc";
+    params["first_air_date.gte"] = desde.toISOString().slice(0, 10);
+    params["first_air_date.lte"] = new Date().toISOString().slice(0, 10);
+    params["vote_count.gte"] = "3";
+  } else {
+    params.sort_by = "popularity.desc";
+  }
+  const data = await tmdb("/discover/tv", params);
+  return (data.results || []).filter((r) => r.poster_path).map(toBrief);
+}
+
 // Onde assistir (streaming) no Brasil. Retorna [{ name, logo }].
 export async function getWatchProviders(tmdbId) {
   try {

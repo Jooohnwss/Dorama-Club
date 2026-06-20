@@ -1,4 +1,4 @@
-import { searchDramas, getDramaDetails, getWatchProviders, tmdbReady } from "./tmdb.js";
+import { searchDramas, getDramaDetails, getWatchProviders, trendingWeek, discoverDramas, tmdbReady } from "./tmdb.js";
 import { temas, acharTema, temaPadrao, categorias } from "./temas.js";
 import {
   supabaseReady,
@@ -126,6 +126,8 @@ let authBusy = false;
 let clubMembers = [];
 // "Onde assistir" do dorama aberto no modal: null = carregando, [] = nada.
 let detailProviders = null;
+// Aba Descobrir (carregada sob demanda).
+let discover = { loaded: false, loading: false, error: "", semana: [], alta: [], top: [], novos: [] };
 // Dados da área de administradores (carregados sob demanda).
 let admin = { loaded: false, loading: false, error: "", overview: null, users: [], clubs: [], comments: [] };
 
@@ -150,6 +152,7 @@ const ICONS = {
   trash: '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M6 6l1 14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-14"/>',
   out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
   refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 7"/><path d="M21 3v4h-4"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><polygon points="16 8 13 13 8 16 11 11 16 8"/>',
 };
 
 function icon(name) {
@@ -355,7 +358,7 @@ function isAdmin() {
 function sidebarTemplate() {
   const items = [
     ["home", "Início", "home"],
-    ["add", "Adicionar", "add"],
+    ["discover", "Descobrir", "compass"],
     ["lists", "Minhas listas", "lists"],
     ["club", "Doramigas", "club"],
     ["profile", "Perfil", "profile"],
@@ -382,6 +385,7 @@ function sidebarTemplate() {
 function viewTemplate() {
   const views = {
     home: homeTemplate,
+    discover: discoverTemplate,
     add: addTemplate,
     lists: listsTemplate,
     club: clubTemplate,
@@ -390,6 +394,60 @@ function viewTemplate() {
   };
   if (state.view === "admin" && !isAdmin()) return homeTemplate();
   return (views[state.view] || homeTemplate)();
+}
+
+function discoverRow(lista) {
+  if (!lista || !lista.length) return `<div class="empty">Nada por aqui agora.</div>`;
+  return `
+    <section class="discover-row">
+      ${lista
+        .slice(0, 12)
+        .map(
+          (d) => `
+        <button class="discover-card" data-discover="${d.tmdbId}" title="${esc(d.title)}">
+          <img src="${esc(d.cover || POSTER_PLACEHOLDER)}" alt="${esc(d.title)}" loading="lazy" />
+          <span class="discover-name">${esc(d.title)}</span>
+          ${d.rating ? `<span class="discover-rating">⭐ ${d.rating}</span>` : ""}
+        </button>`,
+        )
+        .join("")}
+    </section>`;
+}
+
+function discoverTemplate() {
+  if (!tmdbReady()) {
+    return `<div class="section-title"><h2>Descobrir</h2></div><div class="empty">Configure o TMDB pra descobrir doramas.</div>`;
+  }
+  if (discover.loading && !discover.loaded) {
+    return `<div class="section-title"><h2>Descobrir</h2></div><div class="empty">Carregando doramas do momento…</div>`;
+  }
+  if (discover.error) {
+    return `<div class="section-title"><h2>Descobrir</h2></div><div class="empty">${esc(discover.error)}</div>`;
+  }
+
+  const destaque = discover.semana[0];
+  const heroFundo = destaque?.cover
+    ? `linear-gradient(to top, var(--cor-fundo), color-mix(in srgb, var(--cor-fundo) 30%, transparent)), url('${esc(destaque.cover)}')`
+    : "";
+
+  return `
+    <div class="section-title"><h2>${icon("compass")} Descobrir</h2>
+      <button class="btn ghost" data-discover-refresh>${icon("refresh")} Atualizar</button>
+    </div>
+    ${destaque
+      ? `<button class="discover-hero" data-discover="${destaque.tmdbId}" style="background-image:${heroFundo}">
+           <span class="tag">🔥 Dorama da semana</span>
+           <strong>${esc(destaque.title)}</strong>
+           <small>${destaque.year || ""}${destaque.rating ? ` · ⭐ ${destaque.rating}` : ""} · toque para adicionar</small>
+         </button>`
+      : ""}
+    <div class="section-title"><h2>📈 Em alta agora</h2></div>
+    ${discoverRow(discover.alta)}
+    <div class="section-title"><h2>⭐ Mais bem avaliados</h2></div>
+    ${discoverRow(discover.top)}
+    <div class="section-title"><h2>🆕 Novidades</h2></div>
+    ${discoverRow(discover.novos)}
+  `;
 }
 
 function adminTemplate() {
@@ -1133,6 +1191,11 @@ function bindShell() {
     button.addEventListener("click", () => sugerirPorHumor(button.dataset.mood));
   });
 
+  document.querySelectorAll("[data-discover]").forEach((button) => {
+    button.addEventListener("click", () => addFromDiscover(button.dataset.discover));
+  });
+  document.querySelector("[data-discover-refresh]")?.addEventListener("click", () => loadDiscover(true));
+
   document.querySelectorAll("[data-tema]").forEach((button) => {
     button.addEventListener("click", () => salvarTema(button.dataset.tema));
   });
@@ -1151,6 +1214,7 @@ function bindShell() {
 
   // Carrega dados sob demanda ao abrir as telas.
   if (state.view === "admin" && isAdmin() && !admin.loaded && !admin.loading) loadAdmin();
+  if (state.view === "discover" && !discover.loaded && !discover.loading) loadDiscover();
   if (state.view === "club" && state.club && !clubMembers.length) loadClubMembers();
 }
 
@@ -1392,6 +1456,40 @@ function shareClub() {
   if (!state.club) return;
   const text = `Entra no meu ${state.club.name} no Dorama Club. Código: ${state.club.code}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+}
+
+// ---------- Descobrir ----------
+async function loadDiscover(force = false) {
+  if (discover.loading) return;
+  if (discover.loaded && !force) return;
+  discover = { ...discover, loading: true, error: "" };
+  render();
+  try {
+    const [semana, alta, top, novos] = await Promise.all([
+      trendingWeek(),
+      discoverDramas("popular"),
+      discoverDramas("top"),
+      discoverDramas("novos"),
+    ]);
+    discover = { loaded: true, loading: false, error: "", semana, alta, top, novos };
+  } catch {
+    discover = { ...discover, loading: false, error: "Não consegui carregar agora. Confira a conexão." };
+  }
+  render();
+}
+
+// Abre um dorama do Descobrir já no fluxo de adicionar (puxa detalhes do TMDB).
+async function addFromDiscover(tmdbId) {
+  setState({ view: "add" });
+  search = { query: "", loading: true, results: [], selected: null, error: "" };
+  render();
+  try {
+    const details = await getDramaDetails(Number(tmdbId));
+    search = { ...search, loading: false, selected: details };
+  } catch {
+    search = { ...search, loading: false, error: "Não consegui abrir esse dorama." };
+  }
+  render();
 }
 
 // ---------- Admin ----------
