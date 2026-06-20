@@ -42,8 +42,9 @@ export async function signOut() {
 }
 
 export function onAuthChange(callback) {
-  if (!supabase) return;
-  supabase.auth.onAuthStateChange((_event, session) => callback(session?.user || null));
+  if (!supabase) return () => {};
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(session?.user || null));
+  return () => data.subscription.unsubscribe();
 }
 
 // ---------- PERFIL ----------

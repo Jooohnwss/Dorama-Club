@@ -122,6 +122,9 @@ let search = { query: "", loading: false, results: [], selected: null, error: ""
 let authUser = null;
 let authMode = "signin"; // "signin" | "signup"
 let authBusy = false;
+let renderEvents = null;
+let initStarted = false;
+let unsubscribeAuth = null;
 // Membros do clube atual (carregados sob demanda).
 let clubMembers = [];
 let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop)
@@ -221,6 +224,16 @@ function setState(patch) {
   render();
 }
 
+function resetRenderEvents() {
+  renderEvents?.abort();
+  renderEvents = new AbortController();
+}
+
+function listen(target, type, handler, options = {}) {
+  if (!target) return;
+  target.addEventListener(type, handler, { ...options, signal: renderEvents.signal });
+}
+
 function cloudOn() {
   return supabaseReady() && Boolean(authUser);
 }
@@ -246,6 +259,7 @@ function app() {
 }
 
 function render() {
+  resetRenderEvents();
   // Com Supabase configurado, exige login antes de tudo.
   if (supabaseReady() && !authUser) {
     app().innerHTML = `${authTemplate()}<div id="toast-root"></div>`;
@@ -261,7 +275,7 @@ function render() {
       <div id="toast-root"></div>
     `;
     if (setup) {
-      document.querySelector("#profile-form")?.addEventListener("submit", saveProfile);
+      listen(document.querySelector("#profile-form"), "submit", saveProfile);
     } else {
       bindWelcome();
     }
@@ -1094,7 +1108,7 @@ function modalTemplate() {
 
 function bindWelcome() {
   document.querySelectorAll("[data-start]").forEach((button) => {
-    button.addEventListener("click", () => {
+    listen(button, "click", () => {
       modal = { type: "profile" };
       render();
     });
@@ -1103,12 +1117,12 @@ function bindWelcome() {
 
 function bindAuth() {
   document.querySelectorAll("[data-auth-mode]").forEach((button) => {
-    button.addEventListener("click", () => {
+    listen(button, "click", () => {
       authMode = button.dataset.authMode;
       render();
     });
   });
-  document.querySelector("#auth-form")?.addEventListener("submit", handleAuthSubmit);
+  listen(document.querySelector("#auth-form"), "submit", handleAuthSubmit);
 }
 
 function authError(error) {
@@ -1164,61 +1178,61 @@ async function handleLogout() {
 
 function bindShell() {
   document.querySelectorAll("[data-view]").forEach((button) => {
-    button.addEventListener("click", () => setState({ view: button.dataset.view }));
+    listen(button, "click", () => setState({ view: button.dataset.view }));
   });
 
   document.querySelectorAll("[data-list]").forEach((button) => {
-    button.addEventListener("click", () => setState({ view: "lists", activeList: button.dataset.list }));
+    listen(button, "click", () => setState({ view: "lists", activeList: button.dataset.list }));
   });
 
   document.querySelectorAll("[data-active-list]").forEach((button) => {
-    button.addEventListener("click", () => setState({ activeList: button.dataset.activeList }));
+    listen(button, "click", () => setState({ activeList: button.dataset.activeList }));
   });
 
   document.querySelectorAll("[data-plus-one]").forEach((button) => {
-    button.addEventListener("click", () => incrementEpisode(button.dataset.plusOne));
+    listen(button, "click", () => incrementEpisode(button.dataset.plusOne));
   });
 
   document.querySelectorAll("[data-detail]").forEach((button) => {
-    button.addEventListener("click", () => openDetail(button.dataset.detail));
+    listen(button, "click", () => openDetail(button.dataset.detail));
   });
 
   document.querySelectorAll("[data-toggle-favorite]").forEach((button) => {
-    button.addEventListener("click", () => toggleField(button.dataset.toggleFavorite, "favorite"));
+    listen(button, "click", () => toggleField(button.dataset.toggleFavorite, "favorite"));
   });
 
   document.querySelectorAll("[data-pick]").forEach((button) => {
-    button.addEventListener("click", () => pickResult(Number(button.dataset.pick)));
+    listen(button, "click", () => pickResult(Number(button.dataset.pick)));
   });
 
   document.querySelectorAll("[data-admin-del-comment]").forEach((button) => {
-    button.addEventListener("click", () => handleAdminDeleteComment(button.dataset.adminDelComment));
+    listen(button, "click", () => handleAdminDeleteComment(button.dataset.adminDelComment));
   });
 
   document.querySelectorAll("[data-mood]").forEach((button) => {
-    button.addEventListener("click", () => sugerirPorHumor(button.dataset.mood));
+    listen(button, "click", () => sugerirPorHumor(button.dataset.mood));
   });
 
   document.querySelectorAll("[data-discover]").forEach((button) => {
-    button.addEventListener("click", () => addFromDiscover(button.dataset.discover));
+    listen(button, "click", () => addFromDiscover(button.dataset.discover));
   });
-  document.querySelector("[data-discover-refresh]")?.addEventListener("click", () => loadDiscover(true));
+  listen(document.querySelector("[data-discover-refresh]"), "click", () => loadDiscover(true));
 
   document.querySelectorAll("[data-tema]").forEach((button) => {
-    button.addEventListener("click", () => salvarTema(button.dataset.tema));
+    listen(button, "click", () => salvarTema(button.dataset.tema));
   });
 
-  document.querySelector("[data-random]")?.addEventListener("click", randomDrama);
-  document.querySelector("[data-copy-code]")?.addEventListener("click", copyClubCode);
-  document.querySelector("[data-logout]")?.addEventListener("click", handleLogout);
-  document.querySelector("[data-share-club]")?.addEventListener("click", shareClub);
-  document.querySelector("[data-leave-club]")?.addEventListener("click", handleLeaveClub);
-  document.querySelector("[data-admin-refresh]")?.addEventListener("click", () => loadAdmin(true));
-  document.querySelector("#search-form")?.addEventListener("submit", runSearch);
-  document.querySelector("#add-form")?.addEventListener("submit", addDrama);
-  document.querySelector("#profile-form")?.addEventListener("submit", saveProfile);
-  document.querySelector("#create-club-form")?.addEventListener("submit", handleCreateClub);
-  document.querySelector("#join-club-form")?.addEventListener("submit", handleJoinClub);
+  listen(document.querySelector("[data-random]"), "click", randomDrama);
+  listen(document.querySelector("[data-copy-code]"), "click", copyClubCode);
+  listen(document.querySelector("[data-logout]"), "click", handleLogout);
+  listen(document.querySelector("[data-share-club]"), "click", shareClub);
+  listen(document.querySelector("[data-leave-club]"), "click", handleLeaveClub);
+  listen(document.querySelector("[data-admin-refresh]"), "click", () => loadAdmin(true));
+  listen(document.querySelector("#search-form"), "submit", runSearch);
+  listen(document.querySelector("#add-form"), "submit", addDrama);
+  listen(document.querySelector("#profile-form"), "submit", saveProfile);
+  listen(document.querySelector("#create-club-form"), "submit", handleCreateClub);
+  listen(document.querySelector("#join-club-form"), "submit", handleJoinClub);
 
   // Carrega dados sob demanda ao abrir as telas.
   if (state.view === "admin" && isAdmin() && !admin.loaded && !admin.loading) loadAdmin();
@@ -1260,13 +1274,13 @@ async function pickResult(tmdbId) {
 }
 
 function bindModal() {
-  document.querySelector("[data-close]")?.addEventListener("click", () => {
+  listen(document.querySelector("[data-close]"), "click", () => {
     modal = null;
     render();
   });
-  document.querySelector("#profile-form")?.addEventListener("submit", saveProfile);
-  document.querySelector("#drama-form")?.addEventListener("submit", saveDramaDetails);
-  document.querySelector("[data-whatsapp]")?.addEventListener("click", shareWhatsApp);
+  listen(document.querySelector("#profile-form"), "submit", saveProfile);
+  listen(document.querySelector("#drama-form"), "submit", saveDramaDetails);
+  listen(document.querySelector("[data-whatsapp]"), "click", shareWhatsApp);
 
   // Mostra/esconde os campos que dependem do status (motivo da pausa/drop, semáforo)
   // sem re-renderizar, preservando o que já foi digitado.
@@ -1277,7 +1291,7 @@ function bindModal() {
         node.hidden = node.dataset.when !== statusSelect.value;
       });
     };
-    statusSelect.addEventListener("change", sync);
+    listen(statusSelect, "change", sync);
     sync();
   }
 }
@@ -1572,6 +1586,8 @@ async function hydrateFromCloud() {
 }
 
 async function init() {
+  if (initStarted) return;
+  initStarted = true;
   aplicarTema(temaAtual());
   // Descobrir está desativado: se ficou salvo como tela atual, volta pra Início.
   if (state.view === "discover") state.view = "home";
@@ -1582,7 +1598,8 @@ async function init() {
     } catch {
       // Sem conexão: cai no estado local até reconectar.
     }
-    onAuthChange(async (user) => {
+    unsubscribeAuth?.();
+    unsubscribeAuth = onAuthChange(async (user) => {
       const previousId = authUser?.id;
       authUser = user;
       authBusy = false;
