@@ -373,7 +373,6 @@ function isAdmin() {
 function sidebarTemplate() {
   const items = [
     ["home", "Início", "home"],
-    ["add", "Adicionar", "add"],
     ["lists", "Listas", "lists"],
     ["discover", "Descobrir", "compass"],
     ["club", "Doramigas", "club"],
