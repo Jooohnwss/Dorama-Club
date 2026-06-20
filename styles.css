@@ -49,6 +49,9 @@ body::before {
   background: var(--bg-cena);
   background-size: cover;
   background-position: center;
+  /* Camada própria de GPU: evita repaint do fundo a cada frame de scroll. */
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 button,
@@ -462,6 +465,9 @@ textarea:focus {
   grid-template-columns: 92px minmax(0, 1fr);
   gap: 13px;
   padding: 12px;
+  /* Não gasta render com cards fora da tela (listas longas). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 150px;
 }
 
 .poster {
@@ -631,6 +637,8 @@ textarea:focus {
   overflow-x: auto;
   padding-bottom: 6px;
   scrollbar-width: thin;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 230px;
 }
 
 .discover-card {

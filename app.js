@@ -396,16 +396,21 @@ function viewTemplate() {
   return (views[state.view] || homeTemplate)();
 }
 
+// Pôster menor (w185) para as miniaturas do Descobrir — metade do peso.
+function thumb(cover) {
+  return cover ? cover.replace("/w342/", "/w185/") : POSTER_PLACEHOLDER;
+}
+
 function discoverRow(lista) {
   if (!lista || !lista.length) return `<div class="empty">Nada por aqui agora.</div>`;
   return `
     <section class="discover-row">
       ${lista
-        .slice(0, 12)
+        .slice(0, 10)
         .map(
           (d) => `
         <button class="discover-card" data-discover="${d.tmdbId}" title="${esc(d.title)}">
-          <img src="${esc(d.cover || POSTER_PLACEHOLDER)}" alt="${esc(d.title)}" loading="lazy" />
+          <img src="${esc(thumb(d.cover))}" alt="${esc(d.title)}" loading="lazy" decoding="async" />
           <span class="discover-name">${esc(d.title)}</span>
           ${d.rating ? `<span class="discover-rating">⭐ ${d.rating}</span>` : ""}
         </button>`,
@@ -947,7 +952,7 @@ function dramaCard(drama) {
 
   return `
     <article class="drama-card">
-      <img class="poster" src="${esc(drama.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(drama.title)}" loading="lazy" />
+      <img class="poster" src="${esc(drama.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(drama.title)}" loading="lazy" decoding="async" />
       <div>
         <h3>${esc(drama.title)}</h3>
         <p class="meta">${meta}</p>
