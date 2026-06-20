@@ -1,4 +1,4 @@
-import { searchDramas, getDramaDetails, tmdbReady } from "./tmdb.js";
+import { searchDramas, getDramaDetails, getWatchProviders, tmdbReady } from "./tmdb.js";
 import { temas, acharTema, temaPadrao, categorias } from "./temas.js";
 import {
   supabaseReady,
@@ -124,6 +124,8 @@ let authMode = "signin"; // "signin" | "signup"
 let authBusy = false;
 // Membros do clube atual (carregados sob demanda).
 let clubMembers = [];
+// "Onde assistir" do dorama aberto no modal: null = carregando, [] = nada.
+let detailProviders = null;
 // Dados da área de administradores (carregados sob demanda).
 let admin = { loaded: false, loading: false, error: "", overview: null, users: [], clubs: [], comments: [] };
 
@@ -492,15 +494,31 @@ const moods = [
   { label: "Chorar sem motivo", tag: "chorar", emoji: "💧" },
 ];
 
-function sugerirPorHumor() {
-  const pool = state.dramas.filter((drama) => drama.status === "wishlist" || drama.comfort);
-  const base = pool.length ? pool : state.dramas;
-  if (!base.length) {
+// Cada humor casa com alguns gêneros (nomes do TMDB em pt-BR).
+const moodGenres = {
+  sofrer: ["Drama", "Família", "História"],
+  chorar: ["Drama", "Romance", "Família"],
+  rir: ["Comédia"],
+  fofo: ["Romance", "Comédia"],
+  raiva: ["Drama", "Crime", "Mistério"],
+  vinganca: ["Crime", "Ação & Aventura", "Mistério", "Guerra & Política"],
+  leve: ["Comédia", "Romance", "Família"],
+};
+
+function sugerirPorHumor(tag) {
+  const generos = moodGenres[tag] || [];
+  const combina = (drama) => (drama.genres || []).some((g) => generos.includes(g));
+  // Prioriza o que ela ainda não viu (quero assistir), depois qualquer um.
+  const naLista = state.dramas.filter((d) => d.status === "wishlist");
+  let pool = naLista.filter(combina);
+  if (!pool.length) pool = state.dramas.filter(combina);
+  if (!pool.length) pool = naLista.length ? naLista : state.dramas;
+  if (!pool.length) {
     toast("Adicione doramas primeiro pra eu sugerir algo.");
     return;
   }
-  const escolha = base[Math.floor(Math.random() * base.length)];
-  toast(`Hoje combina com: ${escolha.title}.`);
+  const escolha = pool[Math.floor(Math.random() * pool.length)];
+  toast(`Hoje combina com: ${escolha.title} 💜`);
 }
 
 function addTemplate() {
@@ -696,11 +714,80 @@ function profileTemplate() {
       <div class="stat"><span class="muted">Gênero favorito</span><strong>${favoriteGenre()}</strong></div>
       <div class="stat"><span class="muted">Nota média</span><strong>${averageRating()}</strong></div>
     </section>
+    <div class="section-title"><h2>📊 Suas estatísticas</h2></div>
+    <section class="grid cards">
+      ${funnyStats().map((linha) => `<div class="card">${linha}</div>`).join("")}
+    </section>
+    <div class="section-title"><h2>🏆 Conquistas</h2></div>
+    <section class="badge-grid">
+      ${badges().map((b) => `<div class="badge ${b.earned ? "" : "locked"}"><span class="badge-emoji">${b.emoji}</span><strong>${esc(b.nome)}</strong><small>${esc(b.desc)}</small></div>`).join("")}
+    </section>
+    <div class="section-title"><h2>💗 Ranking emocional</h2></div>
+    ${rankingEmocionalTemplate()}
     <div class="section-title">
       <h2>${icon("paint")} Tema do app</h2>
     </div>
     ${temasTemplate()}
   `;
+}
+
+function funnyStats() {
+  const episodes = state.dramas.reduce((sum, d) => sum + Number(d.currentEpisode || 0), 0);
+  const choros = state.dramas.filter((d) => Number(d.cry) > 0).length;
+  const drops = byStatus("dropped").length;
+  const since = state.profile?.since;
+  const linhas = [
+    `Você já assistiu <strong>${episodes}</strong> episódios.`,
+    `Você chorou oficialmente em <strong>${choros}</strong> ${choros === 1 ? "dorama" : "doramas"}.`,
+    `Seu gênero mais assistido é <strong>${favoriteGenre()}</strong>.`,
+  ];
+  if (drops) linhas.push(`Você dropou <strong>${drops}</strong> ${drops === 1 ? "dorama" : "doramas"} sem dó.`);
+  if (since) linhas.push(`Sua vida dorameira começou em <strong>${esc(since)}</strong>.`);
+  return linhas;
+}
+
+function badges() {
+  const dramas = state.dramas;
+  const finished = byStatus("finished");
+  const episodes = dramas.reduce((sum, d) => sum + Number(d.currentEpisode || 0), 0);
+  const since = Number(state.profile?.since) || 9999;
+  const has = (fn) => dramas.some(fn);
+  return [
+    { emoji: "🌟", nome: "Dorameira Raiz", desc: "Assiste desde antes de virar moda", earned: since <= 2019 },
+    { emoji: "😭", nome: "Sofredora Profissional", desc: "Marcou choro 10/10", earned: has((d) => Number(d.cry) >= 10) },
+    { emoji: "🏃‍♀️", nome: "Maratonista", desc: "Mais de 100 episódios assistidos", earned: episodes >= 100 },
+    { emoji: "✂️", nome: "Rainha do Drop", desc: "Dropou 3+ doramas", earned: byStatus("dropped").length >= 3 },
+    { emoji: "💪", nome: "Sem Medo de Sofrer", desc: "Finalizou um dorama de chorar", earned: finished.some((d) => Number(d.cry) >= 8) },
+    { emoji: "💔", nome: "Não Superei", desc: "Tem um dorama favorito", earned: byStatus("favorites").length > 0 },
+    { emoji: "🧊", nome: "CEO Lover", desc: "Tipo: ama um CEO frio", earned: state.profile?.type === "A que ama um CEO frio" },
+    { emoji: "⭐", nome: "Crítica", desc: "Avaliou 5+ doramas", earned: dramas.filter((d) => d.personalRating).length >= 5 },
+  ];
+}
+
+function topPor(campo) {
+  const lista = state.dramas.filter((d) => Number(d[campo]) > 0);
+  if (!lista.length) return null;
+  return lista.reduce((a, b) => (Number(b[campo]) > Number(a[campo]) ? b : a));
+}
+
+function rankingEmocionalTemplate() {
+  const itens = [
+    ["😭 Mais me fez chorar", topPor("cry"), "cry"],
+    ["🔥 Mais me fez surtar", topPor("hype"), "hype"],
+    ["😡 Mais me fez passar raiva", topPor("rage"), "rage"],
+  ];
+  const conforto = state.dramas.find((d) => d.comfort);
+  const recomendo = state.dramas
+    .filter((d) => d.recommend === "Sim" && d.personalRating)
+    .sort((a, b) => Number(b.personalRating) - Number(a.personalRating))[0];
+  if (conforto) itens.push(["🧸 Meu dorama conforto", conforto, null]);
+  if (recomendo) itens.push(["📣 Que mais recomendo", recomendo, "personalRating"]);
+
+  const cards = itens
+    .filter(([, drama]) => drama)
+    .map(([label, drama, campo]) => `<div class="card"><span class="muted">${label}</span><strong>${esc(drama.title)}</strong>${campo ? `<span class="muted">${campo === "personalRating" ? `nota ${esc(drama[campo])}` : `${drama[campo]}/10`}</span>` : ""}</div>`)
+    .join("");
+  return cards ? `<section class="grid cards">${cards}</section>` : `<div class="empty">Avalie alguns doramas (choro, surto, raiva) pra montar seu ranking.</div>`;
 }
 
 function temasTemplate() {
@@ -761,6 +848,23 @@ function profileFields(profile = {}) {
 function dramaGrid(dramas) {
   if (!dramas.length) return `<div class="empty">Nada aqui ainda. Adicione um dorama para começar essa lista.</div>`;
   return `<section class="drama-grid">${dramas.map(dramaCard).join("")}</section>`;
+}
+
+async function openDetail(id) {
+  modal = { type: "detail", id };
+  detailProviders = null;
+  render();
+  const drama = state.dramas.find((item) => item.id === id);
+  if (drama?.tmdbId && tmdbReady()) {
+    const lista = await getWatchProviders(drama.tmdbId);
+    // Só atualiza se o modal ainda é o mesmo dorama.
+    if (modal?.type === "detail" && modal.id === id) {
+      detailProviders = lista;
+      render();
+    }
+  } else {
+    detailProviders = [];
+  }
 }
 
 function semaforoEmoji(value) {
@@ -846,8 +950,16 @@ function modalTemplate() {
           <form id="drama-form" class="form-grid" data-id="${drama.id}">
             <div class="field full">
               <label>Sinopse</label>
-              <p>${drama.synopsis}</p>
-              <div class="chips">${drama.genres.map((genre) => `<span class="chip">${genre}</span>`).join("")}</div>
+              <p>${esc(drama.synopsis || "Sem sinopse disponível.")}</p>
+              <div class="chips">${(drama.genres || []).map((genre) => `<span class="chip">${esc(genre)}</span>`).join("")}</div>
+            </div>
+            <div class="field full">
+              <label>Onde assistir</label>
+              ${detailProviders === null
+                ? `<p class="muted">Procurando no TMDB…</p>`
+                : detailProviders.length
+                  ? `<div class="providers">${detailProviders.map((p) => `<span class="provider" title="${esc(p.name)}">${p.logo ? `<img src="${esc(p.logo)}" alt="${esc(p.name)}" />` : ""}<span>${esc(p.name)}</span></span>`).join("")}</div>`
+                  : `<p class="muted">Não achei onde assistir no Brasil (ou não está em streaming).</p>`}
             </div>
             <div class="field">
               <label for="status">Status pessoal</label>
@@ -1002,10 +1114,7 @@ function bindShell() {
   });
 
   document.querySelectorAll("[data-detail]").forEach((button) => {
-    button.addEventListener("click", () => {
-      modal = { type: "detail", id: button.dataset.detail };
-      render();
-    });
+    button.addEventListener("click", () => openDetail(button.dataset.detail));
   });
 
   document.querySelectorAll("[data-toggle-favorite]").forEach((button) => {
@@ -1021,7 +1130,7 @@ function bindShell() {
   });
 
   document.querySelectorAll("[data-mood]").forEach((button) => {
-    button.addEventListener("click", sugerirPorHumor);
+    button.addEventListener("click", () => sugerirPorHumor(button.dataset.mood));
   });
 
   document.querySelectorAll("[data-tema]").forEach((button) => {

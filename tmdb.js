@@ -46,6 +46,21 @@ export async function searchDramas(query) {
     .sort((a, b) => (b.cover ? 1 : 0) - (a.cover ? 1 : 0));
 }
 
+// Onde assistir (streaming) no Brasil. Retorna [{ name, logo }].
+export async function getWatchProviders(tmdbId) {
+  try {
+    const data = await tmdb(`/tv/${tmdbId}/watch/providers`);
+    const br = data.results?.BR || {};
+    const lista = [...(br.flatrate || []), ...(br.free || []), ...(br.ads || [])];
+    const vistos = new Set();
+    return lista
+      .filter((p) => (vistos.has(p.provider_id) ? false : vistos.add(p.provider_id)))
+      .map((p) => ({ name: p.provider_name, logo: p.logo_path ? "https://image.tmdb.org/t/p/w45" + p.logo_path : "" }));
+  } catch {
+    return [];
+  }
+}
+
 // Detalhes completos (nº de episódios, gêneros). Chamado ao selecionar um resultado.
 export async function getDramaDetails(tmdbId) {
   const result = await tmdb(`/tv/${tmdbId}`);
