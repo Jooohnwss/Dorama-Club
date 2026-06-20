@@ -1,0 +1,11 @@
+{
+  "buildCommand": "node scripts/generate-config.mjs",
+  "outputDirectory": ".",
+  "framework": null,
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    }
+  ]
+}

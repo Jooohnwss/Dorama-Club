@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#df4f94"/>
+  <path d="M137 179c0-34 28-62 62-62 24 0 45 14 56 34 11-20 32-34 56-34 34 0 62 28 62 62 0 78-118 153-118 153S137 257 137 179z" fill="#fff"/>
+  <rect x="121" y="334" width="270" height="54" rx="27" fill="#8a5cf6"/>
+  <text x="256" y="370" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#fff">DC</text>
+</svg>
