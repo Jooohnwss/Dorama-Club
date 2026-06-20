@@ -1,4 +1,5 @@
 import { searchDramas, getDramaDetails, tmdbReady } from "./tmdb.js";
+import { temas, acharTema, temaPadrao, categorias } from "./temas.js";
 import {
   supabaseReady,
   getCurrentUser,
@@ -117,6 +118,65 @@ let admin = { loaded: false, loading: false, error: "", overview: null, users: [
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+}
+
+// ---------- Ícones (SVG inline, herdam a cor com currentColor) ----------
+const ICONS = {
+  home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/>',
+  add: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  lists: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  club: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
+  admin: '<path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z"/>',
+  play: '<polygon points="6 4 20 12 6 20 6 4"/>',
+  heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
+  detail: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
+  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
+  dice: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.3"/><circle cx="16" cy="16" r="1.3"/><circle cx="12" cy="12" r="1.3"/>',
+  paint: '<path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.6 0-.5-.3-.9-.5-1.3-.2-.4-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-3.9-4-7.5-9-7.5z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/>',
+  trash: '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M6 6l1 14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-14"/>',
+  out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 7"/><path d="M21 3v4h-4"/>',
+};
+
+function icon(name) {
+  return `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+}
+
+// ---------- Temas ----------
+const TEMA_KEY = "dorama-club-tema";
+
+function aplicarTema(id) {
+  const tema = acharTema(id);
+  const root = document.documentElement;
+  root.dataset.tema = tema.id;
+  for (const [chave, valor] of Object.entries(tema.variaveis)) {
+    root.style.setProperty(chave, valor);
+  }
+  const veu = "color-mix(in srgb, var(--cor-fundo) 78%, transparent)";
+  root.style.setProperty(
+    "--bg-cena",
+    tema.backdrop ? `linear-gradient(${veu}, ${veu}), url("${tema.backdrop}")` : "none",
+  );
+}
+
+function temaAtual() {
+  try {
+    return localStorage.getItem(TEMA_KEY) || temaPadrao.id;
+  } catch {
+    return temaPadrao.id;
+  }
+}
+
+function salvarTema(id) {
+  try {
+    localStorage.setItem(TEMA_KEY, id);
+  } catch {
+    /* ignore */
+  }
+  aplicarTema(id);
+  render();
+  toast(`Tema: ${acharTema(id).nome}`);
 }
 
 function loadState() {
@@ -281,13 +341,13 @@ function isAdmin() {
 
 function sidebarTemplate() {
   const items = [
-    ["home", "Início"],
-    ["add", "Adicionar"],
-    ["lists", "Minhas listas"],
-    ["club", "Doramigas"],
-    ["profile", "Perfil"],
+    ["home", "Início", "home"],
+    ["add", "Adicionar", "add"],
+    ["lists", "Minhas listas", "lists"],
+    ["club", "Doramigas", "club"],
+    ["profile", "Perfil", "profile"],
   ];
-  if (isAdmin()) items.push(["admin", "Admin"]);
+  if (isAdmin()) items.push(["admin", "Admin", "admin"]);
 
   return `
     <aside class="sidebar">
@@ -299,9 +359,9 @@ function sidebarTemplate() {
         </div>
       </div>
       <nav class="nav">
-        ${items.map(([key, label]) => `<button class="${state.view === key ? "active" : ""}" data-view="${key}">${label}</button>`).join("")}
+        ${items.map(([key, label, ic]) => `<button class="${state.view === key ? "active" : ""}" data-view="${key}">${icon(ic)}<span class="nav-label">${label}</span></button>`).join("")}
       </nav>
-      ${supabaseReady() ? `<button class="logout" data-logout>Sair</button>` : ""}
+      ${supabaseReady() ? `<button class="logout" data-logout>${icon("out")}<span>Sair</span></button>` : ""}
     </aside>
   `;
 }
@@ -373,42 +433,63 @@ function homeTemplate() {
     ["Desde", profile.since || "Hoje"],
   ];
 
+  const statusIcons = { watching: "play", wishlist: "add", finished: "heart", paused: "detail", dropped: "trash", favorites: "heart", comfort: "heart" };
+
   return `
     <section class="hero">
-      <p>Oi, ${profile.name}. Qual vai ser o surto de hoje?</p>
-      <h2>Dorama Club</h2>
+      <p class="kicker">Oi, ${esc(profile.name)} ${acharTema(temaAtual()).marca.emoji}</p>
+      <h2>Qual vai ser o surto de hoje?</h2>
       <div class="actions">
-        <button class="btn secondary" data-view="add">+ Adicionar dorama</button>
-        <button class="btn secondary" data-random>Sortear próximo</button>
+        <button class="btn secondary" data-view="add">${icon("add")} Adicionar dorama</button>
+        <button class="btn secondary" data-random>${icon("dice")} Sortear próximo</button>
       </div>
     </section>
     <section class="grid stats">
       ${stats.map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
     </section>
     <div class="section-title">
-      <h2>Celular</h2>
+      <h2>Meu humor hoje</h2>
     </div>
-    <section class="grid cards">
-      <div class="card"><strong>Instalar como app</strong><p class="muted">No Chrome do celular, use Adicionar à tela inicial para abrir como PWA.</p></div>
-      <div class="card"><strong>Compartilhar no WhatsApp</strong><p class="muted">Nos detalhes do dorama, o botão monta a mensagem de progresso ou finalização.</p></div>
-      <div class="card"><strong>Notificações</strong><p class="muted">No MVP ficam dentro do app; push notification entra numa fase futura.</p></div>
-    </section>
+    <div class="mood-row">
+      ${moods.map((mood) => `<button data-mood="${esc(mood.tag)}">${mood.emoji} ${esc(mood.label)}</button>`).join("")}
+    </div>
     <div class="section-title">
       <h2>Atalhos</h2>
     </div>
     <section class="grid cards">
       ${statuses
         .slice(0, 6)
-        .map((status) => `<button class="card" data-list="${status.key}"><strong>${status.label}</strong><p class="muted">${byStatus(status.key).length} doramas</p></button>`)
+        .map((status) => `<button class="card" data-list="${status.key}"><span class="card-ico">${icon(statusIcons[status.key] || "lists")}</span><strong>${status.label}</strong><span class="muted">${byStatus(status.key).length} doramas</span></button>`)
         .join("")}
-      <button class="card" data-view="club"><strong>${state.club ? esc(state.club.name) : "Clube das Doramigas"}</strong><p class="muted">${state.club ? esc(state.club.code) : "Criar ou entrar com código"}</p></button>
-      <button class="card" data-view="add"><strong>Adicionar dorama</strong><p class="muted">Buscar e colocar em uma lista</p></button>
+      <button class="card" data-view="club"><span class="card-ico">${icon("club")}</span><strong>${state.club ? esc(state.club.name) : "Clube das Doramigas"}</strong><span class="muted">${state.club ? esc(state.club.code) : "Criar ou entrar"}</span></button>
+      <button class="card" data-view="add"><span class="card-ico">${icon("add")}</span><strong>Adicionar dorama</strong><span class="muted">Buscar no TMDB</span></button>
     </section>
     <div class="section-title">
-      <h2>Assistindo agora</h2>
+      <h2>${icon("play")} Assistindo agora</h2>
     </div>
     ${dramaGrid(byStatus("watching"))}
   `;
+}
+
+const moods = [
+  { label: "Quero sofrer", tag: "sofrer", emoji: "😭" },
+  { label: "Quero rir", tag: "rir", emoji: "😂" },
+  { label: "Romance fofo", tag: "fofo", emoji: "🥰" },
+  { label: "Passar raiva", tag: "raiva", emoji: "😡" },
+  { label: "Quero vingança", tag: "vinganca", emoji: "🔪" },
+  { label: "Algo leve", tag: "leve", emoji: "🌸" },
+  { label: "Chorar sem motivo", tag: "chorar", emoji: "💧" },
+];
+
+function sugerirPorHumor() {
+  const pool = state.dramas.filter((drama) => drama.status === "wishlist" || drama.comfort);
+  const base = pool.length ? pool : state.dramas;
+  if (!base.length) {
+    toast("Adicione doramas primeiro pra eu sugerir algo.");
+    return;
+  }
+  const escolha = base[Math.floor(Math.random() * base.length)];
+  toast(`Hoje combina com: ${escolha.title}.`);
 }
 
 function addTemplate() {
@@ -604,7 +685,39 @@ function profileTemplate() {
       <div class="stat"><span class="muted">Gênero favorito</span><strong>${favoriteGenre()}</strong></div>
       <div class="stat"><span class="muted">Nota média</span><strong>${averageRating()}</strong></div>
     </section>
+    <div class="section-title">
+      <h2>${icon("paint")} Tema do app</h2>
+    </div>
+    ${temasTemplate()}
   `;
+}
+
+function temasTemplate() {
+  const atual = temaAtual();
+  return categorias
+    .map((categoria) => {
+      const lista = temas.filter((tema) => tema.categoria === categoria);
+      return `
+        <p class="muted" style="margin:6px 0 8px;font-weight:800">${esc(categoria)}</p>
+        <section class="tema-grid">
+          ${lista
+            .map((tema) => {
+              const fundo = tema.backdrop
+                ? `background-image:url('${tema.backdrop}')`
+                : `background:linear-gradient(135deg, ${tema.variaveis["--cor-primaria"]}, ${tema.variaveis["--cor-secundaria"]})`;
+              return `
+                <button class="tema-card ${atual === tema.id ? "active" : ""}" data-tema="${tema.id}">
+                  <span class="tema-swatch" style="${fundo}">
+                    <span class="emoji">${tema.marca.emoji}</span>
+                    <span class="dot" style="background:${tema.variaveis["--cor-primaria"]}"></span>
+                  </span>
+                  <span class="tema-info"><strong>${esc(tema.nome)}</strong><small>${esc(tema.descricao)}</small></span>
+                </button>`;
+            })
+            .join("")}
+        </section>`;
+    })
+    .join("");
 }
 
 function profileFields(profile = {}) {
@@ -640,23 +753,38 @@ function dramaGrid(dramas) {
 }
 
 function dramaCard(drama) {
-  const progress = drama.status === "wishlist" ? drama.priority : `Ep. ${drama.currentEpisode || 0}/${drama.episodes}`;
+  const ep = Number(drama.currentEpisode || 0);
+  const total = Number(drama.episodes || 0);
+  const pct = total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
+  const showProgress = drama.status !== "wishlist" && total > 0;
+  const meta = drama.status === "wishlist"
+    ? `${drama.year || "—"} · ${esc(drama.priority || "Quero assistir")}`
+    : `${drama.year || "—"} · ${statusLabel(drama.status)} · Ep. ${ep}/${total || "?"}`;
+
+  const moodChips = [
+    Number(drama.cry) > 0 ? `<span class="chip choro">😭 ${drama.cry}</span>` : "",
+    Number(drama.hype) > 0 ? `<span class="chip surto">🔥 ${drama.hype}</span>` : "",
+    Number(drama.rage) > 0 ? `<span class="chip raiva">😡 ${drama.rage}</span>` : "",
+    drama.personalRating ? `<span class="chip">⭐ ${esc(drama.personalRating)}</span>` : "",
+  ].join("");
+
   return `
     <article class="drama-card">
-      <img class="poster" src="${drama.cover}" alt="Capa de ${drama.title}" />
+      <img class="poster" src="${esc(drama.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(drama.title)}" loading="lazy" />
       <div>
-        <h3>${drama.title}</h3>
-        <p>${drama.year} · ${statusLabel(drama.status)} · ${progress || ""}</p>
-        <p>${drama.synopsis}</p>
+        <h3>${esc(drama.title)}</h3>
+        <p class="meta">${meta}</p>
+        ${showProgress ? `<div class="progress"><span style="width:${pct}%"></span></div>` : ""}
         <div class="chips">
-          ${drama.genres.map((genre) => `<span class="chip">${genre}</span>`).join("")}
-          ${drama.favorite ? `<span class="chip">Favorito</span>` : ""}
-          ${drama.comfort ? `<span class="chip">Conforto</span>` : ""}
+          ${(drama.genres || []).slice(0, 2).map((genre) => `<span class="chip">${esc(genre)}</span>`).join("")}
+          ${drama.favorite ? `<span class="chip fav">${icon("heart")} Favorito</span>` : ""}
+          ${drama.comfort ? `<span class="chip">🧸 Conforto</span>` : ""}
+          ${moodChips}
         </div>
         <div class="mini-actions">
-          ${drama.status === "watching" ? `<button data-plus-one="${drama.id}">+1 episódio</button>` : ""}
-          <button data-detail="${drama.id}">Ver detalhes</button>
-          <button data-toggle-favorite="${drama.id}">${drama.favorite ? "Desfavoritar" : "Favoritar"}</button>
+          ${drama.status === "watching" ? `<button data-plus-one="${drama.id}">${icon("add")} +1 ep</button>` : ""}
+          <button data-detail="${drama.id}">${icon("detail")} Detalhes</button>
+          <button data-toggle-favorite="${drama.id}">${icon("heart")} ${drama.favorite ? "Tirar" : "Favoritar"}</button>
         </div>
       </div>
     </article>
@@ -854,6 +982,14 @@ function bindShell() {
 
   document.querySelectorAll("[data-admin-del-comment]").forEach((button) => {
     button.addEventListener("click", () => handleAdminDeleteComment(button.dataset.adminDelComment));
+  });
+
+  document.querySelectorAll("[data-mood]").forEach((button) => {
+    button.addEventListener("click", sugerirPorHumor);
+  });
+
+  document.querySelectorAll("[data-tema]").forEach((button) => {
+    button.addEventListener("click", () => salvarTema(button.dataset.tema));
   });
 
   document.querySelector("[data-random]")?.addEventListener("click", randomDrama);
@@ -1165,6 +1301,7 @@ async function hydrateFromCloud() {
 }
 
 async function init() {
+  aplicarTema(temaAtual());
   if (supabaseReady()) {
     try {
       authUser = await getCurrentUser();
