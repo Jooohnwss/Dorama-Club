@@ -43,6 +43,16 @@ const statuses = [
   { key: "comfort", label: "Dorama conforto" },
 ];
 
+const pauseReasons = ["Estava sem tempo", "Ficou meio lento", "Quero voltar depois", "Não estava no clima", "Preciso de psicológico", "Comecei outro e esqueci"];
+const dropReasons = ["Ficou chato", "Muito enrolado", "Casal sem química", "Passei raiva demais", "Não era meu estilo", "Talvez eu volte depois", "Não aguentei o protagonista", "Me prometeram tudo e entregaram nada"];
+const semaforoOptions = [
+  ["", "—"],
+  ["verde", "🟢 Sim, perfeito"],
+  ["amarelo", "🟡 Só se tiver paciência"],
+  ["vermelho", "🔴 Não recomendo"],
+  ["partido", "💔 Só se quiser sofrer"],
+];
+
 const dramaTypes = [
   "A que chora em todo episódio",
   "A que ama um CEO frio",
@@ -84,6 +94,7 @@ const dramaDefaults = {
   rage: "",
   personalRating: "",
   recommend: "",
+  semaforo: "",
 };
 
 function normalizeDrama(drama) {
@@ -752,6 +763,10 @@ function dramaGrid(dramas) {
   return `<section class="drama-grid">${dramas.map(dramaCard).join("")}</section>`;
 }
 
+function semaforoEmoji(value) {
+  return { verde: "🟢 Vale", amarelo: "🟡 Talvez", vermelho: "🔴 Não", partido: "💔 Sofra" }[value] || value;
+}
+
 function dramaCard(drama) {
   const ep = Number(drama.currentEpisode || 0);
   const total = Number(drama.episodes || 0);
@@ -779,6 +794,9 @@ function dramaCard(drama) {
           ${(drama.genres || []).slice(0, 2).map((genre) => `<span class="chip">${esc(genre)}</span>`).join("")}
           ${drama.favorite ? `<span class="chip fav">${icon("heart")} Favorito</span>` : ""}
           ${drama.comfort ? `<span class="chip">🧸 Conforto</span>` : ""}
+          ${drama.semaforo ? `<span class="chip">${semaforoEmoji(drama.semaforo)}</span>` : ""}
+          ${drama.status === "paused" && drama.pauseReason ? `<span class="chip">⏸️ ${esc(drama.pauseReason)}</span>` : ""}
+          ${drama.status === "dropped" && drama.dropReason ? `<span class="chip">🚫 ${esc(drama.dropReason)}</span>` : ""}
           ${moodChips}
         </div>
         <div class="mini-actions">
@@ -834,6 +852,24 @@ function modalTemplate() {
             <div class="field">
               <label for="status">Status pessoal</label>
               <select id="status" name="status">${statuses.slice(0, 5).map((status) => `<option value="${status.key}" ${drama.status === status.key ? "selected" : ""}>${status.label}</option>`).join("")}</select>
+            </div>
+            <div class="field" data-when="paused" ${drama.status === "paused" ? "" : "hidden"}>
+              <label for="pauseReason">Por que pausou?</label>
+              <select id="pauseReason" name="pauseReason">
+                ${["", ...pauseReasons].map((item) => `<option value="${item}" ${drama.pauseReason === item ? "selected" : ""}>${item || "—"}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field" data-when="dropped" ${drama.status === "dropped" ? "" : "hidden"}>
+              <label for="dropReason">Por que dropou?</label>
+              <select id="dropReason" name="dropReason">
+                ${["", ...dropReasons].map((item) => `<option value="${item}" ${drama.dropReason === item ? "selected" : ""}>${item || "—"}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field" data-when="finished" ${drama.status === "finished" ? "" : "hidden"}>
+              <label for="semaforo">Vale assistir?</label>
+              <select id="semaforo" name="semaforo">
+                ${semaforoOptions.map(([value, label]) => `<option value="${value}" ${drama.semaforo === value ? "selected" : ""}>${label}</option>`).join("")}
+              </select>
             </div>
             <div class="field">
               <label for="currentEpisode">Episódio atual</label>
@@ -1050,6 +1086,19 @@ function bindModal() {
   document.querySelector("#profile-form")?.addEventListener("submit", saveProfile);
   document.querySelector("#drama-form")?.addEventListener("submit", saveDramaDetails);
   document.querySelector("[data-whatsapp]")?.addEventListener("click", shareWhatsApp);
+
+  // Mostra/esconde os campos que dependem do status (motivo da pausa/drop, semáforo)
+  // sem re-renderizar, preservando o que já foi digitado.
+  const statusSelect = document.querySelector("#drama-form #status");
+  if (statusSelect) {
+    const sync = () => {
+      document.querySelectorAll("#drama-form [data-when]").forEach((node) => {
+        node.hidden = node.dataset.when !== statusSelect.value;
+      });
+    };
+    statusSelect.addEventListener("change", sync);
+    sync();
+  }
 }
 
 async function saveProfile(event) {
@@ -1109,6 +1158,9 @@ function saveDramaDetails(event) {
       rage: data.rage,
       note: data.note,
       recommend: data.recommend,
+      semaforo: data.semaforo ?? drama.semaforo,
+      pauseReason: data.pauseReason ?? drama.pauseReason,
+      dropReason: data.dropReason ?? drama.dropReason,
       favorite: formData.has("favorite"),
       comfort: formData.has("comfort"),
     };

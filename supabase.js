@@ -100,6 +100,7 @@ function toRow(userId, drama) {
     rage: String(drama.rage ?? ""),
     personal_rating: String(drama.personalRating ?? ""),
     recommend: drama.recommend || "",
+    semaforo: drama.semaforo || "",
     updated_at: new Date().toISOString(),
   };
 }
@@ -130,6 +131,7 @@ function fromRow(row) {
     rage: row.rage || "",
     personalRating: row.personal_rating || "",
     recommend: row.recommend || "",
+    semaforo: row.semaforo || "",
   };
 }
 

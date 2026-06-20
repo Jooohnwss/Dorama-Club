@@ -10,7 +10,7 @@
 //   --cor-texto-suave, --cor-primaria, --cor-primaria-texto, --cor-secundaria,
 //   --cor-borda, --fonte-base
 
-const TMDB_BACKDROP = "https://image.tmdb.org/t/p/w1280";
+const TMDB_BACKDROP = "https://image.tmdb.org/t/p/w780";
 
 export const temas = [
   // ---------------- Lisos (sem fundo de dorama) ----------------
