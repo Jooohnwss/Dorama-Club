@@ -1004,7 +1004,10 @@ textarea:focus {
   }
 
   .nav .nav-label {
-    line-height: 1.1;
+    line-height: 1.05;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .form-grid,

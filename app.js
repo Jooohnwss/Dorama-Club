@@ -359,7 +359,7 @@ function sidebarTemplate() {
   const items = [
     ["home", "Início", "home"],
     ["add", "Adicionar", "add"],
-    ["lists", "Minhas listas", "lists"],
+    ["lists", "Listas", "lists"],
     ["club", "Doramigas", "club"],
     ["profile", "Perfil", "profile"],
   ];
@@ -940,7 +940,7 @@ function dramaCard(drama) {
   const ep = Number(drama.currentEpisode || 0);
   const total = Number(drama.episodes || 0);
   const pct = total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
-  const showProgress = drama.status !== "wishlist" && total > 0;
+  const showProgress = drama.status !== "wishlist" && total > 0 && ep > 0;
   const meta = drama.status === "wishlist"
     ? `${drama.year || "—"} · ${esc(drama.priority || "Quero assistir")}`
     : `${drama.year || "—"} · ${statusLabel(drama.status)} · Ep. ${ep}/${total || "?"}`;
