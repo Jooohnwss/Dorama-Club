@@ -189,6 +189,7 @@ function temaAtual() {
 }
 
 function salvarTema(id) {
+  if (id === temaAtual()) return;
   try {
     localStorage.setItem(TEMA_KEY, id);
   } catch {
@@ -196,7 +197,6 @@ function salvarTema(id) {
   }
   aplicarTema(id);
   render();
-  toast(`Tema: ${acharTema(id).nome}`);
 }
 
 function loadState() {
@@ -883,7 +883,7 @@ function temasTemplate() {
                 ? `background-image:url('${tema.backdrop}')`
                 : `background:linear-gradient(135deg, ${tema.variaveis["--cor-primaria"]}, ${tema.variaveis["--cor-secundaria"]})`;
               return `
-                <button class="tema-card ${atual === tema.id ? "active" : ""}" data-tema="${tema.id}">
+                <button type="button" class="tema-card ${atual === tema.id ? "active" : ""}" data-tema="${tema.id}">
                   <span class="tema-swatch" style="${fundo}">
                     <span class="emoji">${tema.marca.emoji}</span>
                     <span class="dot" style="background:${tema.variaveis["--cor-primaria"]}"></span>
