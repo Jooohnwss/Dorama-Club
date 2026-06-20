@@ -124,6 +124,7 @@ let authMode = "signin"; // "signin" | "signup"
 let authBusy = false;
 // Membros do clube atual (carregados sob demanda).
 let clubMembers = [];
+let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop)
 // "Onde assistir" do dorama aberto no modal: null = carregando, [] = nada.
 let detailProviders = null;
 // Aba Descobrir (carregada sob demanda).
@@ -1222,7 +1223,7 @@ function bindShell() {
   // Carrega dados sob demanda ao abrir as telas.
   if (state.view === "admin" && isAdmin() && !admin.loaded && !admin.loading) loadAdmin();
   if (state.view === "discover" && !discover.loaded && !discover.loading) loadDiscover();
-  if (state.view === "club" && state.club && !clubMembers.length) loadClubMembers();
+  if (state.view === "club" && state.club && clubMembersFor !== state.club.id) loadClubMembers();
 }
 
 async function runSearch(event) {
@@ -1409,12 +1410,14 @@ async function copyClubCode() {
 // ---------- Clube ----------
 async function loadClubMembers() {
   if (!state.club) return;
+  // Marca ANTES de buscar: evita re-disparar em loop se voltar vazio/erro.
+  clubMembersFor = state.club.id;
   try {
     clubMembers = await clubMembersList(state.club.id);
-    render();
   } catch {
-    // silencioso; mostra "carregando" até reconectar
+    clubMembers = [];
   }
+  render();
 }
 
 async function handleCreateClub(event) {
@@ -1480,7 +1483,8 @@ async function loadDiscover(force = false) {
     ]);
     discover = { loaded: true, loading: false, error: "", semana, alta, top, novos };
   } catch {
-    discover = { ...discover, loading: false, error: "Não consegui carregar agora. Confira a conexão." };
+    // loaded:true mesmo no erro, pra NÃO re-disparar em loop.
+    discover = { ...discover, loaded: true, loading: false, error: "Não consegui carregar agora. Confira a conexão." };
   }
   render();
 }
@@ -1514,7 +1518,8 @@ async function loadAdmin(force = false) {
     ]);
     admin = { loaded: true, loading: false, error: "", overview, users, clubs, comments };
   } catch (error) {
-    admin = { ...admin, loading: false, error: error?.message || "Não consegui carregar o painel. Rode as migrações 01, 02 e 03 no Supabase." };
+    // loaded:true mesmo no erro, pra NÃO re-disparar em loop (era a causa do crash).
+    admin = { ...admin, loaded: true, loading: false, error: error?.message || "Não consegui carregar o painel. Toque em Atualizar." };
   }
   render();
 }
