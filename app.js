@@ -903,18 +903,151 @@ function fraseDoDia() {
 // Resultado do "humor de hoje" mostrado na própria home.
 let moodResult = null;
 
-function shareMeuDia() {
-  const watching = byStatus("watching");
-  const destaque = watching[0];
-  const partes = [];
-  if (destaque) partes.push(`📺 Assistindo ${destaque.title}${destaque.episodes ? ` (ep ${destaque.currentEpisode || 0}/${destaque.episodes})` : ""}`);
-  partes.push(`✅ ${byStatus("finished").length} finalizados · ⭐ ${byStatus("favorites").length} favoritos`);
-  if (moodResult) {
-    const m = moods.find((x) => x.tag === moodResult.tag);
-    if (m) partes.push(`Hoje no clima de ${m.label} ${m.emoji}`);
+// ---------- Card-imagem pra compartilhar (status do WhatsApp etc.) ----------
+function carregarImagem(src) {
+  return new Promise((res) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => res(img);
+    img.onerror = () => res(null);
+    img.src = src;
+  });
+}
+
+function posterRound(ctx, img, x, y, w, h, r) {
+  ctx.save();
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
+  else ctx.rect(x, y, w, h);
+  ctx.clip();
+  const ir = img.width / img.height;
+  const tr = w / h;
+  let dw, dh, dx, dy;
+  if (ir > tr) { dh = h; dw = h * ir; dx = x - (dw - w) / 2; dy = y; }
+  else { dw = w; dh = w / ir; dx = x; dy = y - (dh - h) / 2; }
+  ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.restore();
+}
+
+function wrapText(ctx, text, x, y, maxW, lh) {
+  const words = String(text).split(" ");
+  const lines = [];
+  let line = "";
+  for (const w of words) {
+    const t = line ? `${line} ${w}` : w;
+    if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; }
+    else line = t;
   }
-  const text = `Meu dia no Dorama Club 💜\n\n${partes.join("\n")}\n\nO app é esse: ${inviteLink()}`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+  if (line) lines.push(line);
+  lines.slice(0, 3).forEach((l, i) => ctx.fillText(l, x, y + i * lh));
+  return Math.min(lines.length, 3);
+}
+
+async function gerarCardMeuDia(drama) {
+  const W = 1080, H = 1350;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  const cs = getComputedStyle(document.documentElement);
+  const cor = (n, fb) => cs.getPropertyValue(n).trim() || fb;
+  const primaria = cor("--cor-primaria", "#df4f94");
+  const secundaria = cor("--cor-secundaria", "#8a5cf6");
+
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, primaria);
+  g.addColorStop(1, secundaria);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "rgba(0,0,0,0.30)";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = '800 46px Inter, system-ui, sans-serif';
+  ctx.fillText("💜 Dorama Club", W / 2, 100);
+
+  // pôster
+  const pw = 470, ph = 705, px = (W - pw) / 2, py = 150;
+  const img = drama?.cover ? await carregarImagem(drama.cover.replace("/w342/", "/w500/")) : null;
+  if (img) {
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.45)";
+    ctx.shadowBlur = 40;
+    ctx.shadowOffsetY = 18;
+    posterRound(ctx, img, px, py, pw, ph, 28);
+    ctx.restore();
+  }
+
+  let y = py + ph + 80;
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.font = '700 32px Inter, system-ui, sans-serif';
+  ctx.fillText(drama ? "Continuo assistindo" : "Minha vida dorameira", W / 2, y);
+
+  y += 64;
+  ctx.fillStyle = "#ffffff";
+  ctx.font = '800 56px Inter, system-ui, sans-serif';
+  const linhas = drama ? wrapText(ctx, drama.title, W / 2, y, W - 140, 62) : 0;
+  y += (linhas ? (linhas - 1) * 62 : 0) + 56;
+
+  if (drama && Number(drama.episodes)) {
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.font = '700 36px Inter, system-ui, sans-serif';
+    ctx.fillText(`Episódio ${drama.currentEpisode || 0} de ${drama.episodes}`, W / 2, y);
+    y += 30;
+    const bw = 560, bx = (W - bw) / 2;
+    const pct = Math.min(1, (Number(drama.currentEpisode || 0)) / Number(drama.episodes));
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, y, bw, 14, 7); ctx.fill(); }
+    ctx.fillStyle = "#ffffff";
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, y, bw * pct, 14, 7); ctx.fill(); }
+    y += 56;
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = '700 34px Inter, system-ui, sans-serif';
+  ctx.fillText(`✅ ${byStatus("finished").length} finalizados   ⭐ ${byStatus("favorites").length} favoritos`, W / 2, y);
+
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.font = '700 30px Inter, system-ui, sans-serif';
+  ctx.fillText(`— ${state.profile?.name || "dorameira"}`, W / 2, H - 60);
+
+  return await new Promise((res) => canvas.toBlob(res, "image/png", 0.92));
+}
+
+async function compartilharImagem(blob, texto) {
+  if (!blob) {
+    toast("Não consegui gerar o card.");
+    return;
+  }
+  const file = new File([blob], "meu-dia-dorama.png", { type: "image/png" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], text: texto });
+    } catch {
+      /* usuária cancelou */
+    }
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "meu-dia-dorama.png";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast("Imagem baixada! É só postar no seu status. 💜");
+}
+
+async function shareMeuDia() {
+  const watching = byStatus("watching");
+  const drama = watching[0] || state.dramas[0] || null;
+  toast("Gerando seu card…");
+  try {
+    const blob = await gerarCardMeuDia(drama);
+    await compartilharImagem(blob, `Meu dia no Dorama Club 💜 ${inviteLink()}`);
+  } catch {
+    toast("Não consegui gerar o card agora.");
+  }
 }
 
 function handleMoodShare(tag) {
