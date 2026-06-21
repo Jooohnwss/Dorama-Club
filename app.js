@@ -2597,30 +2597,47 @@ function coupleDramaOptions() {
   return fromPersonal.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
 }
 
-function coupleDramasTemplate() {
-  const cards = coupleDramas.length
-    ? coupleDramas.map((d) => {
-        const pct = d.episodes ? Math.min(100, Math.round((Number(d.current_episode || 0) / Number(d.episodes || 0)) * 100)) : 0;
-        return `
-          <article class="couple-drama-card">
-            <img src="${esc(d.cover || POSTER_PLACEHOLDER)}" alt="" />
-            <div>
-              <span>${esc(coupleStatusLabel[d.status] || d.status)}</span>
-              <strong>${esc(d.title)}</strong>
-              <small>Ep. ${Number(d.current_episode || 0)}${d.episodes ? `/${d.episodes}` : ""}</small>
-              <div class="focus-progress"><span style="width:${pct}%"></span></div>
-              <div class="mini-actions">
-                <button data-couple-ep="${d.id}">Ep.</button>
-                <button data-couple-memory="${d.id}">Memória</button>
-                ${d.status === "watched" || d.status === "favorite" ? `<button data-couple-cert="${d.id}">🎓 Certificado</button>` : ""}
-                <button data-del-couple-drama="${d.id}">${icon("trash")} Tirar</button>
-              </div>
-            </div>
-          </article>`;
-      }).join("")
-    : `<div class="empty">Adicione o primeiro dorama que vocês vão assistir juntos.</div>`;
+// Card de dorama do casal, com ações conforme o grupo (ação / fila / troféu).
+function coupleDramaCard(d, grupo) {
+  const ep = Number(d.current_episode || 0);
+  const total = Number(d.episodes || 0);
+  const pct = total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
+  let acoes;
+  if (grupo === "watching") {
+    acoes = `
+      <button data-couple-plus="${d.id}">${icon("add")} +1 ep</button>
+      <button data-couple-ep="${d.id}">Episódio</button>
+      <button data-couple-memory="${d.id}">${icon("lists")} Memória</button>
+      <button data-couple-finish="${d.id}">🎉 Finalizamos</button>`;
+  } else if (grupo === "wishlist") {
+    acoes = `
+      <button data-couple-move="${d.id}">▶️ Começar a ver</button>
+      <button data-del-couple-drama="${d.id}">${icon("trash")} Tirar</button>`;
+  } else {
+    acoes = `
+      <button data-couple-cert="${d.id}">🎓 Certificado</button>
+      <button class="${d.status === "favorite" ? "fav-on" : ""}" data-couple-fav="${d.id}">${icon("heart")} ${d.status === "favorite" ? "Favorito" : "Favoritar"}</button>
+      <button data-del-couple-drama="${d.id}">${icon("trash")} Tirar</button>`;
+  }
   return `
-    <div class="section-title"><h2>Assistindo juntos</h2></div>
+    <article class="couple-drama-card">
+      <img src="${esc(d.cover || POSTER_PLACEHOLDER)}" alt="" />
+      <div>
+        <strong>${esc(d.title)}</strong>
+        <small>${grupo === "wishlist" ? "Na fila de vocês" : `Ep. ${ep}${total ? `/${total}` : ""}`}</small>
+        ${grupo !== "wishlist" ? `<div class="focus-progress"><span style="width:${pct}%"></span></div>` : ""}
+        <div class="mini-actions">${acoes}</div>
+      </div>
+    </article>`;
+}
+
+function coupleDramasTemplate() {
+  const ativos = coupleDramas.filter((d) => d.status === "watching");
+  const fila = coupleDramas.filter((d) => d.status === "wishlist");
+  const fim = coupleDramas.filter((d) => d.status === "watched" || d.status === "favorite");
+  const grade = (lista, grupo) => `<section class="couple-drama-grid">${lista.map((d) => coupleDramaCard(d, grupo)).join("")}</section>`;
+  return `
+    <div class="section-title"><h2>Assistindo</h2></div>
     <form id="couple-add-drama-form" class="search-bar">
       <select name="dramaId" required>
         <option value="">Adicionar um dorama seu ao casal…</option>
@@ -2634,7 +2651,15 @@ function coupleDramasTemplate() {
       </select>
       <button class="btn" type="submit">Adicionar</button>
     </form>
-    <section class="couple-drama-grid">${cards}</section>`;
+
+    <div class="section-title compact"><h2>▶️ Assistindo juntos</h2></div>
+    ${ativos.length ? grade(ativos, "watching") : `<div class="empty">Nada em andamento. Movam um da fila ou adicionem um dorama. 🍿</div>`}
+
+    <div class="section-title compact"><h2>📝 Queremos ver</h2>${fila.length ? `<button class="btn ghost" type="button" data-couple-sortear-fila>${icon("dice")} Sortear próximo</button>` : ""}</div>
+    ${fila.length ? grade(fila, "wishlist") : `<div class="empty">A fila de vocês está vazia. Adicionem o que querem ver juntos. ✨</div>`}
+
+    <div class="section-title compact"><h2>🏆 Finalizados</h2></div>
+    ${fim.length ? grade(fim, "fim") : `<div class="empty">Quando terminarem um dorama, ele vira troféu aqui. 🎉</div>`}`;
 }
 
 function coupleDiaryTemplate() {
@@ -4125,6 +4150,13 @@ function bindShell() {
   document.querySelectorAll("[data-couple-finish]").forEach((button) => {
     listen(button, "click", () => handleCoupleFinish(button.dataset.coupleFinish));
   });
+  document.querySelectorAll("[data-couple-move]").forEach((button) => {
+    listen(button, "click", () => handleCoupleMove(button.dataset.coupleMove));
+  });
+  document.querySelectorAll("[data-couple-fav]").forEach((button) => {
+    listen(button, "click", () => handleCoupleFav(button.dataset.coupleFav));
+  });
+  listen(document.querySelector("[data-couple-sortear-fila]"), "click", handleCoupleSortearFila);
   listen(document.querySelector("[data-couple-name]"), "click", handleCoupleSetName);
   listen(document.querySelector("[data-couple-recado]"), "click", handleCoupleRecado);
   listen(document.querySelector("[data-recado-shuffle]"), "click", handleRecadoShuffle);
@@ -4774,6 +4806,40 @@ async function handleCoupleAddDrama(event) {
   } catch {
     toast("Não consegui adicionar esse dorama ao casal.");
   }
+}
+
+// Mover da fila ("Queremos ver") para "Assistindo juntos".
+async function handleCoupleMove(id) {
+  try {
+    await updateCoupleDrama(id, { status: "watching" });
+    coupleDramas = await loadCoupleDramas(state.couple.id);
+    render();
+    toast("Bora assistir! ▶️");
+  } catch {
+    toast("Não consegui mover.");
+  }
+}
+
+// Favoritar/desfavoritar um finalizado.
+async function handleCoupleFav(id) {
+  const d = coupleDramas.find((x) => x.id === id);
+  if (!d) return;
+  try {
+    await updateCoupleDrama(id, { status: d.status === "favorite" ? "watched" : "favorite" });
+    coupleDramas = await loadCoupleDramas(state.couple.id);
+    render();
+  } catch {
+    toast("Não consegui atualizar.");
+  }
+}
+
+// Sortear o próximo da fila do casal.
+async function handleCoupleSortearFila() {
+  const fila = coupleDramas.filter((d) => d.status === "wishlist");
+  if (!fila.length) return;
+  const escolhido = fila[Math.floor(Math.random() * fila.length)];
+  const ok = await confirmar(`Que tal “${escolhido.title}”?`, { sub: "Sorteado da fila de vocês.", ok: "Começar a ver ▶️", cancel: "Fechar" });
+  if (ok) handleCoupleMove(escolhido.id);
 }
 
 async function handleCoupleEpisode(id) {

@@ -267,7 +267,7 @@ Regra:
 
 1. Refazer alternador Pessoal / Nos dois. **Status: implementado (sidebar no PC, Perfil/abas no mobile).**
 2. Refazer Painel com imagem do ultimo dorama. **Status: implementado — hero com a capa do dorama em andamento (+1 ep, registrar memoria, finalizamos), estados finalizado/vazio, atalhos, resumo e linha do tempo. Codigo/config movidos pra Ajustes.**
-3. Reestruturar Assistindo em: ativos, fila, finalizados.
+3. Reestruturar Assistindo em: ativos, fila, finalizados. **Status: implementado — 3 blocos (Assistindo juntos com +1 ep/memoria/finalizamos; Queremos ver com comecar a ver + sortear proximo; Finalizados com certificado + favoritar). Prioridade eu/ela/os dois fica pra depois (precisa coluna nova).**
 4. Refazer Diario como album por tipo de pagina.
 5. Refazer Sobre nos como ficha viva + perguntas.
 6. Melhorar Diversao com jogos e certificados.
