@@ -1108,6 +1108,99 @@ textarea:focus {
   width: 100%;
 }
 
+/* ---------- Pet do casal ---------- */
+.pet-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 26px 18px;
+  margin-bottom: 16px;
+  border-radius: 22px;
+  border: 1px solid var(--cor-borda);
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--cor-primaria) 16%, transparent), transparent 60%),
+    color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+}
+.pet-avatar {
+  position: relative;
+  font-size: 5rem;
+  line-height: 1;
+  filter: drop-shadow(0 8px 16px color-mix(in srgb, var(--cor-sombra) 60%, transparent));
+  animation: pet-bounce 2.6s ease-in-out infinite;
+}
+@keyframes pet-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.pet-acc {
+  position: absolute;
+  right: -6px;
+  bottom: -4px;
+  font-size: 1.3rem;
+  filter: none;
+}
+.pet-bubble {
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+  font-weight: 700;
+  font-size: 0.92rem;
+  max-width: 90%;
+  text-align: center;
+  animation: tut-pop 0.25s ease;
+}
+.pet-mood {
+  text-align: center;
+  width: min(360px, 100%);
+}
+.pet-bar {
+  height: 12px;
+  margin: 8px 0 4px;
+  border-radius: 7px;
+  background: var(--cor-superficie-2);
+  overflow: hidden;
+}
+.pet-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 7px;
+  background: linear-gradient(90deg, var(--cor-primaria), var(--cor-secundaria));
+  transition: width 0.4s ease;
+}
+.pet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.pet-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pet-pick-opt input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.pet-pick-opt span {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  font-size: 1.7rem;
+  border-radius: 14px;
+  border: 2px solid var(--cor-borda);
+  background: var(--cor-superficie-2);
+  cursor: pointer;
+}
+.pet-pick-opt input:checked + span {
+  border-color: var(--cor-primaria);
+  background: color-mix(in srgb, var(--cor-primaria) 16%, transparent);
+}
+
 /* Cartinha fixa no topo do casal */
 .couple-pinned {
   margin: 0 0 16px;

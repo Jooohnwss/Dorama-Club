@@ -59,13 +59,14 @@ Roleta de date · tema do casal por dorama (compartilhado) · diário do casal c
 - [ ] 🟢 **Streak leve de uso** (sem punição — só incentivo).
 - [ ] 🟢 **Recompensas visuais desbloqueáveis** (acessórios/temas extras).
 
-## 🐶 Pet do casal
-- [ ] 🗄️ **Criar/nomear o pet** + escolher aparência/personalidade (tabela `couple_pet`).
-- [ ] 🟢 **Cuidar**: carinho/petisco/banho/passeio (passeio pode ligar na roleta de date).
-- [ ] 🟢 **Felicidade ligada às ações** (episódios, memórias, dates, cartinhas) — sem morrer/punir, só "com saudade".
-- [ ] 🟢 **Acessórios desbloqueáveis** por marcos (coleira aos 5 eps, brinquedo às 3 memórias, roupinha ao completar date).
-- [ ] 🟢 **Pet entrega cartinha/surpresa**.
-- [ ] 🟢 **Pet aparece na aba Nós dois** (mascote vivo, leve).
+## 🐶 Pet do casal  → ✅ FEITO (Prioridade 3)
+- [x] ✅ **Criar/nomear o pet** + escolher a carinha (8 opções) — tabela `couple_pet` (migração 16).
+- [x] ✅ **Cuidar**: carinho/petisco/banho/passear (+ surpresa) com reações fofas aleatórias.
+- [x] ✅ **Felicidade derivada das ações** (episódios, memórias, cartinhas, "sobre nós") — sem morrer/punir; status "com saudade" quando tá baixa.
+- [x] ✅ **Acessórios desbloqueáveis** por marcos (ossinho, coleira aos 5 eps, brinquedo às 3 memórias, roupinha ao 1º finalizado, carteiro à 1ª cartinha, coroa aos 50 eps).
+- [x] ✅ **Pet entrega surpresa** (botão 💌 com mensagem fofa).
+- [x] ✅ **Pet aparece na aba Nós dois** (seção "Nosso pet", mascote animado).
+- [ ] 🟢 *Futuro:* passeio ligar de verdade na roleta de date; mais acessórios/skins.
 
 ## 🎮 Joguinhos
 - [ ] 🗄️ **Bingo do episódio** (começar por esse): cartela de clichês (quase beijo, trauma de infância, CEO frio amolece, alguém chora na chuva…), marca durante/depois, fechou bingo → certificado.

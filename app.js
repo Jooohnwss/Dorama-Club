@@ -66,6 +66,8 @@ import {
   updateCoupleCapa,
   saveCoupleTheme,
   saveCouplePinnedLetter,
+  loadCouplePet,
+  saveCouplePet,
   loadCoupleDramas,
   addCoupleDrama,
   updateCoupleDrama,
@@ -473,6 +475,8 @@ let coupleSection = "inicio"; // seção interna do ambiente do casal
 let temaSearchCasal = { query: "", loading: false, results: [] }; // busca de tema dentro do casal
 let runtimeCache = {}; // tmdbId -> minutos por episódio (TMDB), pra estimar horas
 let coupleRuntimesFor = null; // casal cujos runtimes já buscamos (evita loop)
+let couplePet = null; // mascote do casal (linha de couple_pet)
+let petReacao = ""; // mensagem transitória do pet ao cuidar
 // Favoritos especiais (aba Perfil).
 let favoritos = [];
 let favoritosFor = null;
@@ -603,6 +607,7 @@ const ICONS = {
   refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 7"/><path d="M21 3v4h-4"/>',
   compass: '<circle cx="12" cy="12" r="9"/><polygon points="16 8 13 13 8 16 11 11 16 8"/>',
   medal: '<circle cx="12" cy="9" r="6"/><path d="M8.5 13.5L7 22l5-3 5 3-1.5-8.5"/>',
+  paw: '<circle cx="7" cy="9" r="1.6"/><circle cx="12" cy="7" r="1.6"/><circle cx="17" cy="9" r="1.6"/><path d="M8.5 14c1.5-2 5.5-2 7 0 1.2 1.6.2 3.6-1.8 3.8-1 .1-1.7-.5-2.7-.5s-1.7.6-2.7.5C6.3 17.6 5.3 15.6 6.5 14z"/>',
 };
 
 function icon(name) {
@@ -1111,6 +1116,7 @@ function coupleSidebarTemplate() {
     ["diario", "Diário", "lists"],
     ["sobre", "Sobre nós", "heart"],
     ["cartinhas", "Cartinhas", "share"],
+    ["pet", "Nosso pet", "paw"],
     ["certificados", "Certificados", "medal"],
     ["tema", "Tema", "paint"],
   ];
@@ -2365,6 +2371,93 @@ function coupleCertificadosSection() {
     </section>`;
 }
 
+// ---------- Pet do casal ----------
+const PET_CARINHAS = ["🐶", "🐕", "🐩", "🦮", "🐕‍🦺", "🐱", "🐰", "🐻"];
+
+// Felicidade derivada das ações do casal (sem decair/morrer — só carinho).
+function petFelicidade() {
+  const eps = coupleDramas.reduce((s, d) => s + Number(d.current_episode || 0), 0);
+  const pontos = eps * 2 + coupleDiary.length * 8 + coupleLetters.length * 6 + (Object.keys(coupleAbout).length * 3);
+  return Math.max(10, Math.min(100, pontos));
+}
+
+function petStatus(fel) {
+  if (fel >= 85) return "Radiante de feliz 🥰";
+  if (fel >= 55) return "Feliz e fofo 😊";
+  if (fel >= 30) return "De boas, esperando vocês 🐾";
+  return "Com saudade — registrem uma memória 🥺";
+}
+
+// Acessórios desbloqueados por marcos do casal.
+function petAcessorios() {
+  const eps = coupleDramas.reduce((s, d) => s + Number(d.current_episode || 0), 0);
+  const finalizados = coupleDramas.filter((d) => d.status === "watched" || d.status === "favorite").length;
+  return [
+    { emoji: "🦴", nome: "Ossinho", earned: eps >= 1 },
+    { emoji: "🎀", nome: "Coleira", earned: eps >= 5 },
+    { emoji: "🧸", nome: "Brinquedo", earned: coupleDiary.length >= 3 },
+    { emoji: "👕", nome: "Roupinha", earned: finalizados >= 1 },
+    { emoji: "💌", nome: "Carteiro", earned: coupleLetters.length >= 1 },
+    { emoji: "👑", nome: "Coroa", earned: eps >= 50 },
+  ];
+}
+
+function couplePetSection() {
+  if (!couplePet) {
+    return `
+      <div class="section-title"><h2>🐾 Nosso pet</h2></div>
+      <section class="pet-create">
+        <p class="muted">Adotem um mascote pro cantinho de vocês. Ele fica mais feliz conforme vocês assistem, guardam memórias e trocam cartinhas. 🐶</p>
+        <form id="pet-create-form" class="form-card form-grid">
+          <div class="field full">
+            <label>Nome do pet</label>
+            <input name="name" placeholder="Pipoca, Mochi, Bolinha…" required />
+          </div>
+          <div class="field full">
+            <label>Escolham a carinha</label>
+            <div class="pet-pick">
+              ${PET_CARINHAS.map((e, i) => `<label class="pet-pick-opt"><input type="radio" name="species" value="${e}" ${i === 0 ? "checked" : ""}/><span>${e}</span></label>`).join("")}
+            </div>
+          </div>
+          <div class="actions field full"><button class="btn" type="submit">Adotar 🐾</button></div>
+        </form>
+      </section>`;
+  }
+  const fel = petFelicidade();
+  const acessorios = petAcessorios();
+  const usados = acessorios.filter((a) => a.earned).map((a) => a.emoji).join(" ");
+  return `
+    <div class="section-title"><h2>🐾 ${esc(couplePet.name || "Nosso pet")}</h2></div>
+    <section class="pet-stage">
+      <div class="pet-avatar">${couplePet.species || "🐶"}${usados ? `<span class="pet-acc">${usados}</span>` : ""}</div>
+      ${petReacao ? `<div class="pet-bubble">${esc(petReacao)}</div>` : ""}
+      <div class="pet-mood">
+        <strong>${esc(petStatus(fel))}</strong>
+        <div class="pet-bar"><span style="width:${fel}%"></span></div>
+        <small class="muted">Felicidade ${fel}%</small>
+      </div>
+      <div class="pet-actions">
+        <button class="btn ghost" data-pet-care="carinho">❤️ Carinho</button>
+        <button class="btn ghost" data-pet-care="petisco">🦴 Petisco</button>
+        <button class="btn ghost" data-pet-care="banho">🛁 Banho</button>
+        <button class="btn ghost" data-pet-care="passear">🐾 Passear</button>
+        <button class="btn ghost" data-pet-care="surpresa">💌 Surpresa</button>
+      </div>
+    </section>
+    <div class="section-title"><h2>Acessórios desbloqueados</h2></div>
+    <section class="badge-grid">
+      ${acessorios.map((a) => `<div class="badge ${a.earned ? "" : "locked"}"><span class="badge-emoji">${a.emoji}</span><strong>${esc(a.nome)}</strong></div>`).join("")}
+    </section>
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 10px">Quiser mudar o nome ou a carinha?</p>
+      <form id="pet-create-form" class="form-grid">
+        <div class="field"><label>Nome</label><input name="name" value="${esc(couplePet.name || "")}" required /></div>
+        <div class="field full"><label>Carinha</label><div class="pet-pick">${PET_CARINHAS.map((e) => `<label class="pet-pick-opt"><input type="radio" name="species" value="${e}" ${couplePet.species === e ? "checked" : ""}/><span>${e}</span></label>`).join("")}</div></div>
+        <div class="actions field full"><button class="btn secondary" type="submit">Salvar pet</button></div>
+      </form>
+    </section>`;
+}
+
 function formatDateShort(value) {
   if (!value) return "";
   try {
@@ -2631,6 +2724,7 @@ function coupleSpaceView() {
     case "diario": return coupleDiaryTemplate();
     case "sobre": return coupleAboutTemplate();
     case "cartinhas": return coupleLettersTemplate();
+    case "pet": return couplePetSection();
     case "certificados": return coupleCertificadosSection();
     case "tema": return coupleTemaSection();
     default: return coupleInicioSection();
@@ -3784,6 +3878,10 @@ function bindShell() {
   document.querySelectorAll("[data-cert-share]").forEach((button) => {
     listen(button, "click", () => compartilharCertificadoMarco(button.dataset.certShare));
   });
+  listen(document.querySelector("#pet-create-form"), "submit", handleSavePet);
+  document.querySelectorAll("[data-pet-care]").forEach((button) => {
+    listen(button, "click", () => handlePetCare(button.dataset.petCare));
+  });
   document.querySelectorAll("[data-del-couple-diary]").forEach((button) => {
     listen(button, "click", () => handleDeleteCoupleDiary(button.dataset.delCoupleDiary));
   });
@@ -4158,6 +4256,8 @@ async function loadCoupleData() {
     coupleDiary = diary;
     coupleLetters = letters;
     coupleAbout = Object.fromEntries((aboutRows || []).map((row) => [row.key, row.value || ""]));
+    // Pet à parte: se a migração 16 ainda não rodou, não quebra o resto.
+    try { couplePet = await loadCouplePet(id); } catch { couplePet = null; }
   } catch {
     toast("Não consegui carregar o espaço do casal.");
   } finally {
@@ -4217,6 +4317,7 @@ function leaveCoupleSpace() {
 
 function setCoupleSection(sec) {
   coupleSection = sec;
+  petReacao = "";
   render();
 }
 
@@ -4283,6 +4384,39 @@ async function handleCouplePinned(event) {
   } catch {
     toast("Não consegui salvar a cartinha.");
   }
+}
+
+async function handleSavePet(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const novo = !couplePet;
+  const pet = { name: String(data.name || "").trim(), species: data.species || "🐶", color: couplePet?.color || "" };
+  try {
+    await saveCouplePet(state.couple.id, pet);
+    couplePet = { couple_id: state.couple.id, ...pet };
+    petReacao = novo ? `${pet.species} Oi! Eu sou ${pet.name || "seu pet"} 🐾` : "";
+    render();
+    toast(novo ? "Pet adotado! 🐾" : "Pet atualizado.");
+  } catch {
+    toast("Não consegui salvar o pet (rodou a migração 16?).");
+  }
+}
+
+const PET_REACOES = {
+  carinho: ["fez festinha e abanou o rabo! 🥰", "deitou de barriga pra cima ❤️", "encostou a cabecinha em vocês 🫶"],
+  petisco: ["devorou o petisco num segundo! 🦴", "pediu mais um, carinha de pidão 🥺", "ficou super feliz com o agrado 😋"],
+  banho: ["ficou cheiroso e fofo 🛁", "sacudiu a água em todo mundo kkk 💦", "brilhando de limpinho ✨"],
+  passear: ["amou o passeio dorameiro! 🐾", "correu atrás de uma folha 🍃", "voltou cansado e feliz 😴"],
+  surpresa: ["trouxe uma cartinha na boca 💌", "deixou um coração de presente 💞", "fez uma surpresa fofa pra vocês 🎁"],
+};
+
+function handlePetCare(tipo) {
+  if (!couplePet) return;
+  const nome = couplePet.name || "Seu pet";
+  const lista = PET_REACOES[tipo] || PET_REACOES.carinho;
+  petReacao = `${nome} ${lista[Math.floor(Math.random() * lista.length)]}`;
+  render();
 }
 
 // Certificado de dorama finalizado juntos (card-imagem pra compartilhar).
@@ -4475,6 +4609,7 @@ async function handleLeaveCouple() {
     coupleDiary = [];
     coupleAbout = {};
     coupleLetters = [];
+    couplePet = null;
     state.space = "solo"; // volta pro app normal
     saveState();
     aplicarTemaAmbiente(); // restaura o tema pessoal

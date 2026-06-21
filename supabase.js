@@ -386,6 +386,28 @@ export async function saveCouplePinnedLetter(coupleId, texto) {
   if (error) throw error;
 }
 
+// ---------- PET DO CASAL ----------
+export async function loadCouplePet(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_pet")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+export async function saveCouplePet(coupleId, pet) {
+  const { error } = await supabase.from("couple_pet").upsert({
+    couple_id: coupleId,
+    name: pet.name || null,
+    species: pet.species || "🐶",
+    color: pet.color || "",
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
 export async function loadCoupleDramas(coupleId) {
   const { data, error } = await supabase
     .from("couple_dramas")

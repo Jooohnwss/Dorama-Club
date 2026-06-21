@@ -30,6 +30,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: habilita a **cartinha fixa no topo** do casal (e a tela de "modo presente" na 1ª visita dela)
 - Status: você confirmou que já rodou a migração 15.
 
+### 1e. Rodar a migração 16 no Supabase (pet do casal)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/16 - pet-do-casal.sql` e clicar em **Run**
+- Pra quê: habilita o **mascote do casal** (seção "Nosso pet" no ambiente "Nós dois")
+- Sem isso: a seção do pet não consegue adotar/salvar (tabela `couple_pet` não existe) — o resto do casal continua funcionando
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

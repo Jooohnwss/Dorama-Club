@@ -24,6 +24,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 13 | `13 - criar-espaco-do-casal.sql` | Espaço do casal "Nós dois": `couples` (+código único), `couple_members` (máx. 2), `couple_dramas`, `couple_diary`, `couple_about`, `couple_letters` + RLS (só os 2 veem) + RPC `create_couple` / `join_couple` / `my_couple` / `couple_members_list` | Casal |
 | 14 | `14 - tema-do-casal.sql` | Tema **compartilhado** do casal: colunas `tema` / `tema_custom` em `couples` (quando um muda, vale pros dois). Usa a policy de update da 13 | Casal |
 | 15 | `15 - cartinha-fixa-do-casal.sql` | Coluna `pinned_letter` em `couples`: cartinha fixa no topo do casal (e usada na tela de "modo presente") | Casal |
+| 16 | `16 - pet-do-casal.sql` | Tabela `couple_pet` (nome + carinha do mascote) + RLS (só o casal). Felicidade/acessórios são derivados das ações | Casal |
 
 ## Convenção de nome
 
