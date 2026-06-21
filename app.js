@@ -2265,6 +2265,10 @@ const aboutLabels = [
   ["lanche_oficial", "Lanche oficial"],
   ["frase_interna", "Frase interna"],
   ["nosso_10", "Nosso 10/10"],
+  ["date_perfeito", "Date perfeito"],
+  ["quando_um_ta_triste", "Quando um está triste"],
+  ["nossa_musica", "Nossa música"],
+  ["proxima_meta", "Próxima meta juntos"],
 ];
 
 function coupleStats() {
@@ -2483,24 +2487,23 @@ function coupleTimelineTemplate() {
 
 function coupleHeroTemplate() {
   const title = state.couple?.title || "Nós dois";
-  const tagline = state.couple?.tagline || "Nosso cantinho de doramas, dates e surtos.";
+  const tagline = state.couple?.tagline || "Nosso lugar pra guardar o que a gente assiste, sente e inventa junto.";
   const names = coupleMembers.map((m) => m.name || m.nickname || "Minha pessoa").join(" & ");
   const sozinho = coupleMembers.length < 2;
   return `
     <section class="couple-hero">
       <div>
-        <span>Espaço privado</span>
+        <span>Cantinho privado</span>
         <h2>${esc(title)}</h2>
         <p>${esc(tagline)}</p>
         <div class="chips">
-          <span class="chip">Código: ${esc(state.couple.code)}</span>
           ${names ? `<span class="chip">${esc(names)}</span>` : ""}
           ${state.couple.specialDate ? `<span class="chip">Desde ${esc(state.couple.specialDate)}</span>` : ""}
         </div>
-        ${sozinho ? `<p class="couple-waiting">💌 Falta sua pessoa entrar. Envie o código <strong>${esc(state.couple.code)}</strong> pra ela usar em “Nós dois → Entrar com código”.</p>` : ""}
+        ${sozinho ? `<p class="couple-waiting">💌 Falta sua pessoa entrar. O código fica em <strong>Ajustes</strong>, protegido da bagunça do painel.</p>` : ""}
       </div>
       <div class="couple-actions">
-        <button class="btn secondary" data-copy-couple-code>${icon("share")} Copiar código</button>
+        <button class="btn secondary" data-couple-section="diario">${icon("lists")} Nova memória</button>
         <button class="btn ghost" data-date-roulette>${icon("dice")} Sortear date</button>
       </div>
     </section>`;
@@ -2554,22 +2557,39 @@ function coupleDramasTemplate() {
 function coupleDiaryTemplate() {
   const options = coupleDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
   const entries = coupleDiary.length
-    ? coupleDiary.map((e) => `
-      <article class="couple-memory">
-        <div><span>${e.watched_on ? esc(e.watched_on) : "Memória"}</span><strong>${esc(e.drama_title || "Nosso dorama")}${e.episode ? ` · ep. ${e.episode}` : ""}</strong></div>
-        ${e.snack || e.place || e.mood ? `<p class="muted">${[e.place, e.snack, e.mood].filter(Boolean).map(esc).join(" · ")}</p>` : ""}
-        ${e.fav_moment ? `<p><b>Momento favorito:</b> ${esc(e.fav_moment)}</p>` : ""}
-        ${e.inside_joke ? `<p><b>Frase interna:</b> ${esc(e.inside_joke)}</p>` : ""}
-        ${e.chosen_by ? `<p><b>Quem escolheu:</b> ${esc(e.chosen_by)}</p>` : ""}
-        ${e.who_cried || e.who_raged ? `<p><b>Placar emocional:</b> ${[e.who_cried ? `chorou mais: ${e.who_cried}` : "", e.who_raged ? `passou mais raiva: ${e.who_raged}` : ""].filter(Boolean).map(esc).join(" · ")}</p>` : ""}
-        ${e.note_him || e.note_her ? `<p><b>Notas:</b> ${[e.note_him ? `dele ${e.note_him}` : "", e.note_her ? `dela ${e.note_her}` : ""].filter(Boolean).map(esc).join(" · ")}</p>` : ""}
-        ${e.comment ? `<p>${esc(e.comment)}</p>` : ""}
-        <div class="mini-actions"><button data-del-couple-diary="${e.id}">${icon("trash")} Apagar</button></div>
-      </article>`).join("")
-    : `<div class="empty">As memórias dos episódios aparecem aqui.</div>`;
+    ? coupleDiary.map((e) => {
+        const meta = [e.place, e.snack, e.mood].filter(Boolean).map(esc).join(" · ");
+        const placar = [e.chosen_by ? `Escolha: ${e.chosen_by}` : "", e.who_cried ? `Choro: ${e.who_cried}` : "", e.who_raged ? `Raiva: ${e.who_raged}` : ""].filter(Boolean).map(esc).join(" · ");
+        const notas = [e.note_him ? `dele ${e.note_him}` : "", e.note_her ? `dela ${e.note_her}` : ""].filter(Boolean).map(esc).join(" · ");
+        return `
+          <article class="couple-memory album-page">
+            <header>
+              <span>${e.watched_on ? esc(formatDateShort(e.watched_on)) : "Página do diário"}</span>
+              <strong>${esc(e.drama_title || "Memória de nós dois")}${e.episode ? ` · ep. ${e.episode}` : ""}</strong>
+              ${meta ? `<small>${meta}</small>` : ""}
+            </header>
+            <div class="album-body">
+              ${e.fav_moment ? `<p class="album-quote">“${esc(e.fav_moment)}”</p>` : ""}
+              ${e.comment ? `<p>${esc(e.comment)}</p>` : ""}
+              ${e.inside_joke ? `<p><b>Frase que virou nossa:</b> ${esc(e.inside_joke)}</p>` : ""}
+              ${placar ? `<p><b>Placar emocional:</b> ${placar}</p>` : ""}
+              ${notas ? `<p><b>Notas do episódio:</b> ${notas}</p>` : ""}
+            </div>
+            <div class="mini-actions"><button data-del-couple-diary="${e.id}">${icon("trash")} Apagar</button></div>
+          </article>`;
+      }).join("")
+    : `<div class="empty diary-empty"><strong>O diário ainda está em branco.</strong><span>A primeira página pode ser um episódio, um date, uma ligação assistindo junto ou só um surto que vocês querem lembrar.</span></div>`;
   return `
-    <div class="section-title"><h2>Diário do casal</h2></div>
-    <form id="couple-diary-form" class="form-card form-grid">
+    <section class="diary-hero">
+      <span>Álbum vivo</span>
+      <h2>Diário do casal</h2>
+      <p>Não é só “registrar episódio”. É guardar o dia: o que vocês viram, onde estavam, o que comeram, quem surtou e qual cena virou memória.</p>
+    </section>
+    <form id="couple-diary-form" class="form-card form-grid diary-form">
+      <div class="field full diary-form-title">
+        <strong>Nova página do diário</strong>
+        <span>Preencha só o que fizer sentido. O resto pode ficar vazio.</span>
+      </div>
       <div class="field"><label>Dorama</label><select name="dramaId">${options}<option value="">Outro / geral</option></select></div>
       <div class="field"><label>Episódio</label><input name="episode" type="number" min="0" placeholder="8" /></div>
       <div class="field"><label>Data</label><input name="watchedOn" type="date" /></div>
@@ -2583,22 +2603,40 @@ function coupleDiaryTemplate() {
       <div class="field"><label>Nota dela</label><input name="noteHer" placeholder="mil estrelas" /></div>
       <div class="field full"><label>Momento favorito</label><input name="favMoment" placeholder="a cena da chuva" /></div>
       <div class="field full"><label>Frase interna</label><input name="insideJoke" placeholder="eu avisei" /></div>
-      <div class="field full"><label>O que lembrar desse dia?</label><textarea name="comment" placeholder="Escreve como se fosse uma página de álbum."></textarea></div>
-      <div class="actions field full"><button class="btn" type="submit">Registrar memória</button></div>
+      <div class="field full"><label>O que esse dia teve de especial?</label><textarea name="comment" placeholder="Escreve como se fosse uma página de álbum."></textarea></div>
+      <div class="actions field full"><button class="btn" type="submit">Guardar página</button></div>
     </form>
     <section class="couple-timeline">${entries}</section>`;
 }
 
 function coupleAboutTemplate() {
-  const cards = aboutLabels.map(([key, label]) => `<div class="card"><span class="muted">${label}</span><strong>${esc(coupleAbout[key] || "—")}</strong></div>`).join("");
+  const total = aboutLabels.length;
+  const preenchidos = aboutLabels.filter(([key]) => String(coupleAbout[key] || "").trim()).length;
+  const cards = aboutLabels.map(([key, label]) => {
+    const value = String(coupleAbout[key] || "").trim();
+    return `
+      <button class="about-memory ${value ? "filled" : ""}" type="button" data-about-pick="${esc(key)}">
+        <span>${esc(label)}</span>
+        <strong>${value ? esc(value) : "Responder juntos"}</strong>
+      </button>`;
+  }).join("");
   return `
-    <div class="section-title"><h2>Sobre nós</h2></div>
-    <form id="couple-about-form" class="search-bar">
-      <select name="key">${aboutLabels.map(([key, label]) => `<option value="${key}">${esc(label)}</option>`).join("")}</select>
-      <input name="value" placeholder="Nossa resposta…" required />
-      <button class="btn secondary" type="submit">Salvar</button>
+    <section class="about-hero">
+      <span>Ficha de vocês</span>
+      <h2>Sobre nós</h2>
+      <p>Um lugar para guardar as respostas que viram piada interna, tradição e lembrança. Não precisa preencher tudo de uma vez.</p>
+      <div class="about-progress"><span style="width:${Math.round((preenchidos / total) * 100)}%"></span></div>
+      <small>${preenchidos}/${total} respostas guardadas</small>
+    </section>
+    <form id="couple-about-form" class="form-card about-form">
+      <label>O que vocês querem guardar agora?</label>
+      <div class="search-bar">
+        <select name="key">${aboutLabels.map(([key, label]) => `<option value="${key}">${esc(label)}</option>`).join("")}</select>
+        <input name="value" placeholder="Ex.: pipoca doce, cena da chuva, nossa música…" required />
+        <button class="btn secondary" type="submit">Guardar</button>
+      </div>
     </form>
-    <section class="grid cards">${cards}</section>`;
+    <section class="about-grid">${cards}</section>`;
 }
 
 function coupleLettersTemplate() {
@@ -2633,27 +2671,31 @@ function coupleInicioDashboardTemplate() {
     .sort((a, b) => new Date(b.created_at || b.watched_on || 0) - new Date(a.created_at || a.watched_on || 0))[0];
   const ganhos = coupleCertificados().filter((c) => c.earned).length;
   const petNome = couplePet?.name || "Nosso pet";
+  const sobrePreenchido = Object.values(coupleAbout).filter((v) => String(v || "").trim()).length;
+  const sobreTotal = aboutLabels.length;
+  const horas = coupleHorasEstimadas();
   return `
     <section class="couple-dashboard">
       <button class="couple-dash-card featured" type="button" data-couple-section="assistindo">
-        <span class="muted">Continuar juntos</span>
+        <span class="muted">Agora no sofá de vocês</span>
         <strong>${ultimo ? esc(ultimo.title) : "Escolher primeiro dorama"}</strong>
-        <small>${ultimo ? `Ep. ${Number(ultimo.current_episode || 0)}${ultimo.episodes ? `/${ultimo.episodes}` : ""}` : "Adicione um dorama da sua lista pessoal."}</small>
+        <small>${ultimo ? `Vocês estão no ep. ${Number(ultimo.current_episode || 0)}${ultimo.episodes ? ` de ${ultimo.episodes}` : ""}.` : "Adicione um dorama e o painel começa a ganhar vida."}</small>
+        <em>${horas ? `~${horas}h juntos` : "Começar maratona"}</em>
       </button>
       <button class="couple-dash-card" type="button" data-couple-section="diario">
-        <span class="muted">Última memória</span>
+        <span class="muted">Diário do casal</span>
         <strong>${ultimaMemoria ? esc(ultimaMemoria.drama_title || "Memória do casal") : "Diário vazio"}</strong>
-        <small>${ultimaMemoria ? esc(ultimaMemoria.fav_moment || ultimaMemoria.comment || "Guardada no cantinho de vocês.") : "Registre um episódio, date ou surto."}</small>
+        <small>${ultimaMemoria ? esc(ultimaMemoria.fav_moment || ultimaMemoria.comment || "Guardada no cantinho de vocês.") : "Primeira página: o que vocês viram, comeram e sentiram."}</small>
+      </button>
+      <button class="couple-dash-card" type="button" data-couple-section="sobre">
+        <span class="muted">Sobre nós</span>
+        <strong>${sobrePreenchido}/${sobreTotal} respostas</strong>
+        <small>Preferências, piadas internas e coisinhas que só vocês entendem.</small>
       </button>
       <button class="couple-dash-card" type="button" data-couple-section="diversao">
         <span class="muted">Diversão</span>
         <strong>${esc(petNome)}</strong>
         <small>${ganhos} certificado${ganhos === 1 ? "" : "s"} desbloqueado${ganhos === 1 ? "" : "s"}.</small>
-      </button>
-      <button class="couple-dash-card" type="button" data-couple-section="ajustes">
-        <span class="muted">Personalizar</span>
-        <strong>Capa, carta e tema</strong>
-        <small>Deixe o espaço com a cara de vocês.</small>
       </button>
     </section>`;
 }
@@ -2663,17 +2705,28 @@ function coupleInicioSection() {
   return `
     ${couplePinnedLetterTemplate()}
     ${coupleHeroTemplate()}
-    <section class="grid stats">${coupleStats().map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}</section>
     ${coupleInicioDashboardTemplate()}
-    <div class="section-title"><h2>Linha do tempo de vocês</h2></div>
-    ${coupleTimelineTemplate()}
-    <section class="form-card couple-help-card">
-      <p class="muted" style="margin:0">Quer mudar nome, cartinha fixa ou tema? Agora isso fica em <strong style="color:var(--cor-texto)">Ajustes</strong>, para este painel não virar bagunça.</p>
+    <section class="couple-panel-grid">
+      <div>
+        <div class="section-title compact"><h2>Linha do tempo</h2></div>
+        ${coupleTimelineTemplate()}
+      </div>
+      <div>
+        <div class="section-title compact"><h2>Resumo</h2></div>
+        <section class="couple-mini-stats">${coupleStats().map(([label, value]) => `<div><strong>${value}</strong><span>${esc(label)}</span></div>`).join("")}</section>
+        <button class="couple-settings-link" type="button" data-couple-section="ajustes">Editar capa, tema e código do convite</button>
+      </div>
     </section>`;
 }
 
 function coupleAjustesSection() {
   return `
+    <div class="section-title"><h2>Convite do casal</h2></div>
+    <section class="form-card couple-code-card">
+      <span class="muted">Use só quando for chamar sua pessoa para o espaço certo.</span>
+      <strong>${esc(state.couple.code || "")}</strong>
+      <div class="actions" style="margin-top:12px"><button class="btn secondary" type="button" data-copy-couple-code>${icon("share")} Copiar código</button></div>
+    </section>
     <div class="section-title"><h2>💌 Cartinha fixa do topo</h2></div>
     <section class="form-card">
       <form id="couple-pinned-form" class="form-grid">
@@ -3962,6 +4015,16 @@ function bindShell() {
   });
   document.querySelectorAll("[data-couple-section]").forEach((button) => {
     listen(button, "click", () => setCoupleSection(button.dataset.coupleSection));
+  });
+  document.querySelectorAll("[data-about-pick]").forEach((button) => {
+    listen(button, "click", () => {
+      const form = document.querySelector("#couple-about-form");
+      if (!form) return;
+      const select = form.querySelector("[name='key']");
+      const input = form.querySelector("[name='value']");
+      if (select) select.value = button.dataset.aboutPick;
+      input?.focus();
+    });
   });
   // Tema do casal (compartilhado)
   document.querySelectorAll("[data-tema-casal]").forEach((button) => {
