@@ -877,40 +877,11 @@ function adminTemplate() {
   `;
 }
 
-function homeHeroData() {
+function destaqueHome() {
   const watching = byStatus("watching");
-  const atual = watching
+  return watching
     .slice()
-    .sort((a, b) => Number(b.currentEpisode || 0) - Number(a.currentEpisode || 0))[0];
-  if (!atual) {
-    if (!state.dramas.length) {
-      return {
-        title: "Vamos começar sua watchlist?",
-        subtitle: "Adicione um dorama e o app já monta seu cantinho.",
-        primary: { label: "Adicionar dorama", attrs: `data-view="add"`, iconName: "add" },
-        secondary: { label: "Descobrir", attrs: `data-view="discover"`, iconName: "compass" },
-        extra: "",
-      };
-    }
-    return {
-      title: state.dramas.length ? "Qual vai ser o surto de hoje?" : "Vamos começar sua watchlist?",
-      subtitle: state.dramas.length ? "Escolha um humor, sorteie algo ou adicione o próximo dorama." : "Adicione um dorama e o app já monta seu cantinho.",
-      primary: { label: "Sortear próximo", attrs: "data-random", iconName: "dice" },
-      secondary: { label: "Adicionar dorama", attrs: `data-view="add"`, iconName: "add" },
-      extra: "",
-    };
-  }
-
-  const ep = Number(atual.currentEpisode || 0);
-  const total = Number(atual.episodes || 0);
-  const progresso = total ? `ep. ${ep}/${total}` : `ep. ${ep}`;
-  return {
-    title: "Continuar de onde parou?",
-    subtitle: `${atual.title} - ${progresso}`,
-    primary: { label: "Continuar", attrs: `data-detail="${atual.id}"`, iconName: "play" },
-    secondary: { label: "Registrar surto", attrs: `data-comentar-surto="${atual.id}"`, iconName: "club" },
-    extra: `<button class="btn ghost" data-random>${icon("dice")} Sortear outro</button>`,
-  };
+    .sort((a, b) => Number(b.currentEpisode || 0) - Number(a.currentEpisode || 0))[0] || state.dramas[0] || null;
 }
 
 function homeTemplate() {
@@ -924,8 +895,11 @@ function homeTemplate() {
   ];
 
   const statusIcons = { watching: "play", wishlist: "add", finished: "heart", paused: "detail", dropped: "trash", favorites: "heart", comfort: "heart" };
-  const hero = homeHeroData();
   const watching = byStatus("watching");
+  const destaque = destaqueHome();
+  const ep = Number(destaque?.currentEpisode || 0);
+  const total = Number(destaque?.episodes || 0);
+  const progressPct = destaque && total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
   const decideCard = state.dramas.length
     ? { title: "Decidir agora", text: "Sortear o próximo dorama da vez.", attrs: "data-random", iconName: "dice", cta: "Sortear" }
     : { title: "Descobrir doramas", text: "Ver sugestões populares para começar a lista.", attrs: `data-view="discover"`, iconName: "compass", cta: "Explorar" };
@@ -936,51 +910,68 @@ function homeTemplate() {
   ];
 
   return `
-    <section class="dashboard">
-      <div class="dashboard-head">
-        <div class="dashboard-greeting">
-          <img class="hero-avatar" src="${esc(avatarUrl(profile))}" alt="" />
-          <div>
-            <p class="kicker">Oi, ${esc(profile.name)} ${temaCorrente().marca?.emoji || "💜"}</p>
-            <div class="dashboard-meta">${dashboardMeta.map((item) => `<span>${esc(item)}</span>`).join("")}</div>
-          </div>
-        </div>
-        <button class="btn secondary dashboard-add" data-view="add">${icon("add")} Adicionar</button>
+    <div class="home-head">
+      <div>
+        <h2>Início</h2>
+        <p>Seu cantinho dorameiro de hoje.</p>
       </div>
-      <section class="dashboard-grid">
-        <button class="dashboard-card featured" ${hero.primary.attrs}>
-          <span>${esc(hero.title)}</span>
-          <strong>${esc(hero.subtitle)}</strong>
-          <em>${icon(hero.primary.iconName)} ${esc(hero.primary.label)}</em>
-        </button>
-        <button class="dashboard-card" ${decideCard.attrs}>
-          <span>${esc(decideCard.title)}</span>
-          <strong>${esc(decideCard.text)}</strong>
-          <em>${icon(decideCard.iconName)} ${esc(decideCard.cta)}</em>
-        </button>
-        <div class="dashboard-card mood-card">
-          <span>Humor de hoje</span>
-          <strong>Escolha um clima. Se tiver clube, suas doramigas veem no feed.</strong>
-          <div class="mood-row compact">
-            ${moods.slice(0, 5).map((mood) => `<button data-mood="${esc(mood.tag)}">${mood.emoji} ${esc(mood.label)}</button>`).join("")}
-          </div>
-        </div>
-        <button class="dashboard-card" data-view="club">
-          <span>Doramigas</span>
-          <strong>${state.club ? esc(state.club.name) : "Crie ou entre em um clube."}</strong>
-          <em>${icon("club")} Abrir clube</em>
-        </button>
-      </section>
+      <button class="btn secondary dashboard-add" data-view="add">${icon("add")} Adicionar</button>
+    </div>
+    <section class="hello-card">
+      <img class="hero-avatar" src="${esc(avatarUrl(profile))}" alt="" />
+      <div>
+        <strong>Olá, ${esc(profile.name)}!</strong>
+        <span>${dashboardMeta.map(esc).join(" · ")}</span>
+      </div>
     </section>
-    ${state.dramas.length === 0
-      ? `<section class="form-card" style="margin-top:14px">
-           <h3 style="margin:0 0 6px">Bem-vinda! 💜 Vamos começar?</h3>
-           <p class="muted" style="margin:0 0 12px">Adicione o primeiro dorama que você está vendo (ou quer ver). É só buscar pelo nome.</p>
-           <div class="actions" style="margin:0"><button class="btn" data-view="add">${icon("add")} Adicionar meu primeiro dorama</button></div>
-         </section>`
-      : ""}
+    <section class="focus-card" ${destaque?.cover ? `style="--focus-cover:url('${esc(destaque.cover)}')"` : ""}>
+      <div class="focus-bg"></div>
+      ${destaque
+        ? `<img class="focus-poster" src="${esc(destaque.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(destaque.title)}" />
+           <div class="focus-copy">
+             <span>Continue assistindo</span>
+             <h3>${esc(destaque.title)}</h3>
+             <p>${total ? `Episódio ${ep} de ${total}` : `Episódio ${ep}`}</p>
+             <div class="focus-progress"><span style="width:${progressPct}%"></span></div>
+             <div class="actions">
+               <button class="btn" data-detail="${destaque.id}">${icon("play")} Continuar</button>
+               <button class="btn secondary" data-comentar-surto="${destaque.id}">${icon("club")} Surto</button>
+               <button class="btn ghost" data-random>${icon("dice")} Sortear outro</button>
+             </div>
+           </div>`
+        : `<div class="focus-copy empty-focus">
+             <span>Comece por aqui</span>
+             <h3>Monte sua primeira watchlist</h3>
+             <p>Busque um dorama pelo TMDB ou explore sugestões para começar.</p>
+             <div class="actions">
+               <button class="btn" data-view="add">${icon("add")} Adicionar dorama</button>
+               <button class="btn secondary" data-view="discover">${icon("compass")} Descobrir</button>
+             </div>
+           </div>`}
+    </section>
     <section class="grid stats">
       ${stats.map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
+    </section>
+    <section class="home-strip">
+      <button class="strip-card" ${decideCard.attrs}>
+        <span>${esc(decideCard.title)}</span>
+        <strong>${esc(decideCard.text)}</strong>
+        <em>${icon(decideCard.iconName)} ${esc(decideCard.cta)}</em>
+      </button>
+      <button class="strip-card" data-view="club">
+        <span>Doramigas</span>
+        <strong>${state.club ? esc(state.club.name) : "Crie ou entre em um clube."}</strong>
+        <em>${icon("club")} Abrir clube</em>
+      </button>
+    </section>
+    <section class="mood-panel">
+      <div>
+        <span>Humor de hoje</span>
+        <strong>Escolha um clima. Se tiver clube, suas doramigas veem no feed.</strong>
+      </div>
+      <div class="mood-row compact">
+        ${moods.map((mood) => `<button data-mood="${esc(mood.tag)}">${mood.emoji} ${esc(mood.label)}</button>`).join("")}
+      </div>
     </section>
     <div class="section-title">
       <h2>Atalhos</h2>
