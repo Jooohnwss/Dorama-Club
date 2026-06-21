@@ -877,6 +877,98 @@ function adminTemplate() {
   `;
 }
 
+function homeLiveCards() {
+  const watching = byStatus("watching");
+  const wishlist = byStatus("wishlist");
+  const paused = byStatus("paused");
+  const finished = byStatus("finished");
+  const comfort = byStatus("comfort");
+  const cards = [];
+
+  const atual = watching
+    .slice()
+    .sort((a, b) => Number(b.currentEpisode || 0) - Number(a.currentEpisode || 0))[0];
+  if (atual) {
+    const ep = Number(atual.currentEpisode || 0);
+    const total = Number(atual.episodes || 0);
+    const progresso = total ? `ep. ${ep} de ${total}` : `ep. ${ep}`;
+    cards.push({
+      title: "Continuar o surto",
+      text: `${atual.title} esta em ${progresso}. Quer atualizar ou registrar como foi?`,
+      attrs: `data-detail="${atual.id}"`,
+      cta: "Abrir dorama",
+    });
+  }
+
+  if (clubHasNews && state.club) {
+    cards.push({
+      title: "Tem novidade das doramigas",
+      text: `${state.club.name} tem comentario novo esperando voce.`,
+      attrs: `data-view="club"`,
+      cta: "Ver clube",
+    });
+  } else if (state.club) {
+    cards.push({
+      title: "Clube ativo",
+      text: `Voce esta em ${state.club.name}. Da uma olhada no dorama do mes e no mural.`,
+      attrs: `data-view="club"`,
+      cta: "Abrir Doramigas",
+    });
+  }
+
+  if (paused.length) {
+    const drama = paused[0];
+    cards.push({
+      title: "Pausado na geladeira",
+      text: `${drama.title} ficou pausado. Hoje e dia de dar outra chance ou assumir o drop?`,
+      attrs: `data-detail="${drama.id}"`,
+      cta: "Decidir destino",
+    });
+  }
+
+  if (wishlist.length) {
+    cards.push({
+      title: "Fila de espera",
+      text: `${wishlist.length} ${wishlist.length === 1 ? "dorama esta" : "doramas estao"} na sua watchlist. Posso sortear o proximo.`,
+      attrs: "data-random",
+      cta: "Sortear agora",
+    });
+  }
+
+  if (comfort.length) {
+    cards.push({
+      title: "Modo conforto",
+      text: `${comfort[0].title} esta marcado como dorama conforto. Perfeito pra dias de cobertor.`,
+      attrs: `data-detail="${comfort[0].id}"`,
+      cta: "Abrir conforto",
+    });
+  }
+
+  if (finished.length) {
+    const dramas10 = finished.filter((d) => Number(d.personalRating) >= 10);
+    const destaque = dramas10[0] || finished[0];
+    cards.push({
+      title: dramas10.length ? "Obra-prima detectada" : "Historico de surtos",
+      text: dramas10.length
+        ? `${destaque.title} levou 10/10. Esse aqui merece panfleto.`
+        : `Voce ja finalizou ${finished.length} ${finished.length === 1 ? "dorama" : "doramas"}.`,
+      attrs: `data-detail="${destaque.id}"`,
+      cta: "Rever detalhes",
+    });
+  }
+
+  if (!cards.length) {
+    cards.push({
+      title: "Comecar a watchlist",
+      text: "Adicione o primeiro dorama e a home vira seu painel de surtos.",
+      attrs: `data-view="add"`,
+      cta: "Adicionar dorama",
+    });
+  }
+
+  return cards.slice(0, 4);
+}
+
 function homeTemplate() {
   const profile = state.profile;
   const stats = [
@@ -888,6 +980,7 @@ function homeTemplate() {
   ];
 
   const statusIcons = { watching: "play", wishlist: "add", finished: "heart", paused: "detail", dropped: "trash", favorites: "heart", comfort: "heart" };
+  const liveCards = homeLiveCards();
 
   return `
     <section class="hero">
@@ -910,6 +1003,16 @@ function homeTemplate() {
       : ""}
     <section class="grid stats">
       ${stats.map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
+    </section>
+    <div class="section-title">
+      <h2>Agora no seu Dorama Club</h2>
+    </div>
+    <section class="grid cards live-cards">
+      ${liveCards
+        .map(
+          (card) => `<button class="card live-card" ${card.attrs}><span class="muted">${esc(card.title)}</span><strong>${esc(card.text)}</strong><span class="chip">${esc(card.cta)}</span></button>`,
+        )
+        .join("")}
     </section>
     <div class="section-title">
       <h2>Meu humor hoje</h2>

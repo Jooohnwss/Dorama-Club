@@ -394,6 +394,44 @@ button.card:hover {
   border-color: var(--cor-primaria);
 }
 
+.live-cards {
+  margin-bottom: 8px;
+}
+
+.live-card {
+  align-items: flex-start;
+  min-height: 154px;
+  overflow: hidden;
+  position: relative;
+  text-align: left;
+}
+
+.live-card::after {
+  background: radial-gradient(circle, color-mix(in srgb, var(--cor-primaria) 20%, transparent), transparent 64%);
+  content: "";
+  height: 110px;
+  position: absolute;
+  right: -34px;
+  top: -34px;
+  width: 110px;
+}
+
+.live-card strong,
+.live-card .muted,
+.live-card .chip {
+  position: relative;
+  z-index: 1;
+}
+
+.live-card strong {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.live-card .chip {
+  margin-top: auto;
+}
+
 .card .card-ico {
   display: grid;
   place-items: center;
