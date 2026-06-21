@@ -203,6 +203,7 @@ let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
 let listSort = "recente"; // ordenação da Minhas listas
+let listView = "lista"; // "lista" | "grade"
 let addingClub = false; // mostrar formulários de criar/entrar mesmo já tendo clube
 
 // Troca o clube ativo (recarrega membros/feed/social do novo).
@@ -1432,6 +1433,18 @@ function sortDramas(list) {
   return arr; // "recente" mantém a ordem atual
 }
 
+function resumoLista(todos) {
+  if (!todos.length) return "";
+  const horas = Math.round(todos.reduce((s, d) => s + Number(d.currentEpisode || 0), 0) * 1.05);
+  const counts = {};
+  todos.forEach((d) => (d.genres || []).forEach((g) => { counts[g] = (counts[g] || 0) + 1; }));
+  const topGenero = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const partes = [`${todos.length} ${todos.length === 1 ? "dorama" : "doramas"}`];
+  if (horas) partes.push(`~${horas}h de tela`);
+  if (topGenero) partes.push(`mais: ${topGenero}`);
+  return partes.join(" · ");
+}
+
 function listsTemplate() {
   const todos = byStatus(state.activeList);
   const lista = sortDramas(todos);
@@ -1444,16 +1457,35 @@ function listsTemplate() {
     <div class="tabs">
       ${statuses.map((status) => `<button class="${state.activeList === status.key ? "active" : ""}" data-active-list="${status.key}">${status.label} <b>${byStatus(status.key).length}</b></button>`).join("")}
     </div>
+    ${todos.length ? `<p class="list-summary">${esc(resumoLista(todos))}</p>` : ""}
     ${todos.length
       ? `<div class="list-toolbar">
            <input id="list-search" type="search" placeholder="🔍 Buscar nesta lista…" autocomplete="off" />
            <select id="list-sort">${sorts.map(([v, l]) => `<option value="${v}" ${listSort === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+           <button class="btn ghost view-toggle" data-toggle-view title="Alternar visualização">${listView === "grade" ? "☰ Lista" : "▦ Grade"}</button>
          </div>`
       : ""}
     ${lista.length
-      ? `<section class="drama-grid">${lista.map(dramaCard).join("")}</section><div id="list-empty" class="empty" hidden>Nenhum resultado pra essa busca.</div>`
+      ? (listView === "grade"
+          ? `<section class="grade-grid">${lista.map(dramaGradeCard).join("")}</section>`
+          : `<section class="drama-grid">${lista.map(dramaCard).join("")}</section>`)
+        + `<div id="list-empty" class="empty" hidden>Nenhum resultado pra essa busca.</div>`
       : `<div class="empty">${LISTA_VAZIA[state.activeList] || "Nada aqui ainda."}</div>`}
   `;
+}
+
+function dramaGradeCard(drama) {
+  const ep = Number(drama.currentEpisode || 0);
+  const total = Number(drama.episodes || 0);
+  const pct = total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
+  const showProgress = drama.status !== "wishlist" && total > 0 && ep > 0;
+  return `
+    <button class="grade-card list-item" data-detail="${drama.id}" data-title="${esc((drama.title || "").toLowerCase())}">
+      <img src="${esc(thumb(drama.cover) || POSTER_PLACEHOLDER)}" alt="${esc(drama.title)}" loading="lazy" decoding="async" />
+      ${drama.favorite ? `<span class="poster-fav">${icon("heart")}</span>` : ""}
+      ${showProgress ? `<span class="grade-progress"><span style="width:${pct}%"></span></span>` : ""}
+      <span class="grade-name">${esc(drama.title)}</span>
+    </button>`;
 }
 
 function clubFormsTemplate() {
@@ -2271,9 +2303,10 @@ function dramaCard(drama) {
   const temEpisodio = drama.status !== "wishlist" && total > 0;
   // Só repete o status quando a aba mistura status (favoritos / conforto).
   const mostrarStatus = state.activeList === "favorites" || state.activeList === "comfort";
+  const faltam = drama.status === "watching" && total ? total - ep : 0;
   const meta = drama.status === "wishlist"
     ? `${drama.year || "—"} · ${esc(drama.priority || "Quero assistir")}`
-    : `${drama.year || "—"}${mostrarStatus ? ` · ${statusLabel(drama.status)}` : ""}${(drama.genres || [])[0] ? ` · ${esc(drama.genres[0])}` : ""}`;
+    : `${drama.year || "—"}${mostrarStatus ? ` · ${statusLabel(drama.status)}` : ""}${(drama.genres || [])[0] ? ` · ${esc(drama.genres[0])}` : ""}${faltam > 0 ? ` · faltam ${faltam} ep${faltam > 1 ? "s" : ""}` : ""}`;
 
   const chips = [
     drama.comfort ? `<span class="chip">🧸 Conforto</span>` : "",
@@ -2287,7 +2320,7 @@ function dramaCard(drama) {
   ].filter(Boolean).join("");
 
   return `
-    <article class="drama-card" data-title="${esc((drama.title || "").toLowerCase())}">
+    <article class="drama-card list-item" data-title="${esc((drama.title || "").toLowerCase())}">
       <button class="poster-btn" data-detail="${drama.id}" aria-label="Ver ${esc(drama.title)}">
         <img class="poster" src="${esc(drama.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(drama.title)}" loading="lazy" decoding="async" />
         ${drama.favorite ? `<span class="poster-fav">${icon("heart")}</span>` : ""}
@@ -2301,6 +2334,9 @@ function dramaCard(drama) {
         <div class="mini-actions">
           ${drama.status === "watching" ? `<button data-plus-one="${drama.id}">${icon("add")} +1 ep</button>` : ""}
           <button class="${drama.favorite ? "fav-on" : ""}" data-toggle-favorite="${drama.id}" title="${drama.favorite ? "Desfavoritar" : "Favoritar"}">${icon("heart")} ${drama.favorite ? "Favorito" : "Favoritar"}</button>
+          <select class="move-select" data-move="${drama.id}" title="Mover para outra lista">
+            ${statuses.slice(0, 5).map((s) => `<option value="${s.key}" ${drama.status === s.key ? "selected" : ""}>${s.label}</option>`).join("")}
+          </select>
         </div>
       </div>
     </article>
@@ -2753,7 +2789,7 @@ function bindShell() {
     listen(buscaLista, "input", () => {
       const q = buscaLista.value.trim().toLowerCase();
       let visiveis = 0;
-      document.querySelectorAll(".drama-grid .drama-card").forEach((card) => {
+      document.querySelectorAll(".list-item").forEach((card) => {
         const ok = !q || (card.dataset.title || "").includes(q);
         card.style.display = ok ? "" : "none";
         if (ok) visiveis += 1;
@@ -2765,6 +2801,13 @@ function bindShell() {
   listen(document.querySelector("#list-sort"), "change", (event) => {
     listSort = event.target.value;
     render();
+  });
+  listen(document.querySelector("[data-toggle-view]"), "click", () => {
+    listView = listView === "grade" ? "lista" : "grade";
+    render();
+  });
+  document.querySelectorAll("[data-move]").forEach((sel) => {
+    listen(sel, "change", () => moverStatus(sel.dataset.move, sel.value));
   });
 
   document.querySelectorAll("[data-plus-one]").forEach((button) => {
@@ -3116,6 +3159,20 @@ function toggleField(id, field) {
   });
   if (updated) syncDrama(updated);
   setState({ dramas });
+}
+
+function moverStatus(id, novo) {
+  let updated = null;
+  const dramas = state.dramas.map((drama) => {
+    if (drama.id !== id) return drama;
+    updated = { ...drama, status: novo };
+    return updated;
+  });
+  if (!updated) return;
+  syncDrama(updated);
+  if (novo === "finished") registrarAtividade(`${state.profile?.name || "Alguém"} terminou ${updated.title} — ${fraseFim()}`);
+  setState({ dramas });
+  toast(`Movido para ${statusLabel(novo)}.`);
 }
 
 function randomDrama() {
