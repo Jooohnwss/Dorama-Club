@@ -1129,14 +1129,12 @@ function spaceSwitchTemplate() {
 function coupleSidebarTemplate() {
   const temCasal = Boolean(state.couple);
   const secoes = [
-    ["inicio", "Início", "home"],
+    ["inicio", "Painel", "home"],
     ["assistindo", "Assistindo", "play"],
     ["diario", "Diário", "lists"],
     ["sobre", "Sobre nós", "heart"],
-    ["cartinhas", "Cartinhas", "share"],
-    ["pet", "Nosso pet", "paw"],
-    ["certificados", "Certificados", "medal"],
-    ["tema", "Tema", "paint"],
+    ["diversao", "Diversão", "dice"],
+    ["ajustes", "Ajustes", "paint"],
   ];
   const nome = state.couple?.title || "Nós dois";
   return `
@@ -2628,14 +2626,54 @@ function couplePinnedLetterTemplate() {
     </section>`;
 }
 
-// Seção "Início" do casal: cartinha fixa, capa, stats, timeline, editar capa.
+function coupleInicioDashboardTemplate() {
+  const ultimo = coupleDramas.find((d) => d.status === "watching") || coupleDramas[0];
+  const ultimaMemoria = coupleDiary
+    .slice()
+    .sort((a, b) => new Date(b.created_at || b.watched_on || 0) - new Date(a.created_at || a.watched_on || 0))[0];
+  const ganhos = coupleCertificados().filter((c) => c.earned).length;
+  const petNome = couplePet?.name || "Nosso pet";
+  return `
+    <section class="couple-dashboard">
+      <button class="couple-dash-card featured" type="button" data-couple-section="assistindo">
+        <span class="muted">Continuar juntos</span>
+        <strong>${ultimo ? esc(ultimo.title) : "Escolher primeiro dorama"}</strong>
+        <small>${ultimo ? `Ep. ${Number(ultimo.current_episode || 0)}${ultimo.episodes ? `/${ultimo.episodes}` : ""}` : "Adicione um dorama da sua lista pessoal."}</small>
+      </button>
+      <button class="couple-dash-card" type="button" data-couple-section="diario">
+        <span class="muted">Última memória</span>
+        <strong>${ultimaMemoria ? esc(ultimaMemoria.drama_title || "Memória do casal") : "Diário vazio"}</strong>
+        <small>${ultimaMemoria ? esc(ultimaMemoria.fav_moment || ultimaMemoria.comment || "Guardada no cantinho de vocês.") : "Registre um episódio, date ou surto."}</small>
+      </button>
+      <button class="couple-dash-card" type="button" data-couple-section="diversao">
+        <span class="muted">Diversão</span>
+        <strong>${esc(petNome)}</strong>
+        <small>${ganhos} certificado${ganhos === 1 ? "" : "s"} desbloqueado${ganhos === 1 ? "" : "s"}.</small>
+      </button>
+      <button class="couple-dash-card" type="button" data-couple-section="ajustes">
+        <span class="muted">Personalizar</span>
+        <strong>Capa, carta e tema</strong>
+        <small>Deixe o espaço com a cara de vocês.</small>
+      </button>
+    </section>`;
+}
+
+// Seção "Início" do casal: painel limpo + atalhos para as áreas.
 function coupleInicioSection() {
   return `
     ${couplePinnedLetterTemplate()}
     ${coupleHeroTemplate()}
     <section class="grid stats">${coupleStats().map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}</section>
+    ${coupleInicioDashboardTemplate()}
     <div class="section-title"><h2>Linha do tempo de vocês</h2></div>
     ${coupleTimelineTemplate()}
+    <section class="form-card couple-help-card">
+      <p class="muted" style="margin:0">Quer mudar nome, cartinha fixa ou tema? Agora isso fica em <strong style="color:var(--cor-texto)">Ajustes</strong>, para este painel não virar bagunça.</p>
+    </section>`;
+}
+
+function coupleAjustesSection() {
+  return `
     <div class="section-title"><h2>💌 Cartinha fixa do topo</h2></div>
     <section class="form-card">
       <form id="couple-pinned-form" class="form-grid">
@@ -2655,7 +2693,32 @@ function coupleInicioSection() {
     <section class="form-card">
       <p class="muted" style="margin:0 0 10px">Primeira vez aqui? Veja como usar o cantinho de vocês.</p>
       <div class="actions" style="margin:0"><button class="btn ghost" type="button" data-open-couple-tutorial>Como funciona o Nós dois</button></div>
-    </section>`;
+    </section>
+    ${coupleTemaSection()}`;
+}
+
+function coupleDiversaoSection() {
+  return `
+    <div class="section-title"><h2>Diversão do casal</h2></div>
+    <section class="couple-fun-grid">
+      <button class="couple-dash-card featured" type="button" data-date-roulette>
+        <span class="muted">Roleta de date</span>
+        <strong>Sortear um date</strong>
+        <small>Para quando vocês querem fazer algo juntos e ninguém decide.</small>
+      </button>
+      <div class="couple-dash-card">
+        <span class="muted">Conquistas</span>
+        <strong>Certificados</strong>
+        <small>Marcos desbloqueados por episódios, memórias e cartinhas.</small>
+      </div>
+      <div class="couple-dash-card">
+        <span class="muted">Mascote</span>
+        <strong>${esc(couplePet?.name || "Nosso pet")}</strong>
+        <small>Um cachorrinho para cuidar com os momentos de vocês.</small>
+      </div>
+    </section>
+    ${coupleCertificadosSection()}
+    ${couplePetSection()}`;
 }
 
 // Seção "Tema": o mesmo seletor de temas, mas salvando NO casal (vale pros dois).
@@ -2710,9 +2773,8 @@ function coupleTemaSection() {
 // Faixa de abas das seções do casal — visível só no celular (no PC é a sidebar).
 function coupleSectionTabs() {
   const secoes = [
-    ["inicio", "Início"], ["assistindo", "Assistindo"], ["diario", "Diário"],
-    ["sobre", "Sobre nós"], ["cartinhas", "Cartinhas"], ["pet", "Pet"],
-    ["certificados", "Certificados"], ["tema", "Tema"],
+    ["inicio", "Painel"], ["assistindo", "Assistindo"], ["diario", "Diário"],
+    ["sobre", "Sobre nós"], ["diversao", "Diversão"], ["ajustes", "Ajustes"],
   ];
   return `<div class="couple-tabs">${secoes.map(([k, l]) => `<button class="${coupleSection === k ? "active" : ""}" data-couple-section="${k}">${esc(l)}</button>`).join("")}</div>`;
 }
@@ -2723,12 +2785,14 @@ function coupleSpaceView() {
   let conteudo;
   switch (coupleSection) {
     case "assistindo": conteudo = coupleDramasTemplate(); break;
-    case "diario": conteudo = coupleDiaryTemplate(); break;
+    case "diario": conteudo = coupleDiaryTemplate() + coupleLettersTemplate(); break;
     case "sobre": conteudo = coupleAboutTemplate(); break;
     case "cartinhas": conteudo = coupleLettersTemplate(); break;
     case "pet": conteudo = couplePetSection(); break;
     case "certificados": conteudo = coupleCertificadosSection(); break;
     case "tema": conteudo = coupleTemaSection(); break;
+    case "diversao": conteudo = coupleDiversaoSection(); break;
+    case "ajustes": conteudo = coupleAjustesSection(); break;
     default: conteudo = coupleInicioSection();
   }
   return coupleSectionTabs() + conteudo;

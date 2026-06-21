@@ -1365,6 +1365,62 @@ textarea:focus {
   height: 16px;
 }
 
+.couple-dashboard,
+.couple-fun-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 20px;
+}
+
+.couple-fun-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.couple-dash-card {
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--cor-borda);
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--cor-primaria) 14%, transparent), transparent 42%),
+    color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+  color: var(--cor-texto);
+  text-align: left;
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--cor-sombra) 35%, transparent);
+}
+
+.couple-dash-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--cor-primaria) 42%, var(--cor-borda));
+}
+
+.couple-dash-card.featured {
+  grid-column: span 2;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--cor-primaria) 28%, transparent), transparent 65%),
+    color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+}
+
+.couple-dash-card strong {
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.couple-dash-card small {
+  color: var(--cor-texto-suave);
+  line-height: 1.35;
+}
+
+.couple-help-card {
+  margin-top: 14px;
+}
+
 .couple-welcome span,
 .couple-hero span,
 .couple-drama-card span,
@@ -2427,6 +2483,15 @@ textarea:focus {
     background: var(--cor-primaria);
     color: var(--cor-primaria-texto);
     border-color: transparent;
+  }
+
+  .couple-dashboard,
+  .couple-fun-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .couple-dash-card.featured {
+    grid-column: auto;
   }
 
   /* No celular a sidebar vira barra inferior: o alternador não cabe lá.
