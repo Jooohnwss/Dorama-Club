@@ -475,6 +475,7 @@ let coupleLoading = false;
 let coupleSection = "inicio"; // seção interna do ambiente do casal
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let recadoIndex = Math.floor(Math.random() * 1000); // qual recadinho mostrar no topo
+let coupleAddSearch = { query: "", loading: false, results: [] }; // busca TMDB no add do casal
 let temaSearchCasal = { query: "", loading: false, results: [] }; // busca de tema dentro do casal
 let runtimeCache = {}; // tmdbId -> minutos por episódio (TMDB), pra estimar horas
 let coupleRuntimesFor = null; // casal cujos runtimes já buscamos (evita loop)
@@ -2597,12 +2598,14 @@ function coupleDramaOptions() {
   return fromPersonal.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
 }
 
-// Card de dorama do casal, com ações conforme o grupo (ação / fila / troféu).
+const coupleMoveOpcoes = [["watching", "Assistindo"], ["wishlist", "Queremos ver"], ["watched", "Já vimos"], ["favorite", "Favorito"]];
+
+// Card de dorama do casal, com ações conforme o grupo + mover/tirar em todos.
 function coupleDramaCard(d, grupo) {
   const ep = Number(d.current_episode || 0);
   const total = Number(d.episodes || 0);
   const pct = total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
-  let acoes;
+  let acoes = "";
   if (grupo === "watching") {
     acoes = `
       <button data-couple-plus="${d.id}">${icon("add")} +1 ep</button>
@@ -2610,15 +2613,13 @@ function coupleDramaCard(d, grupo) {
       <button data-couple-memory="${d.id}">${icon("lists")} Memória</button>
       <button data-couple-finish="${d.id}">🎉 Finalizamos</button>`;
   } else if (grupo === "wishlist") {
-    acoes = `
-      <button data-couple-move="${d.id}">▶️ Começar a ver</button>
-      <button data-del-couple-drama="${d.id}">${icon("trash")} Tirar</button>`;
+    acoes = `<button data-couple-move="${d.id}">▶️ Começar a ver</button>`;
   } else {
-    acoes = `
-      <button data-couple-cert="${d.id}">🎓 Certificado</button>
-      <button class="${d.status === "favorite" ? "fav-on" : ""}" data-couple-fav="${d.id}">${icon("heart")} ${d.status === "favorite" ? "Favorito" : "Favoritar"}</button>
-      <button data-del-couple-drama="${d.id}">${icon("trash")} Tirar</button>`;
+    acoes = `<button data-couple-cert="${d.id}">🎓 Certificado</button>`;
   }
+  const mover = `<select class="move-select" data-couple-move-to="${d.id}" title="Mover para outra categoria">
+    ${coupleMoveOpcoes.map(([k, l]) => `<option value="${k}" ${d.status === k ? "selected" : ""}>${l}</option>`).join("")}
+  </select>`;
   return `
     <article class="couple-drama-card">
       <img src="${esc(d.cover || POSTER_PLACEHOLDER)}" alt="" />
@@ -2626,7 +2627,11 @@ function coupleDramaCard(d, grupo) {
         <strong>${esc(d.title)}</strong>
         <small>${grupo === "wishlist" ? "Na fila de vocês" : `Ep. ${ep}${total ? `/${total}` : ""}`}</small>
         ${grupo !== "wishlist" ? `<div class="focus-progress"><span style="width:${pct}%"></span></div>` : ""}
-        <div class="mini-actions">${acoes}</div>
+        <div class="mini-actions">
+          ${acoes}
+          ${mover}
+          <button data-del-couple-drama="${d.id}">${icon("trash")} Tirar</button>
+        </div>
       </div>
     </article>`;
 }
@@ -2636,21 +2641,36 @@ function coupleDramasTemplate() {
   const fila = coupleDramas.filter((d) => d.status === "wishlist");
   const fim = coupleDramas.filter((d) => d.status === "watched" || d.status === "favorite");
   const grade = (lista, grupo) => `<section class="couple-drama-grid">${lista.map((d) => coupleDramaCard(d, grupo)).join("")}</section>`;
+  const temLista = state.dramas.some((d) => d.title);
   return `
     <div class="section-title"><h2>Assistindo</h2></div>
-    <form id="couple-add-drama-form" class="search-bar">
-      <select name="dramaId" required>
-        <option value="">Adicionar um dorama seu ao casal…</option>
-        ${coupleDramaOptions()}
-      </select>
-      <select name="status">
-        <option value="watching">Assistindo juntos</option>
-        <option value="wishlist">Queremos ver</option>
-        <option value="watched">Já vimos</option>
-        <option value="favorite">Favorito do casal</option>
-      </select>
-      <button class="btn" type="submit">Adicionar</button>
-    </form>
+    <section class="form-card couple-add">
+      <div class="field">
+        <label>Pra qual categoria?</label>
+        <select id="couple-add-cat">
+          <option value="watching">Assistindo juntos</option>
+          <option value="wishlist">Queremos ver</option>
+          <option value="watched">Já vimos</option>
+          <option value="favorite">Favorito do casal</option>
+        </select>
+      </div>
+      ${temLista ? `
+      <form id="couple-add-drama-form" class="search-bar">
+        <select name="dramaId" required>
+          <option value="">Pegar da minha lista…</option>
+          ${coupleDramaOptions()}
+        </select>
+        <button class="btn" type="submit">${icon("add")} Adicionar</button>
+      </form>
+      <div class="couple-add-or">ou busque um novo</div>` : ""}
+      <form id="couple-search-form" class="search-bar">
+        <input name="q" placeholder="Buscar dorama ou filme…" value="${esc(coupleAddSearch.query)}" autocomplete="off" />
+        <button class="btn ${temLista ? "secondary" : ""}" type="submit">Buscar</button>
+      </form>
+      ${coupleAddSearch.loading ? `<p class="muted" style="margin:10px 0 0">Buscando…</p>` : ""}
+      ${coupleAddSearch.results.length ? `<div class="search-results">${coupleAddSearch.results.slice(0, 8).map((d) => `<button type="button" class="search-result" data-couple-add-tmdb="${d.tmdbId}" data-media="${d.mediaType}"><img src="${esc(thumb(d.cover) || POSTER_PLACEHOLDER)}" alt="" loading="lazy" /><span class="search-result-info"><strong>${esc(d.title)}</strong><small>${esc(midiaEtiqueta(d))}${d.year ? ` · ${d.year}` : ""}</small></span></button>`).join("")}</div>` : ""}
+      <p class="muted" style="margin:10px 0 0;font-size:.82rem">💡 Tudo que vocês adicionarem ao casal também entra na sua lista pessoal.</p>
+    </section>
 
     <div class="section-title compact"><h2>▶️ Assistindo juntos</h2></div>
     ${ativos.length ? grade(ativos, "watching") : `<div class="empty">Nada em andamento. Movam um da fila ou adicionem um dorama. 🍿</div>`}
@@ -4153,10 +4173,14 @@ function bindShell() {
   document.querySelectorAll("[data-couple-move]").forEach((button) => {
     listen(button, "click", () => handleCoupleMove(button.dataset.coupleMove));
   });
-  document.querySelectorAll("[data-couple-fav]").forEach((button) => {
-    listen(button, "click", () => handleCoupleFav(button.dataset.coupleFav));
+  document.querySelectorAll("[data-couple-move-to]").forEach((sel) => {
+    listen(sel, "change", () => handleCoupleMoveTo(sel.dataset.coupleMoveTo, sel.value));
   });
   listen(document.querySelector("[data-couple-sortear-fila]"), "click", handleCoupleSortearFila);
+  listen(document.querySelector("#couple-search-form"), "submit", runCoupleSearch);
+  document.querySelectorAll("[data-couple-add-tmdb]").forEach((button) => {
+    listen(button, "click", () => handleCoupleAddTmdb(button.dataset.coupleAddTmdb, button.dataset.media));
+  });
   listen(document.querySelector("[data-couple-name]"), "click", handleCoupleSetName);
   listen(document.querySelector("[data-couple-recado]"), "click", handleCoupleRecado);
   listen(document.querySelector("[data-recado-shuffle]"), "click", handleRecadoShuffle);
@@ -4793,18 +4817,78 @@ async function compartilharCertificadoMarco(i) {
   }
 }
 
+// Categoria do casal -> status na lista pessoal.
+const CAT_CASAL_PARA_PESSOAL = { watching: "watching", wishlist: "wishlist", watched: "finished", favorite: "finished" };
+
+function coupleAddCat() {
+  return document.querySelector("#couple-add-cat")?.value || "watching";
+}
+
 async function handleCoupleAddDrama(event) {
   event.preventDefault();
-  const data = Object.fromEntries(new FormData(event.currentTarget));
-  const drama = state.dramas.find((d) => d.id === data.dramaId);
-  if (!drama || !state.couple) return;
+  const dramaId = new FormData(event.currentTarget).get("dramaId");
+  const drama = state.dramas.find((d) => d.id === dramaId);
+  if (!drama) { toast("Escolha um dorama da sua lista."); return; }
+  if (!state.couple) return;
   try {
-    await addCoupleDrama(state.couple.id, authUser.id, { ...drama, status: data.status });
+    await addCoupleDrama(state.couple.id, authUser.id, { ...drama, status: coupleAddCat() });
     coupleDramas = await loadCoupleDramas(state.couple.id);
     render();
     toast(`${drama.title} entrou no cantinho de vocês.`);
   } catch {
     toast("Não consegui adicionar esse dorama ao casal.");
+  }
+}
+
+async function runCoupleSearch(event) {
+  event.preventDefault();
+  const q = String(new FormData(event.currentTarget).get("q") || "").trim();
+  if (!q) return;
+  if (!tmdbReady()) { toast("Busca indisponível (TMDB sem token)."); return; }
+  coupleAddSearch = { query: q, loading: true, results: [] };
+  render();
+  try {
+    coupleAddSearch = { query: q, loading: false, results: await searchDramas(q) };
+  } catch {
+    coupleAddSearch = { query: q, loading: false, results: [] };
+    toast("Não consegui buscar agora.");
+  }
+  render();
+}
+
+// Adiciona um resultado da busca ao casal E espelha na lista pessoal (se faltar).
+async function handleCoupleAddTmdb(tmdbId, mediaType) {
+  const brief = coupleAddSearch.results.find((d) => d.tmdbId === Number(tmdbId));
+  if (!brief || !state.couple) return;
+  const status = coupleAddCat();
+  toast("Adicionando…");
+  let details;
+  try {
+    details = await getDramaDetails(Number(tmdbId), mediaType || brief.mediaType);
+  } catch {
+    details = brief;
+  }
+  const dados = { ...brief, ...details };
+  // Espelha na lista pessoal (regra: o que entra no casal entra no pessoal).
+  if (!state.dramas.some((d) => d.tmdbId && d.tmdbId === dados.tmdbId)) {
+    const personal = normalizeDrama({
+      ...dados,
+      id: createId(),
+      status: CAT_CASAL_PARA_PESSOAL[status] || "wishlist",
+      favorite: status === "favorite",
+    });
+    state.dramas = [personal, ...state.dramas];
+    saveState();
+    syncDrama(personal);
+  }
+  try {
+    await addCoupleDrama(state.couple.id, authUser.id, { ...dados, status });
+    coupleDramas = await loadCoupleDramas(state.couple.id);
+    coupleAddSearch = { query: "", loading: false, results: [] };
+    render();
+    toast(`${dados.title} entrou no casal e na sua lista. 💕`);
+  } catch {
+    toast("Não consegui adicionar ao casal.");
   }
 }
 
@@ -4820,16 +4904,17 @@ async function handleCoupleMove(id) {
   }
 }
 
-// Favoritar/desfavoritar um finalizado.
-async function handleCoupleFav(id) {
+// Mover um dorama do casal para qualquer categoria (select de cada card).
+async function handleCoupleMoveTo(id, status) {
   const d = coupleDramas.find((x) => x.id === id);
-  if (!d) return;
+  if (!d || d.status === status) return;
   try {
-    await updateCoupleDrama(id, { status: d.status === "favorite" ? "watched" : "favorite" });
+    await updateCoupleDrama(id, { status });
     coupleDramas = await loadCoupleDramas(state.couple.id);
     render();
+    toast(`Movido para ${coupleStatusLabel[status] || status}.`);
   } catch {
-    toast("Não consegui atualizar.");
+    toast("Não consegui mover.");
   }
 }
 

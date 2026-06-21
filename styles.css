@@ -1238,6 +1238,16 @@ textarea:focus {
   line-height: 1.55;
   white-space: pre-wrap;
 }
+.couple-add .field { margin-bottom: 10px; }
+.couple-add .search-bar { margin-bottom: 8px; }
+.couple-add-or {
+  text-align: center;
+  color: var(--cor-texto-suave);
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 4px 0 8px;
+}
+
 .recado-actions {
   display: flex;
   flex-wrap: wrap;
