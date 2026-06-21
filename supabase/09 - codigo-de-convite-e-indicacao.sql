@@ -37,6 +37,8 @@ end;
 $$;
 
 -- Painel admin: passa a mostrar quem convidou e quantas a pessoa convidou.
+-- (Precisa dropar antes porque o tipo de retorno mudou — ganhou 2 colunas.)
+drop function if exists public.admin_users();
 create or replace function public.admin_users()
 returns table (id uuid, name text, nickname text, since int, email text, dramas bigint, invited_by_name text, invites bigint)
 language plpgsql
