@@ -117,6 +117,11 @@ button {
   box-shadow: 0 10px 26px color-mix(in srgb, var(--cor-primaria) 40%, transparent);
 }
 
+.logo-mark {
+  width: 56%;
+  height: 56%;
+}
+
 .brand h1 {
   margin: 0;
   font-size: 1.1rem;
@@ -153,9 +158,13 @@ button {
 }
 
 .nav button.active {
-  background: linear-gradient(135deg, var(--cor-primaria), var(--cor-secundaria));
+  background: var(--cor-primaria);
   color: var(--cor-primaria-texto);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--cor-primaria) 35%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--cor-primaria) 28%, transparent);
+}
+
+.nav button.active .ico {
+  stroke: var(--cor-primaria-texto);
 }
 
 .nav .nav-label {
