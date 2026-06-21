@@ -368,6 +368,15 @@ export async function updateCoupleCapa(coupleId, capa) {
   if (error) throw error;
 }
 
+// Tema compartilhado do casal: quando um muda, vale pros dois (vive no casal).
+export async function saveCoupleTheme(coupleId, temaId, temaCustomJson) {
+  const { error } = await supabase
+    .from("couples")
+    .update({ tema: temaId, tema_custom: temaCustomJson || null })
+    .eq("id", coupleId);
+  if (error) throw error;
+}
+
 export async function loadCoupleDramas(coupleId) {
   const { data, error } = await supabase
     .from("couple_dramas")

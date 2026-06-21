@@ -18,6 +18,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: cria o espaço "Nós dois" (tabelas do casal + segurança). Código único, máx. 2 pessoas, só o casal vê os dados.
 - Status: você confirmou que já rodou a migração 13.
 
+### 1c. Rodar a migração 14 no Supabase (tema do casal)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/14 - tema-do-casal.sql` e clicar em **Run**
+- Pra quê: deixa o **tema do ambiente "Nós dois" ser compartilhado** — quando um muda, vale pros dois
+- Sem isso: o ambiente do casal funciona normal, só o **tema-do-casal não salva** (cada um vê o tema base)
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

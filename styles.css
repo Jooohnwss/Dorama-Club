@@ -1064,6 +1064,99 @@ textarea:focus {
   padding: 22px;
 }
 
+/* ---------- Portal "Nós dois" (entrar/voltar do ambiente do casal) ---------- */
+.couple-portal-btn {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 13px;
+  border-radius: var(--raio-sm);
+  background: color-mix(in srgb, var(--cor-primaria) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 32%, transparent);
+  color: var(--cor-texto);
+  font-weight: 800;
+  text-align: left;
+}
+.couple-portal-btn:hover {
+  background: color-mix(in srgb, var(--cor-primaria) 20%, transparent);
+}
+.couple-portal-btn .ico {
+  color: var(--cor-primaria);
+}
+.couple-portal-btn.back {
+  margin-top: auto;
+  background: var(--cor-superficie-2);
+  border-color: var(--cor-borda);
+}
+.couple-portal-btn.back .ico {
+  color: var(--cor-texto-suave);
+}
+
+/* Card de destaque do casal na Home */
+.couple-home-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 16px;
+  text-align: left;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 26%, transparent);
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--cor-primaria) 16%, transparent), transparent 42%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--cor-secundaria) 16%, transparent), transparent 42%),
+    color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+  color: var(--cor-texto);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--cor-sombra) 45%, transparent);
+}
+.couple-home-card:hover {
+  filter: brightness(1.02);
+}
+.couple-home-emoji {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  font-size: 1.9rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--cor-primaria) 15%, transparent);
+}
+.couple-home-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.couple-home-text span {
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  color: var(--cor-texto-suave);
+}
+.couple-home-text strong {
+  font-size: 1.05rem;
+}
+.couple-home-text small {
+  color: var(--cor-texto-suave);
+}
+.couple-home-cta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  color: var(--cor-primaria);
+}
+.couple-home-cta .ico {
+  width: 16px;
+  height: 16px;
+}
+
 .couple-welcome span,
 .couple-hero span,
 .couple-drama-card span,
@@ -2048,6 +2141,26 @@ textarea:focus {
   .brand,
   .logout {
     display: none;
+  }
+
+  /* No app normal, o portal "Nós dois" mora no card da Home (não na barra). */
+  .sidebar:not(.couple-sidebar) > .couple-portal-btn {
+    display: none;
+  }
+
+  /* No ambiente do casal, "Voltar pro app" vira um item da barra inferior. */
+  .couple-sidebar .couple-portal-btn.back {
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 54px;
+    margin-top: 0;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 14px;
+    background: transparent;
+    font-size: 0.66rem;
+    text-align: center;
   }
 
   .main {

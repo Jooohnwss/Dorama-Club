@@ -64,6 +64,7 @@ import {
   coupleMembersList,
   leaveCouple,
   updateCoupleCapa,
+  saveCoupleTheme,
   loadCoupleDramas,
   addCoupleDrama,
   updateCoupleDrama,
@@ -200,6 +201,7 @@ const defaults = {
   club: null,
   clubs: [],
   couple: null,
+  space: "solo", // "solo" (app normal) | "couple" (ambiente do casal "Nós dois")
 };
 
 let state = loadState();
@@ -303,7 +305,7 @@ const TUTORIAL_STEPS = [
   { emoji: "👯", title: "Doramigas e clube", body: "Na aba <strong>Doramigas</strong> você cria ou entra num clube pelo código, surta no mural (com trava de spoiler!), vê o dorama do mês e o quanto combinam." },
   { emoji: "🌈", title: "Humor do dia", body: "Na <strong>Início</strong>, diz como tá se sentindo e o app sugere um dorama pra esse humor. Bom dia de chorar, dia de rir, dia de raiva — tem pra tudo." },
   { emoji: "🎨", title: "Temas", body: "No <strong>Perfil</strong> você troca o tema do app. Dá até pra montar um tema com as cores do seu dorama favorito. O símbolo lá em cima muda de cor junto. 💅" },
-  { emoji: "💕", title: "Nós dois", body: "Na aba <strong>Nós dois</strong>, crie um espaço privado por código para guardar doramas vistos juntos, memórias, cartinhas e dates dorameiros." },
+  { emoji: "💕", title: "Nós dois", body: "Toque em <strong>Nós dois</strong> (o coração 💕 no menu, ou o card na Início) para entrar no cantinho do casal: um espaço privado por código com doramas vistos juntos, memórias, cartinhas, dates e até um tema só de vocês." },
 ];
 
 function tutorialVisto() {
@@ -413,6 +415,8 @@ let coupleDiary = [];
 let coupleAbout = {};
 let coupleLetters = [];
 let coupleLoading = false;
+let coupleSection = "inicio"; // seção interna do ambiente do casal
+let temaSearchCasal = { query: "", loading: false, results: [] }; // busca de tema dentro do casal
 // Favoritos especiais (aba Perfil).
 let favoritos = [];
 let favoritosFor = null;
@@ -579,10 +583,10 @@ function temaCorrente() {
   return acharTema(id);
 }
 
-function aplicarTema(id) {
-  const tema = id === "custom" ? temaCorrente() : acharTema(id);
+// Aplica um objeto de tema já resolvido (variáveis CSS + cena de fundo).
+function aplicarTemaObj(tema, fallbackId) {
   const root = document.documentElement;
-  root.dataset.tema = tema.id || id;
+  root.dataset.tema = tema.id || fallbackId;
   for (const [chave, valor] of Object.entries(tema.variaveis)) {
     root.style.setProperty(chave, valor);
   }
@@ -591,6 +595,33 @@ function aplicarTema(id) {
     "--bg-cena",
     tema.backdrop ? `linear-gradient(${veu}, ${veu}), url("${tema.backdrop}")` : "none",
   );
+}
+
+// Resolve um tema por id (+ JSON custom opcional, ex.: tema do casal).
+function resolverTema(id, customJson) {
+  if (id === "custom") {
+    try {
+      const t = JSON.parse(customJson || "null");
+      if (t && t.variaveis) return t;
+    } catch {
+      /* ignore */
+    }
+  }
+  return acharTema(id);
+}
+
+function aplicarTema(id) {
+  aplicarTemaObj(id === "custom" ? temaCorrente() : acharTema(id), id);
+}
+
+// Aplica o tema do ambiente atual: pessoal (solo) ou compartilhado (casal).
+function aplicarTemaAmbiente() {
+  if (state.space === "couple" && state.couple && (state.couple.tema || state.couple.temaCustom)) {
+    const id = state.couple.tema || temaPadrao.id;
+    aplicarTemaObj(resolverTema(id, state.couple.temaCustom), id);
+  } else {
+    aplicarTema(temaAtual());
+  }
 }
 
 function temaAtual() {
@@ -659,13 +690,13 @@ function clarear([r, g, b], minLum = 95) {
   return [Math.round(r), Math.round(g), Math.round(b)];
 }
 
-async function usarDoramaComoTema(drama) {
-  toast("Montando o tema…");
+// Monta o objeto de tema "custom" a partir das cores de um dorama (TMDB).
+async function montarTemaCustom(drama) {
   const cor = clarear(await extrairCor(drama.cover || drama.backdrop));
   const [r, g, b] = cor;
   const lum = (r * 299 + g * 587 + b * 114) / 1000;
   const corTexto = lum > 150 ? "#15101f" : "#ffffff";
-  const tema = {
+  return {
     id: "custom",
     nome: drama.title,
     backdrop: drama.backdrop || drama.cover,
@@ -683,6 +714,11 @@ async function usarDoramaComoTema(drama) {
       "--fonte-base": 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif',
     },
   };
+}
+
+async function usarDoramaComoTema(drama) {
+  toast("Montando o tema…");
+  const tema = await montarTemaCustom(drama);
   const customJson = JSON.stringify(tema);
   try {
     localStorage.setItem(TEMA_CUSTOM_KEY, customJson);
@@ -695,6 +731,46 @@ async function usarDoramaComoTema(drama) {
   aplicarTema("custom");
   render();
   toast(`Tema: ${drama.title} 🎬`);
+}
+
+// ---------- Tema do casal (compartilhado: muda pros dois) ----------
+function salvarTemaCasal(id) {
+  if (!state.couple) return;
+  state.couple.tema = id;
+  state.couple.temaCustom = "";
+  saveState();
+  aplicarTemaAmbiente();
+  if (cloudOn()) saveCoupleTheme(state.couple.id, id, null).catch(() => {});
+  render();
+}
+
+async function usarDoramaComoTemaCasal(drama) {
+  if (!state.couple) return;
+  toast("Montando o tema de vocês…");
+  const tema = await montarTemaCustom(drama);
+  const customJson = JSON.stringify(tema);
+  state.couple.tema = "custom";
+  state.couple.temaCustom = customJson;
+  saveState();
+  temaSearchCasal = { query: "", loading: false, results: [] };
+  aplicarTemaAmbiente();
+  if (cloudOn()) saveCoupleTheme(state.couple.id, "custom", customJson).catch(() => {});
+  render();
+  toast(`Tema de vocês: ${drama.title} 🎬`);
+}
+
+async function runTemaSearchCasal(event) {
+  event.preventDefault();
+  const query = String(new FormData(event.currentTarget).get("q") || "").trim();
+  if (!query) return;
+  temaSearchCasal = { query, loading: true, results: [] };
+  render();
+  try {
+    temaSearchCasal = { query, loading: false, results: await searchDramas(query) };
+  } catch {
+    temaSearchCasal = { query, loading: false, results: [] };
+  }
+  render();
 }
 
 async function runTemaSearch(event) {
@@ -722,6 +798,7 @@ function loadState() {
     merged.club = saved.club || null;
     merged.clubs = Array.isArray(saved.clubs) ? saved.clubs : [];
     merged.couple = saved.couple || null;
+    merged.space = saved.space === "couple" ? "couple" : "solo";
     return merged;
   } catch {
     return cloneDefaults();
@@ -810,11 +887,12 @@ function render() {
     if (!tutorialVisto()) tutorial = { step: 0 };
   }
 
+  const noCasal = state.space === "couple";
   app().innerHTML = `
-    <div class="app shell">
-      ${sidebarTemplate()}
+    <div class="app shell${noCasal ? " couple-space" : ""}">
+      ${noCasal ? coupleSidebarTemplate() : sidebarTemplate()}
       <main class="main">
-        ${viewTemplate()}
+        ${noCasal ? coupleSpaceView() : viewTemplate()}
       </main>
       ${modal ? modalTemplate() : ""}
       ${uiModalTemplate()}
@@ -932,7 +1010,6 @@ function sidebarTemplate() {
     ["lists", "Listas", "lists"],
     ["discover", "Descobrir", "compass"],
     ["club", "Doramigas", "club"],
-    ["couple", "Nós dois", "heart"],
     ["profile", "Perfil", "profile"],
   ];
   if (isAdmin()) items.push(["admin", "Admin", "admin"]);
@@ -949,7 +1026,37 @@ function sidebarTemplate() {
       <nav class="nav">
         ${items.map(([key, label, ic]) => `<button class="${state.view === key ? "active" : ""}" data-view="${key}">${icon(ic)}${key === "club" && clubHasNews ? `<span class="nav-dot"></span>` : ""}<span class="nav-label">${label}</span></button>`).join("")}
       </nav>
+      <button class="couple-portal-btn" data-enter-couple>${icon("heart")}<span>Nós dois</span></button>
       ${supabaseReady() ? `<button class="logout" data-logout>${icon("out")}<span>Sair</span></button>` : ""}
+    </aside>
+  `;
+}
+
+// Sidebar do ambiente do casal: seções próprias + voltar pro app.
+function coupleSidebarTemplate() {
+  const temCasal = Boolean(state.couple);
+  const secoes = [
+    ["inicio", "Início", "home"],
+    ["assistindo", "Assistindo", "play"],
+    ["diario", "Diário", "lists"],
+    ["sobre", "Sobre nós", "heart"],
+    ["cartinhas", "Cartinhas", "share"],
+    ["tema", "Tema", "paint"],
+  ];
+  const nome = state.couple?.title || "Nós dois";
+  return `
+    <aside class="sidebar couple-sidebar">
+      <div class="brand">
+        <div class="logo">${logoMark()}</div>
+        <div>
+          <h1>${esc(nome)}</h1>
+          <p>nosso cantinho de doramas</p>
+        </div>
+      </div>
+      ${temCasal ? `<nav class="nav">
+        ${secoes.map(([key, label, ic]) => `<button class="${coupleSection === key ? "active" : ""}" data-couple-section="${key}">${icon(ic)}<span class="nav-label">${label}</span></button>`).join("")}
+      </nav>` : `<nav class="nav"></nav>`}
+      <button class="couple-portal-btn back" data-leave-space>${icon("out")}<span>Voltar pro app</span></button>
     </aside>
   `;
 }
@@ -961,7 +1068,6 @@ function viewTemplate() {
     add: addTemplate,
     lists: listsTemplate,
     club: clubTemplate,
-    couple: coupleTemplate,
     profile: profileTemplate,
     admin: adminTemplate,
   };
@@ -1356,6 +1462,35 @@ function watchingCarousel(lista) {
     </section>`;
 }
 
+// Card de destaque do casal na Home — portal pro ambiente "Nós dois".
+function homeCoupleCard() {
+  if (!cloudOn()) return "";
+  if (state.couple) {
+    const nome = state.couple.title || "Nosso cantinho";
+    const frase = state.couple.tagline || "Doramas, dates e memórias só de vocês dois.";
+    return `
+      <button class="couple-home-card" data-home-couple>
+        <div class="couple-home-emoji">💕</div>
+        <div class="couple-home-text">
+          <span>Nós dois</span>
+          <strong>${esc(nome)}</strong>
+          <small>${esc(frase)}</small>
+        </div>
+        <span class="couple-home-cta">Abrir ${icon("heart")}</span>
+      </button>`;
+  }
+  return `
+    <button class="couple-home-card empty" data-home-couple>
+      <div class="couple-home-emoji">💕</div>
+      <div class="couple-home-text">
+        <span>Nós dois</span>
+        <strong>Criem o cantinho de vocês</strong>
+        <small>Um espaço privado por código pra guardar doramas, memórias e dates do casal.</small>
+      </div>
+      <span class="couple-home-cta">Conhecer ${icon("heart")}</span>
+    </button>`;
+}
+
 function homeTemplate() {
   const profile = state.profile;
   const stats = [
@@ -1426,6 +1561,7 @@ function homeTemplate() {
              </div>
            </div>`}
     </section>
+    ${homeCoupleCard()}
     <section class="grid stats">
       ${stats.map(([label, value, key]) => key
         ? `<button class="stat tappable" data-list="${key}"><span class="muted">${label}</span><strong>${value}</strong></button>`
@@ -2222,14 +2358,14 @@ function coupleLettersTemplate() {
     <section class="grid cards">${letters}</section>`;
 }
 
-function coupleTemplate() {
-  if (!state.couple) return coupleSetupTemplate();
-  if (coupleFor !== state.couple.id) return `<div class="section-title"><h2>Nós dois</h2></div><div class="empty">Carregando o cantinho de vocês…</div>`;
+// Seção "Início" do casal: capa, stats, timeline, editar capa.
+function coupleInicioSection() {
   return `
     ${coupleHeroTemplate()}
     <section class="grid stats">${coupleStats().map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}</section>
     <div class="section-title"><h2>Linha do tempo de vocês</h2></div>
     ${coupleTimelineTemplate()}
+    <div class="section-title"><h2>Capa do casal</h2></div>
     <section class="form-card">
       <form id="couple-capa-form" class="form-grid">
         <div class="field"><label>Nome da capa</label><input name="title" value="${esc(state.couple.title || "")}" placeholder="Nós dois" /></div>
@@ -2237,11 +2373,69 @@ function coupleTemplate() {
         <div class="field full"><label>Frase do casal</label><input name="tagline" value="${esc(state.couple.tagline || "")}" placeholder="Nosso cantinho de doramas e dates." /></div>
         <div class="actions field full"><button class="btn secondary" type="submit">Salvar capa</button><button class="btn ghost" type="button" data-leave-couple>Sair deste casal</button></div>
       </form>
-    </section>
-    ${coupleDramasTemplate()}
-    ${coupleDiaryTemplate()}
-    ${coupleAboutTemplate()}
-    ${coupleLettersTemplate()}`;
+    </section>`;
+}
+
+// Seção "Tema": o mesmo seletor de temas, mas salvando NO casal (vale pros dois).
+function coupleTemaSection() {
+  const atual = state.couple?.tema || "";
+  const custom = atual === "custom" ? resolverTema("custom", state.couple?.temaCustom) : null;
+  const buscaDorama = `
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 8px;font-weight:800">🎬 Tema com a cara de um dorama</p>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">Busca um dorama e o cantinho de vocês fica com as cores dele. Quando um muda, vale pros dois. 💕</p>
+      <form id="tema-casal-search-form" class="search-bar">
+        <input name="q" placeholder="Ex.: Goblin, Rainha das Lágrimas…" value="${esc(temaSearchCasal.query)}" autocomplete="off" />
+        <button class="btn" type="submit">Buscar</button>
+      </form>
+      ${temaSearchCasal.loading ? `<p class="muted" style="margin-top:10px">Buscando…</p>` : ""}
+      ${temaSearchCasal.results.length
+        ? `<div class="search-results">${temaSearchCasal.results
+            .slice(0, 12)
+            .map((d) => `<button type="button" class="search-result" data-tema-dorama-casal="${d.tmdbId}"><img src="${esc(thumb(d.cover) || POSTER_PLACEHOLDER)}" alt="" loading="lazy" /><span class="search-result-info"><strong>${esc(d.title)}</strong><small>${d.year || "—"}</small></span></button>`)
+            .join("")}</div>`
+        : ""}
+      ${custom ? `<p class="muted" style="margin-top:12px">Tema de vocês: <strong style="color:var(--cor-texto)">🎬 ${esc(custom.nome)}</strong></p>` : ""}
+    </section>`;
+
+  const grids = categorias
+    .map((categoria) => {
+      const lista = temas.filter((tema) => tema.categoria === categoria);
+      return `
+        <p class="muted" style="margin:6px 0 8px;font-weight:800">${esc(categoria)}</p>
+        <section class="tema-grid">
+          ${lista.map((tema) => {
+            const fundo = tema.backdrop
+              ? `background-image:url('${tema.backdrop}')`
+              : `background:linear-gradient(135deg, ${tema.variaveis["--cor-primaria"]}, ${tema.variaveis["--cor-secundaria"]})`;
+            return `
+              <button type="button" class="tema-card ${atual === tema.id ? "active" : ""}" data-tema-casal="${tema.id}">
+                <span class="tema-swatch" style="${fundo}">
+                  <span class="emoji">${tema.marca.emoji}</span>
+                  <span class="dot" style="background:${tema.variaveis["--cor-primaria"]}"></span>
+                </span>
+                <span class="tema-info"><strong>${esc(tema.nome)}</strong><small>${esc(tema.descricao)}</small></span>
+              </button>`;
+          }).join("")}
+        </section>`;
+    })
+    .join("");
+
+  return `<div class="section-title"><h2>${icon("paint")} Tema de nós dois</h2></div>${buscaDorama}${grids}`;
+}
+
+// Roteador das seções do ambiente do casal.
+function coupleSpaceView() {
+  if (!state.couple) return coupleSetupTemplate();
+  if (coupleFor !== state.couple.id) return `<div class="section-title"><h2>Nós dois</h2></div><div class="empty">Carregando o cantinho de vocês…</div>`;
+  switch (coupleSection) {
+    case "assistindo": return coupleDramasTemplate();
+    case "diario": return coupleDiaryTemplate();
+    case "sobre": return coupleAboutTemplate();
+    case "cartinhas": return coupleLettersTemplate();
+    case "tema": return coupleTemaSection();
+    default: return coupleInicioSection();
+  }
 }
 
 function timeAgo(iso) {
@@ -3358,6 +3552,23 @@ function bindShell() {
   listen(document.querySelector("[data-copy-couple-code]"), "click", copyCoupleCode);
   listen(document.querySelector("[data-date-roulette]"), "click", handleDateRoulette);
   listen(document.querySelector("[data-leave-couple]"), "click", handleLeaveCouple);
+  listen(document.querySelector("[data-enter-couple]"), "click", enterCoupleSpace);
+  document.querySelectorAll("[data-home-couple]").forEach((b) => listen(b, "click", enterCoupleSpace));
+  listen(document.querySelector("[data-leave-space]"), "click", leaveCoupleSpace);
+  document.querySelectorAll("[data-couple-section]").forEach((button) => {
+    listen(button, "click", () => setCoupleSection(button.dataset.coupleSection));
+  });
+  // Tema do casal (compartilhado)
+  document.querySelectorAll("[data-tema-casal]").forEach((button) => {
+    listen(button, "click", () => salvarTemaCasal(button.dataset.temaCasal));
+  });
+  listen(document.querySelector("#tema-casal-search-form"), "submit", runTemaSearchCasal);
+  document.querySelectorAll("[data-tema-dorama-casal]").forEach((button) => {
+    listen(button, "click", () => {
+      const d = temaSearchCasal.results.find((x) => x.tmdbId === Number(button.dataset.temaDoramaCasal));
+      if (d) usarDoramaComoTemaCasal(d);
+    });
+  });
   document.querySelectorAll("[data-couple-ep]").forEach((button) => {
     listen(button, "click", () => handleCoupleEpisode(button.dataset.coupleEp));
   });
@@ -3435,7 +3646,7 @@ function bindShell() {
   if (state.view === "club" && state.club && clubMembersFor !== state.club.id) loadClubMembers();
   if (state.view === "club" && state.club && clubFeedFor !== state.club.id) loadClubFeed();
   if (state.view === "club" && state.club && clubSocial.for !== state.club.id) loadClubSocial();
-  if (state.view === "couple" && state.couple && coupleFor !== state.couple.id) loadCoupleData();
+  if (state.space === "couple" && state.couple && coupleFor !== state.couple.id) loadCoupleData();
   if (state.view === "profile" && casaisFor !== (authUser?.id || "_")) loadCasaisData();
   if (state.view === "profile" && favoritosFor !== (authUser?.id || "_")) loadFavoritosData();
 }
@@ -3750,12 +3961,52 @@ async function loadCoupleData() {
   render();
 }
 
+// Converte a linha do banco (couples) para o formato do estado (camelCase + tema).
+function mapCoupleRow(couple) {
+  return couple
+    ? {
+        id: couple.id,
+        code: couple.code,
+        title: couple.title || "",
+        tagline: couple.tagline || "",
+        specialDate: couple.special_date || "",
+        tema: couple.tema || "",
+        temaCustom: couple.tema_custom || "",
+      }
+    : null;
+}
+
 async function refreshCouple() {
   const couple = await myCouple();
-  state.couple = couple ? { id: couple.id, code: couple.code, title: couple.title || "", tagline: couple.tagline || "", specialDate: couple.special_date || "" } : null;
+  state.couple = mapCoupleRow(couple);
   coupleFor = null;
   saveState();
+  aplicarTemaAmbiente();
   if (state.couple) await loadCoupleData();
+  render();
+}
+
+// Entra no ambiente do casal (troca de "mundo", aplica o tema compartilhado).
+function enterCoupleSpace() {
+  state.space = "couple";
+  coupleSection = "inicio";
+  saveState();
+  aplicarTemaAmbiente();
+  render();
+  // Busca a versão mais recente do casal (pega tema que a outra pessoa mudou).
+  if (cloudOn()) refreshCouple().catch(() => {});
+}
+
+// Volta pro app normal (restaura o tema pessoal). Não desfaz o vínculo.
+function leaveCoupleSpace() {
+  state.space = "solo";
+  saveState();
+  aplicarTemaAmbiente();
+  render();
+}
+
+function setCoupleSection(sec) {
+  coupleSection = sec;
   render();
 }
 
@@ -3765,8 +4016,9 @@ async function handleCreateCouple(event) {
   const title = String(new FormData(event.currentTarget).get("title") || "").trim();
   try {
     const couple = await createCouple(title);
-    state.couple = { id: couple.id, code: couple.code, title: couple.title || "", tagline: couple.tagline || "", specialDate: couple.special_date || "" };
+    state.couple = mapCoupleRow(couple);
     saveState();
+    aplicarTemaAmbiente();
     toast("Espaço do casal criado. Envie o código para a sua pessoa. 💕");
     await loadCoupleData();
   } catch (error) {
@@ -3785,8 +4037,9 @@ async function handleJoinCouple(event) {
   if (!ok) return;
   try {
     const couple = await joinCouple(code);
-    state.couple = { id: couple.id, code: couple.code, title: couple.title || "", tagline: couple.tagline || "", specialDate: couple.special_date || "" };
+    state.couple = mapCoupleRow(couple);
     saveState();
+    aplicarTemaAmbiente();
     toast("Você entrou no espaço do casal. 💕");
     await loadCoupleData();
   } catch (error) {
@@ -3950,7 +4203,9 @@ async function handleLeaveCouple() {
     coupleDiary = [];
     coupleAbout = {};
     coupleLetters = [];
+    state.space = "solo"; // volta pro app normal
     saveState();
+    aplicarTemaAmbiente(); // restaura o tema pessoal
     render();
     toast("Você saiu do espaço do casal.");
   } catch {
@@ -4323,11 +4578,13 @@ async function hydrateFromCloud() {
   }
   try {
     const couple = await myCouple();
-    state.couple = couple ? { id: couple.id, code: couple.code, title: couple.title || "", tagline: couple.tagline || "", specialDate: couple.special_date || "" } : null;
+    state.couple = mapCoupleRow(couple);
   } catch {
     state.couple = null;
   }
+  if (!state.couple && state.space === "couple") state.space = "solo"; // perdi o vínculo? volta pro app
   saveState();
+  aplicarTemaAmbiente();
   resolveInvite();
   checarNovidadesClube().then(render);
 }
