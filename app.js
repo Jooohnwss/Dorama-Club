@@ -884,14 +884,70 @@ function destaqueHome() {
     .sort((a, b) => Number(b.currentEpisode || 0) - Number(a.currentEpisode || 0))[0] || state.dramas[0] || null;
 }
 
+const FRASES_DIA = [
+  "Hoje o coração aguenta um sofrimento? 💔",
+  "Bora surtar com qualidade. 💜",
+  "Cuidado: CEO frio à vista. 🧊",
+  "Lembra de beber água entre os episódios. 💧",
+  "Não tenha psicológico — tenha doramas. 🎬",
+  "Mais um dia, mais um surto. ✨",
+  "Chorar é de graça. Aproveita. 😭",
+  "Ele vai te magoar. E você vai amar. 🥲",
+];
+
+function fraseDoDia() {
+  const dia = Math.floor(Date.now() / 86400000);
+  return FRASES_DIA[dia % FRASES_DIA.length];
+}
+
+// Resultado do "humor de hoje" mostrado na própria home.
+let moodResult = null;
+
+function sugerirNoHome(tag) {
+  const generos = moodGenres[tag] || [];
+  const combina = (d) => (d.genres || []).some((g) => generos.includes(g));
+  const naLista = state.dramas.filter((d) => d.status === "wishlist");
+  let pool = naLista.filter(combina);
+  if (!pool.length) pool = state.dramas.filter(combina);
+  if (!pool.length) pool = naLista.length ? naLista : state.dramas;
+  moodResult = pool.length ? { tag, drama: pool[Math.floor(Math.random() * pool.length)] } : { tag, drama: null };
+  render();
+}
+
+function watchingCarousel(lista) {
+  if (!lista.length) return `<div class="empty">Nada em andamento. Que tal começar um? ✨</div>`;
+  return `
+    <section class="watch-row">
+      ${lista
+        .map((d) => {
+          const ep = Number(d.currentEpisode || 0);
+          const total = Number(d.episodes || 0);
+          const pct = total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
+          return `
+        <article class="watch-card">
+          <button class="watch-poster" data-detail="${d.id}" title="${esc(d.title)}">
+            <img src="${esc(thumb(d.cover) || POSTER_PLACEHOLDER)}" alt="${esc(d.title)}" loading="lazy" decoding="async" />
+            <span class="watch-progress"><span style="width:${pct}%"></span></span>
+          </button>
+          <strong class="watch-name">${esc(d.title)}</strong>
+          <div class="watch-actions">
+            <button data-plus-one="${d.id}" title="Marcar +1 episódio">＋1 ep</button>
+            <small>${total ? `${ep}/${total}` : `ep ${ep}`}</small>
+          </div>
+        </article>`;
+        })
+        .join("")}
+    </section>`;
+}
+
 function homeTemplate() {
   const profile = state.profile;
   const stats = [
-    ["Assistindo", byStatus("watching").length],
-    ["Watchlist", byStatus("wishlist").length],
-    ["Finalizados", byStatus("finished").length],
-    ["Favoritos", byStatus("favorites").length],
-    ["Desde", profile.since || "Hoje"],
+    ["Assistindo", byStatus("watching").length, "watching"],
+    ["Watchlist", byStatus("wishlist").length, "wishlist"],
+    ["Finalizados", byStatus("finished").length, "finished"],
+    ["Favoritos", byStatus("favorites").length, "favorites"],
+    ["Desde", profile.since || "Hoje", null],
   ];
 
   const statusIcons = { watching: "play", wishlist: "add", finished: "heart", paused: "detail", dropped: "trash", favorites: "heart", comfort: "heart" };
@@ -922,6 +978,7 @@ function homeTemplate() {
       <div>
         <strong>Olá, ${esc(profile.name)}!</strong>
         <span>${dashboardMeta.map(esc).join(" · ")}</span>
+        <span class="frase-dia">${esc(fraseDoDia())}</span>
       </div>
     </section>
     <section class="focus-card" ${destaque?.cover ? `style="--focus-cover:url('${esc(destaque.cover)}')"` : ""}>
@@ -934,9 +991,9 @@ function homeTemplate() {
              <p>${total ? `Episódio ${ep} de ${total}` : `Episódio ${ep}`}</p>
              <div class="focus-progress"><span style="width:${progressPct}%"></span></div>
              <div class="actions">
-               <button class="btn" data-detail="${destaque.id}">${icon("play")} Continuar</button>
-               <button class="btn secondary" data-comentar-surto="${destaque.id}">${icon("club")} Surto</button>
-               <button class="btn ghost" data-random>${icon("dice")} Sortear outro</button>
+               ${destaque.status === "watching" ? `<button class="btn" data-plus-one="${destaque.id}">${icon("add")} +1 episódio</button>` : ""}
+               <button class="btn secondary" data-detail="${destaque.id}">${icon("play")} Detalhes</button>
+               <button class="btn ghost" data-comentar-surto="${destaque.id}">${icon("club")} Surto</button>
              </div>
            </div>`
         : `<div class="focus-copy empty-focus">
@@ -950,7 +1007,9 @@ function homeTemplate() {
            </div>`}
     </section>
     <section class="grid stats">
-      ${stats.map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
+      ${stats.map(([label, value, key]) => key
+        ? `<button class="stat tappable" data-list="${key}"><span class="muted">${label}</span><strong>${value}</strong></button>`
+        : `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
     </section>
     <section class="home-strip">
       <button class="strip-card" ${decideCard.attrs}>
@@ -967,11 +1026,20 @@ function homeTemplate() {
     <section class="mood-panel">
       <div>
         <span>Humor de hoje</span>
-        <strong>Escolha um clima. Se tiver clube, suas doramigas veem no feed.</strong>
+        <strong>O que seu coração aguenta? Toque e eu sugiro na hora.</strong>
       </div>
       <div class="mood-row compact">
-        ${moods.map((mood) => `<button data-mood="${esc(mood.tag)}">${mood.emoji} ${esc(mood.label)}</button>`).join("")}
+        ${moods.map((mood) => `<button class="${moodResult?.tag === mood.tag ? "active" : ""}" data-mood-home="${esc(mood.tag)}">${mood.emoji} ${esc(mood.label)}</button>`).join("")}
       </div>
+      ${moodResult
+        ? moodResult.drama
+          ? `<button class="mood-result" data-detail="${moodResult.drama.id}">
+               <img src="${esc(thumb(moodResult.drama.cover) || POSTER_PLACEHOLDER)}" alt="" />
+               <div><span>Hoje combina com</span><strong>${esc(moodResult.drama.title)}</strong></div>
+               <em>${icon("play")} Ver</em>
+             </button>`
+          : `<div class="empty" style="margin-top:12px">Nada na sua lista com esse clima ainda. Adicione mais doramas! ✨</div>`
+        : ""}
     </section>
     <div class="section-title">
       <h2>Atalhos</h2>
@@ -987,7 +1055,7 @@ function homeTemplate() {
     <div class="section-title">
       <h2>${icon("play")} Assistindo agora</h2>
     </div>
-    ${dramaGrid(byStatus("watching"))}
+    ${watchingCarousel(watching)}
   `;
 }
 
@@ -2275,6 +2343,7 @@ async function handleLogout() {
   state.clubs = [];
   state.view = "home";
   addingClub = false;
+  moodResult = null;
   clubMembers = [];
   clubMembersFor = null;
   clubFeedItems = [];
@@ -2440,6 +2509,9 @@ function bindShell() {
 
   document.querySelectorAll("[data-mood]").forEach((button) => {
     listen(button, "click", () => sugerirPorHumor(button.dataset.mood));
+  });
+  document.querySelectorAll("[data-mood-home]").forEach((button) => {
+    listen(button, "click", () => sugerirNoHome(button.dataset.moodHome));
   });
 
   document.querySelectorAll("[data-discover]").forEach((button) => {
