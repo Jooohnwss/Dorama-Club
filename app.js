@@ -180,6 +180,7 @@ const defaults = {
   profile: null,
   dramas: [],
   club: null,
+  clubs: [],
 };
 
 let state = loadState();
@@ -201,6 +202,26 @@ let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop
 let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
+let addingClub = false; // mostrar formulários de criar/entrar mesmo já tendo clube
+
+// Troca o clube ativo (recarrega membros/feed/social do novo).
+function trocarClubeAtivo(club) {
+  state.club = club;
+  clubMembers = [];
+  clubMembersFor = null;
+  clubFeedItems = [];
+  clubFeedFor = null;
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
+  addingClub = false;
+}
+
+function handleSwitchClub(id) {
+  const club = (state.clubs || []).find((c) => c.id === id);
+  if (club) {
+    trocarClubeAtivo(club);
+    setState({ club });
+  }
+}
 let clubHasNews = false; // bolinha de novidade na aba Doramigas
 const SEEN_CLUB_KEY = "dorama-club-visto";
 
@@ -517,6 +538,7 @@ function loadState() {
     // Migração: garante que doramas salvos antigos recebam campos novos.
     merged.dramas = Array.isArray(saved.dramas) ? saved.dramas.map(normalizeDrama) : merged.dramas;
     merged.club = saved.club || null;
+    merged.clubs = Array.isArray(saved.clubs) ? saved.clubs : [];
     return merged;
   } catch {
     return cloneDefaults();
@@ -1057,33 +1079,48 @@ function listsTemplate() {
   `;
 }
 
+function clubFormsTemplate() {
+  const temClubes = (state.clubs || []).length > 0;
+  return `
+    <div class="section-title">
+      <h2>${temClubes ? "Outro clube" : "Clube das Doramigas"}</h2>
+      ${temClubes ? `<button class="btn ghost" data-cancel-add-club>Voltar</button>` : ""}
+    </div>
+    <section class="form-card">
+      <p class="muted">Crie um clube e convide suas doramigas pelo código — ou entre em um com o código que te passaram. Você pode estar em vários.</p>
+      <form id="create-club-form" class="form-grid">
+        <div class="field full">
+          <label for="club-name">Criar um clube</label>
+          <input id="club-name" name="name" placeholder="Clube das Doramigas" required />
+        </div>
+        <div class="actions field full"><button class="btn" type="submit">Criar clube</button></div>
+      </form>
+    </section>
+    <section class="form-card">
+      <form id="join-club-form" class="form-grid">
+        <div class="field full">
+          <label for="club-code">Entrar com código</label>
+          <input id="club-code" name="code" placeholder="DORAMA-1234" autocomplete="off" required />
+        </div>
+        <div class="actions field full"><button class="btn secondary" type="submit">Entrar no clube</button></div>
+      </form>
+    </section>
+  `;
+}
+
 function clubTemplate() {
-  if (!state.club) {
-    return `
-      <div class="section-title"><h2>Clube das Doramigas</h2></div>
-      <section class="form-card">
-        <p class="muted">Você ainda não está em um clube. Crie o seu e convide suas doramigas pelo código — ou entre em um clube com o código que te passaram.</p>
-        <form id="create-club-form" class="form-grid">
-          <div class="field full">
-            <label for="club-name">Criar um clube</label>
-            <input id="club-name" name="name" placeholder="Clube das Doramigas" required />
-          </div>
-          <div class="actions field full"><button class="btn" type="submit">Criar clube</button></div>
-        </form>
-      </section>
-      <section class="form-card">
-        <form id="join-club-form" class="form-grid">
-          <div class="field full">
-            <label for="club-code">Entrar com código</label>
-            <input id="club-code" name="code" placeholder="DORAMA-1234" autocomplete="off" required />
-          </div>
-          <div class="actions field full"><button class="btn secondary" type="submit">Entrar no clube</button></div>
-        </form>
-      </section>
-    `;
+  if (!state.clubs || state.clubs.length === 0 || addingClub) {
+    return clubFormsTemplate();
   }
 
+  const switcher = `
+    <div class="tabs">
+      ${state.clubs.map((c) => `<button class="${state.club?.id === c.id ? "active" : ""}" data-switch-club="${c.id}">${esc(c.name)}</button>`).join("")}
+      <button data-add-club>＋ Outro</button>
+    </div>`;
+
   return `
+    ${switcher}
     <div class="section-title">
       <h2>${esc(state.club.name)}</h2>
       <div style="display:flex;gap:8px">
@@ -2177,7 +2214,9 @@ async function handleLogout() {
   state.profile = null;
   state.dramas = [];
   state.club = null;
+  state.clubs = [];
   state.view = "home";
+  addingClub = false;
   clubMembers = [];
   clubMembersFor = null;
   clubFeedItems = [];
@@ -2317,6 +2356,17 @@ function bindShell() {
     listen(button, "click", () => handleComentarSurto(button.dataset.comentarSurto));
   });
   listen(document.querySelector("[data-rename-club]"), "click", handleRenameClub);
+  document.querySelectorAll("[data-switch-club]").forEach((button) => {
+    listen(button, "click", () => handleSwitchClub(button.dataset.switchClub));
+  });
+  listen(document.querySelector("[data-add-club]"), "click", () => {
+    addingClub = true;
+    render();
+  });
+  listen(document.querySelector("[data-cancel-add-club]"), "click", () => {
+    addingClub = false;
+    render();
+  });
 
   document.querySelectorAll("[data-pick]").forEach((button) => {
     listen(button, "click", () => pickResult(Number(button.dataset.pick)));
@@ -2782,9 +2832,10 @@ async function handleCreateClub(event) {
   const name = String(new FormData(event.currentTarget).get("name") || "").trim();
   try {
     const club = await createClub(name);
-    state.club = { id: club.id, name: club.name, code: club.code };
-    clubMembers = [];
-    setState({ club: state.club });
+    const c = { id: club.id, name: club.name, code: club.code };
+    state.clubs = [...(state.clubs || []), c];
+    trocarClubeAtivo(c);
+    setState({ club: c });
     loadClubMembers();
     toast(`Clube criado! Código: ${club.code}`);
   } catch (error) {
@@ -2797,9 +2848,10 @@ async function handleJoinClub(event) {
   const code = String(new FormData(event.currentTarget).get("code") || "").trim();
   try {
     const club = await joinClub(code);
-    state.club = { id: club.id, name: club.name, code: club.code };
-    clubMembers = [];
-    setState({ club: state.club });
+    const c = { id: club.id, name: club.name, code: club.code };
+    state.clubs = [...(state.clubs || []).filter((x) => x.id !== c.id), c];
+    trocarClubeAtivo(c);
+    setState({ club: c });
     loadClubMembers();
     toast(`Você entrou em ${club.name}.`);
   } catch (error) {
@@ -2809,14 +2861,18 @@ async function handleJoinClub(event) {
 
 async function handleLeaveClub() {
   if (!state.club) return;
+  if (!window.confirm(`Sair de "${state.club.name}"?`)) return;
+  const saindoId = state.club.id;
   try {
-    await leaveClub(state.club.id);
-    clubMembers = [];
-    clubMembersFor = null;
-    clubFeedItems = [];
-    clubFeedFor = null;
-    clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
-    setState({ club: null });
+    await leaveClub(saindoId);
+    state.clubs = (state.clubs || []).filter((c) => c.id !== saindoId);
+    const proximo = state.clubs[0] || null;
+    if (proximo) trocarClubeAtivo(proximo);
+    else {
+      trocarClubeAtivo(null);
+    }
+    setState({ club: proximo });
+    if (proximo) loadClubMembers();
     toast("Você saiu do clube.");
   } catch {
     toast("Não consegui sair do clube agora.");
@@ -2985,8 +3041,11 @@ async function hydrateFromCloud() {
   clubMembers = [];
   try {
     const clubs = await myClubs();
-    state.club = clubs.length ? { id: clubs[0].id, name: clubs[0].name, code: clubs[0].code } : null;
+    state.clubs = clubs.map((c) => ({ id: c.id, name: c.name, code: c.code }));
+    const ativoId = state.club?.id;
+    state.club = state.clubs.find((c) => c.id === ativoId) || state.clubs[0] || null;
   } catch {
+    state.clubs = [];
     state.club = null;
   }
   saveState();

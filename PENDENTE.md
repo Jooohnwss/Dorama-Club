@@ -30,10 +30,9 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
   (ex.: `doramaclub.vercel.app`) no painel do Vercel → Settings → Domains
 - Lembrar: se mudar a URL, atualizar também o **Site URL/Redirect** do Supabase (item 2)
 
-### 4. Vários clubes ao mesmo tempo
-- Hoje o app usa **um clube por vez**
-- Faltaria: entrar em vários clubes, trocar de clube e sair de um específico
-- É uma feature maior (mexe em como o clube é carregado) — fazer num passo dedicado
+### 4. ~~Vários clubes ao mesmo tempo~~ ✅ FEITO
+- Agora dá pra estar em vários clubes, trocar entre eles (abas no topo da tela
+  Doramigas) e sair de um específico.
 
 ---
 
