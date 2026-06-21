@@ -1223,31 +1223,41 @@ textarea:focus {
   white-space: pre-wrap;
 }
 
-/* ---------- Alternador Pessoal ↔ Nós dois (segmented, estilo app financeiro) ---------- */
+/* ---------- Alternador Pessoal ↔ Nós dois (na sidebar, estilo app financeiro) ---------- */
 .space-switch {
-  display: inline-flex;
-  gap: 6px;
-  margin-bottom: 16px;
-  padding: 5px;
-  border-radius: 14px;
+  display: flex;
+  width: 100%;
+  gap: 4px;
+  margin: 4px 0 10px;
+  padding: 4px;
+  border-radius: 12px;
   background: var(--cor-superficie-2);
   border: 1px solid var(--cor-borda);
 }
 .space-switch button {
+  flex: 1;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 10px;
+  gap: 5px;
+  padding: 8px 6px;
+  border-radius: 9px;
   background: transparent;
   color: var(--cor-texto-suave);
   font-weight: 800;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
+}
+.space-switch button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .space-switch button .ico {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }
 .space-switch button.on {
   background: var(--cor-primaria);
@@ -2389,12 +2399,11 @@ textarea:focus {
     display: none;
   }
 
-  /* No celular, o alternador ocupa a largura toda. */
+  /* No celular a sidebar vira barra inferior: o alternador não cabe lá.
+     A troca de ambiente no celular é pelo Perfil (criar/abrir) e pelo
+     "Voltar pro app" dentro do casal. */
   .space-switch {
-    display: flex;
-  }
-  .space-switch button {
-    flex: 1;
+    display: none;
   }
 
   .main {

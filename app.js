@@ -969,7 +969,6 @@ function render() {
     <div class="app shell${noCasal ? " couple-space" : ""}">
       ${noCasal ? coupleSidebarTemplate() : sidebarTemplate()}
       <main class="main">
-        ${spaceSwitchTemplate()}
         ${noCasal ? coupleSpaceView() : viewTemplate()}
       </main>
       ${modal ? modalTemplate() : ""}
@@ -1106,6 +1105,7 @@ function sidebarTemplate() {
       <nav class="nav">
         ${items.map(([key, label, ic]) => `<button class="${state.view === key ? "active" : ""}" data-view="${key}">${icon(ic)}${key === "club" && clubHasNews ? `<span class="nav-dot"></span>` : ""}<span class="nav-label">${label}</span></button>`).join("")}
       </nav>
+      ${spaceSwitchTemplate()}
       ${supabaseReady() ? `<button class="logout" data-logout>${icon("out")}<span>Sair</span></button>` : ""}
     </aside>
   `;
