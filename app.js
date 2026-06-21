@@ -885,21 +885,6 @@ function homeLiveCards() {
   const comfort = byStatus("comfort");
   const cards = [];
 
-  const atual = watching
-    .slice()
-    .sort((a, b) => Number(b.currentEpisode || 0) - Number(a.currentEpisode || 0))[0];
-  if (atual) {
-    const ep = Number(atual.currentEpisode || 0);
-    const total = Number(atual.episodes || 0);
-    const progresso = total ? `ep. ${ep} de ${total}` : `ep. ${ep}`;
-    cards.push({
-      title: "Continuar o surto",
-      text: `${atual.title} esta no ${progresso}.`,
-      attrs: `data-detail="${atual.id}"`,
-      cta: "Abrir",
-    });
-  }
-
   if (clubHasNews && state.club) {
     cards.push({
       title: "Tem novidade das doramigas",
@@ -978,6 +963,33 @@ function homeLiveCards() {
   return cards.slice(0, 3);
 }
 
+function homeHeroData() {
+  const watching = byStatus("watching");
+  const atual = watching
+    .slice()
+    .sort((a, b) => Number(b.currentEpisode || 0) - Number(a.currentEpisode || 0))[0];
+  if (!atual) {
+    return {
+      title: state.dramas.length ? "Qual vai ser o surto de hoje?" : "Vamos começar sua watchlist?",
+      subtitle: state.dramas.length ? "Escolha um humor, sorteie algo ou adicione o próximo dorama." : "Adicione um dorama e o app já monta seu cantinho.",
+      primary: { label: "Sortear próximo", attrs: "data-random", iconName: "dice" },
+      secondary: { label: "Adicionar dorama", attrs: `data-view="add"`, iconName: "add" },
+      extra: "",
+    };
+  }
+
+  const ep = Number(atual.currentEpisode || 0);
+  const total = Number(atual.episodes || 0);
+  const progresso = total ? `ep. ${ep}/${total}` : `ep. ${ep}`;
+  return {
+    title: "Continuar de onde parou?",
+    subtitle: `${atual.title} - ${progresso}`,
+    primary: { label: "Continuar", attrs: `data-detail="${atual.id}"`, iconName: "play" },
+    secondary: { label: "Registrar surto", attrs: `data-comentar-surto="${atual.id}"`, iconName: "club" },
+    extra: `<button class="btn ghost" data-random>${icon("dice")} Sortear outro</button>`,
+  };
+}
+
 function homeTemplate() {
   const profile = state.profile;
   const stats = [
@@ -990,17 +1002,24 @@ function homeTemplate() {
 
   const statusIcons = { watching: "play", wishlist: "add", finished: "heart", paused: "detail", dropped: "trash", favorites: "heart", comfort: "heart" };
   const liveCards = homeLiveCards();
+  const hero = homeHeroData();
 
   return `
     <section class="hero">
-      <div class="hero-top">
-        <img class="hero-avatar" src="${esc(avatarUrl(profile))}" alt="" />
-        <p class="kicker">Oi, ${esc(profile.name)} ${temaCorrente().marca?.emoji || "💜"}</p>
+      <div class="hero-main">
+        <div class="hero-top">
+          <img class="hero-avatar" src="${esc(avatarUrl(profile))}" alt="" />
+          <p class="kicker">Oi, ${esc(profile.name)} ${temaCorrente().marca?.emoji || "💜"}</p>
+        </div>
+        <div class="hero-copy">
+          <h2>${esc(hero.title)}</h2>
+          <p class="hero-subtitle">${esc(hero.subtitle)}</p>
+        </div>
       </div>
-      <h2>Qual vai ser o surto de hoje?</h2>
-      <div class="actions">
-        <button class="btn secondary" data-view="add">${icon("add")} Adicionar dorama</button>
-        <button class="btn secondary" data-random>${icon("dice")} Sortear próximo</button>
+      <div class="actions hero-actions">
+        <button class="btn" ${hero.primary.attrs}>${icon(hero.primary.iconName)} ${esc(hero.primary.label)}</button>
+        <button class="btn secondary" ${hero.secondary.attrs}>${icon(hero.secondary.iconName)} ${esc(hero.secondary.label)}</button>
+        ${hero.extra}
       </div>
     </section>
     ${state.dramas.length === 0

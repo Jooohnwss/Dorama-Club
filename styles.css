@@ -228,25 +228,56 @@ button {
 
 /* ---------- Hero ---------- */
 .hero {
+  align-items: center;
+  backdrop-filter: blur(10px);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--cor-primaria) 20%, transparent), color-mix(in srgb, var(--cor-secundaria) 12%, transparent)),
+    color-mix(in srgb, var(--cor-superficie) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cor-borda) 80%, transparent);
+  border-radius: 20px;
+  box-shadow: 0 18px 38px color-mix(in srgb, var(--cor-sombra) 70%, transparent);
+  color: var(--cor-texto);
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  min-height: 142px;
+  padding: 22px 24px;
   position: relative;
   overflow: hidden;
-  border-radius: 24px;
-  padding: 30px;
-  background: linear-gradient(135deg, var(--cor-primaria), var(--cor-secundaria));
-  color: var(--cor-primaria-texto);
-  box-shadow: var(--sombra);
+}
+
+.hero-main {
+  min-width: 0;
 }
 
 .hero p.kicker {
-  margin: 0 0 6px;
-  font-size: 0.98rem;
-  opacity: 0.92;
+  color: var(--cor-texto-suave);
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
 }
 
 .hero h2 {
   margin: 0;
-  font-size: clamp(1.8rem, 4vw, 2.8rem);
-  line-height: 1.05;
+  font-size: clamp(1.55rem, 2.5vw, 2.2rem);
+  line-height: 1.08;
+}
+
+.hero-copy {
+  margin-top: 12px;
+}
+
+.hero-subtitle {
+  color: var(--cor-texto-suave);
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 7px 0 0;
+}
+
+.hero-actions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  margin-top: 0;
 }
 
 /* ---------- Botões ---------- */
@@ -346,9 +377,14 @@ button {
 }
 
 .hero .actions .btn.secondary {
-  background: rgba(255, 255, 255, 0.16);
-  color: var(--cor-primaria-texto);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: color-mix(in srgb, var(--cor-superficie) 72%, transparent);
+  color: var(--cor-texto);
+  border-color: color-mix(in srgb, var(--cor-borda) 80%, transparent);
+}
+
+.hero .actions .btn.ghost {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--cor-borda) 78%, transparent);
 }
 
 /* ---------- Grids e cards ---------- */
@@ -1322,8 +1358,24 @@ textarea:focus {
   }
 
   .hero {
-    padding: 22px;
+    align-items: stretch;
     border-radius: 20px;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .hero h2 {
+    font-size: 1.55rem;
+  }
+
+  .hero-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .hero-actions {
+    justify-content: flex-start;
   }
 
   .section-title h2 {
