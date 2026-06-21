@@ -2269,18 +2269,35 @@ function clubFeedTemplate() {
 }
 
 const coupleStatusLabel = { wishlist: "Queremos ver", watching: "Assistindo juntos", watched: "Já vimos", favorite: "Favorito do casal" };
-const aboutLabels = [
-  ["primeiro_dorama", "Primeiro dorama juntos"],
-  ["dorama_conforto", "Nosso dorama conforto"],
-  ["casal_favorito", "Casal fictício favorito"],
-  ["lanche_oficial", "Lanche oficial"],
-  ["frase_interna", "Frase interna"],
-  ["nosso_10", "Nosso 10/10"],
-  ["date_perfeito", "Date perfeito"],
-  ["quando_um_ta_triste", "Quando um está triste"],
-  ["nossa_musica", "Nossa música"],
-  ["proxima_meta", "Próxima meta juntos"],
+// "Sobre nós" agrupado por tema (estilo Day One / Daylio: cards de pergunta).
+const aboutGrupos = [
+  ["💞 Nossos favoritos", [
+    ["dorama_conforto", "Nosso dorama conforto"],
+    ["casal_favorito", "Casal fictício favorito"],
+    ["personagem_ele", "Personagem que é a cara dele"],
+    ["personagem_ela", "Personagem que é a cara dela"],
+    ["cena_marcante", "Cena que marcou a gente"],
+    ["nosso_10", "Nosso 10/10"],
+  ]],
+  ["🍿 Nossos rituais", [
+    ["lanche_oficial", "Lanche oficial"],
+    ["onde_assistimos", "Onde a gente assiste"],
+    ["horario_preferido", "Horário preferido"],
+    ["regra_pause", "Regra do play/pause"],
+    ["date_perfeito", "Date perfeito"],
+  ]],
+  ["💬 Coisas nossas", [
+    ["frase_interna", "Frase interna"],
+    ["piada_interna", "Piada interna"],
+    ["nossa_musica", "Nossa música"],
+    ["apelidos", "Nossos apelidos"],
+    ["quando_um_ta_triste", "Quando um está triste, o outro…"],
+    ["primeiro_dorama", "Primeiro dorama juntos"],
+    ["proxima_meta", "Próxima meta juntos"],
+  ]],
 ];
+const aboutLabels = aboutGrupos.flatMap(([, itens]) => itens);
+let aboutPerguntaIdx = Math.floor(Math.random() * 1000); // qual pergunta destacar
 
 function coupleStats() {
   const eps = coupleDramas.reduce((sum, d) => sum + Number(d.current_episode || 0), 0);
@@ -2806,31 +2823,39 @@ function coupleDiaryTemplate() {
 function coupleAboutTemplate() {
   const total = aboutLabels.length;
   const preenchidos = aboutLabels.filter(([key]) => String(coupleAbout[key] || "").trim()).length;
-  const cards = aboutLabels.map(([key, label]) => {
-    const value = String(coupleAbout[key] || "").trim();
-    return `
-      <button class="about-memory ${value ? "filled" : ""}" type="button" data-about-pick="${esc(key)}">
-        <span>${esc(label)}</span>
-        <strong>${value ? esc(value) : "Responder juntos"}</strong>
-      </button>`;
-  }).join("");
+  const pct = total ? Math.round((preenchidos / total) * 100) : 0;
+  const vazios = aboutLabels.filter(([key]) => !String(coupleAbout[key] || "").trim());
+  const destaque = vazios.length ? vazios[aboutPerguntaIdx % vazios.length] : null;
+
+  const grupos = aboutGrupos.map(([titulo, itens]) => `
+    <div class="section-title compact"><h2>${titulo}</h2></div>
+    <section class="about-grid">
+      ${itens.map(([key, label]) => {
+        const value = String(coupleAbout[key] || "").trim();
+        return `
+          <button class="about-card ${value ? "filled" : ""}" type="button" data-about-pick="${esc(key)}">
+            <span class="about-label">${esc(label)}</span>
+            <strong class="about-value">${value ? esc(value) : "Responder +"}</strong>
+          </button>`;
+      }).join("")}
+    </section>`).join("");
+
   return `
     <section class="about-hero">
       <span>Ficha de vocês</span>
       <h2>Sobre nós</h2>
-      <p>Um lugar para guardar as respostas que viram piada interna, tradição e lembrança. Não precisa preencher tudo de uma vez.</p>
-      <div class="about-progress"><span style="width:${Math.round((preenchidos / total) * 100)}%"></span></div>
+      <p>As respostas que viram piada interna, tradição e lembrança. Toque num card pra responder — não precisa preencher tudo de uma vez.</p>
+      <div class="about-progress"><span style="width:${pct}%"></span></div>
       <small>${preenchidos}/${total} respostas guardadas</small>
     </section>
-    <form id="couple-about-form" class="form-card about-form">
-      <label>O que vocês querem guardar agora?</label>
-      <div class="search-bar">
-        <select name="key">${aboutLabels.map(([key, label]) => `<option value="${key}">${esc(label)}</option>`).join("")}</select>
-        <input name="value" placeholder="Ex.: pipoca doce, cena da chuva, nossa música…" required />
-        <button class="btn secondary" type="submit">Guardar</button>
-      </div>
-    </form>
-    <section class="about-grid">${cards}</section>`;
+    ${destaque
+      ? `<button class="about-prompt" type="button" data-about-pick="${esc(destaque[0])}">
+           <span>💬 Pergunta pra vocês</span>
+           <strong>${esc(destaque[1])}</strong>
+           <em>Responder →</em>
+         </button>`
+      : `<div class="about-done">💛 Vocês preencheram tudo! Toque num card pra revisar quando quiser.</div>`}
+    ${grupos}`;
 }
 
 function coupleLettersTemplate() {
@@ -4192,7 +4217,6 @@ function bindShell() {
   listen(document.querySelector("#couple-pinned-form"), "submit", handleCouplePinned);
   listen(document.querySelector("#couple-add-drama-form"), "submit", handleCoupleAddDrama);
   listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
-  listen(document.querySelector("#couple-about-form"), "submit", handleCoupleAbout);
   listen(document.querySelector("#couple-letter-form"), "submit", handleCoupleLetter);
   listen(document.querySelector("[data-copy-couple-code]"), "click", copyCoupleCode);
   listen(document.querySelector("[data-date-roulette]"), "click", handleDateRoulette);
@@ -4204,14 +4228,7 @@ function bindShell() {
     listen(button, "click", () => setCoupleSection(button.dataset.coupleSection));
   });
   document.querySelectorAll("[data-about-pick]").forEach((button) => {
-    listen(button, "click", () => {
-      const form = document.querySelector("#couple-about-form");
-      if (!form) return;
-      const select = form.querySelector("[name='key']");
-      const input = form.querySelector("[name='value']");
-      if (select) select.value = button.dataset.aboutPick;
-      input?.focus();
-    });
+    listen(button, "click", () => handleAboutPick(button.dataset.aboutPick));
   });
   // Tema do casal (compartilhado)
   document.querySelectorAll("[data-tema-casal]").forEach((button) => {
@@ -4733,6 +4750,7 @@ function setCoupleSection(sec) {
   petReacao = "";
   coupleMemoryDraft = null;
   if (sec === "inicio") recadoIndex = Math.floor(Math.random() * 1000); // recadinho muda sempre
+  if (sec === "sobre") aboutPerguntaIdx = Math.floor(Math.random() * 1000); // pergunta em destaque muda
   render();
 }
 
@@ -5121,16 +5139,20 @@ async function handleCoupleDiary(event) {
   }
 }
 
-async function handleCoupleAbout(event) {
-  event.preventDefault();
-  const data = Object.fromEntries(new FormData(event.currentTarget));
-  if (!state.couple || !data.key || !String(data.value || "").trim()) return;
+// Toca num card de "Sobre nós" -> responde/edita ali mesmo (estilo Daylio).
+async function handleAboutPick(key) {
+  if (!state.couple) return;
+  const label = (aboutLabels.find(([k]) => k === key) || [])[1] || "Sobre nós";
+  const atual = coupleAbout[key] || "";
+  const v = await perguntar(label, atual, { ok: "Guardar", placeholder: "Nossa resposta…" });
+  if (v == null) return;
+  const val = String(v).trim();
   try {
-    await saveCoupleAbout(state.couple.id, authUser.id, data.key, String(data.value).trim());
-    coupleAbout[data.key] = String(data.value).trim();
-    event.currentTarget.reset();
+    await saveCoupleAbout(state.couple.id, authUser.id, key, val);
+    coupleAbout[key] = val;
+    aboutPerguntaIdx += 1; // próxima pergunta em destaque
     render();
-    toast("Sobre nós atualizado.");
+    toast(val ? "Guardado 💛" : "Resposta limpa.");
   } catch {
     toast("Não consegui salvar.");
   }

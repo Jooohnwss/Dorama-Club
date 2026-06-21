@@ -269,7 +269,7 @@ Regra:
 2. Refazer Painel com imagem do ultimo dorama. **Status: implementado — hero com a capa do dorama em andamento (+1 ep, registrar memoria, finalizamos), estados finalizado/vazio, atalhos, resumo e linha do tempo. Codigo/config movidos pra Ajustes.**
 3. Reestruturar Assistindo em: ativos, fila, finalizados. **Status: implementado — 3 blocos (Assistindo juntos com +1 ep/memoria/finalizamos; Queremos ver com comecar a ver + sortear proximo; Finalizados com certificado + favoritar). Prioridade eu/ela/os dois fica pra depois (precisa coluna nova).**
 4. Refazer Diario como album por tipo de pagina. **Status: implementado — tipos Episodio/Date/Cartinha/Surto/Momento/Marco; o formulario muda por tipo; cada entrada vira card com emoji/badge. Migracao 17 (coluna kind). Foto da memoria fica pra depois (precisa storage).**
-5. Refazer Sobre nos como ficha viva + perguntas.
+5. Refazer Sobre nos como ficha viva + perguntas. **Status: implementado — cards agrupados (Favoritos/Rituais/Coisas nossas) que se tocam pra responder (estilo Daylio/Day One), barra de progresso e uma "pergunta em destaque" rotativa (estilo Happy Couple/DailyBean). Sem migracao (reusa couple_about). "Cada um responde e revela" (Happy Couple real) fica pra depois — precisa guardar resposta por pessoa.**
 6. Melhorar Diversao com jogos e certificados.
 7. Polir mobile.
 

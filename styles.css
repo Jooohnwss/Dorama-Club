@@ -1939,43 +1939,88 @@ textarea:focus {
 
 .about-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
+  margin-bottom: 6px;
 }
 
-.about-memory {
-  min-height: 118px;
+/* Pergunta em destaque (estilo Happy Couple / DailyBean) */
+.about-prompt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  color: var(--cor-texto);
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 30%, transparent);
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--cor-primaria) 16%, transparent), transparent 45%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--cor-secundaria) 16%, transparent), transparent 45%),
+    color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+}
+.about-prompt span {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  color: var(--cor-primaria);
+}
+.about-prompt strong {
+  display: block;
+  margin: 4px 0 8px;
+  font-size: 1.25rem;
+  line-height: 1.25;
+}
+.about-prompt em {
+  font-style: normal;
+  font-weight: 800;
+  color: var(--cor-primaria);
+  font-size: 0.86rem;
+}
+.about-done {
+  margin: 0 0 18px;
+  padding: 16px;
+  border-radius: 16px;
+  text-align: center;
+  border: 1px dashed color-mix(in srgb, var(--cor-primaria) 40%, transparent);
+  color: var(--cor-texto-suave);
+  font-weight: 700;
+}
+
+.about-card {
+  min-height: 92px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 18px;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 16px;
   border: 1px solid var(--cor-borda);
   background: color-mix(in srgb, var(--cor-superficie) 86%, transparent);
   color: var(--cor-texto);
   text-align: left;
 }
-
-.about-memory:hover {
-  border-color: color-mix(in srgb, var(--cor-primaria) 42%, var(--cor-borda));
+.about-card.filled {
+  border-color: color-mix(in srgb, var(--cor-primaria) 35%, var(--cor-borda));
+  background: color-mix(in srgb, var(--cor-primaria) 7%, var(--cor-superficie));
 }
-
-.about-memory span {
+.about-card:hover {
+  border-color: color-mix(in srgb, var(--cor-primaria) 50%, var(--cor-borda));
+}
+.about-label {
   color: var(--cor-texto-suave);
-  font-size: 0.78rem;
-  font-weight: 900;
-  text-transform: uppercase;
+  font-size: 0.76rem;
+  font-weight: 850;
 }
-
-.about-memory strong {
+.about-value {
   font-size: 1.02rem;
   line-height: 1.25;
 }
-
-.about-memory:not(.filled) strong {
-  color: var(--cor-texto-suave);
+.about-card:not(.filled) .about-value {
+  color: var(--cor-primaria);
+  font-weight: 800;
 }
 
 .couple-memory strong {
