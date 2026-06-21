@@ -2910,11 +2910,78 @@ function coupleRecadoTemplate() {
 }
 
 // Seção "Painel" do casal: a imagem do que estão vivendo + atalhos + resumo + timeline.
+// "Próximo passo" inteligente: sugere a ação mais útil agora.
+function coupleProximoPasso() {
+  const watching = coupleDramas.find((d) => d.status === "watching");
+  const fila = coupleDramas.filter((d) => d.status === "wishlist");
+  const sobreResp = aboutLabels.filter(([k]) => String(coupleAbout[k] || "").trim()).length;
+  let p;
+  if (!coupleDramas.length) p = { emoji: "🍿", texto: "Comecem o primeiro dorama juntos", attrs: `data-couple-section="assistindo"`, cta: "Adicionar" };
+  else if (watching) p = { emoji: "▶️", texto: `Continuem “${watching.title}” — +1 episódio`, attrs: `data-couple-plus="${watching.id}"`, cta: "+1 ep" };
+  else if (fila.length) p = { emoji: "🎲", texto: "Escolham o próximo da fila de vocês", attrs: "data-couple-sortear-fila", cta: "Sortear" };
+  else if (!coupleDiary.length) p = { emoji: "📖", texto: "Guardem a primeira memória de vocês", attrs: `data-couple-section="diario"`, cta: "Registrar" };
+  else if (sobreResp < 3) p = { emoji: "💬", texto: "Respondam uma pergunta de vocês", attrs: `data-couple-section="sobre"`, cta: "Responder" };
+  else p = { emoji: "✨", texto: "Que tal registrar uma nova página do diário?", attrs: `data-couple-section="diario"`, cta: "Registrar" };
+  return `
+    <button class="couple-nextstep" type="button" ${p.attrs}>
+      <span class="ns-emoji">${p.emoji}</span>
+      <span class="ns-text"><small>Próximo passo</small><strong>${esc(p.texto)}</strong></span>
+      <span class="ns-cta">${esc(p.cta)} →</span>
+    </button>`;
+}
+
+// Texto curto de "quanto falta pra próxima decoração do cantinho".
+function proximaDecoTexto() {
+  const eps = coupleDramas.reduce((s, d) => s + Number(d.current_episode || 0), 0);
+  const fin = coupleDramas.filter((d) => d.status === "watched" || d.status === "favorite").length;
+  const mem = coupleDiary.length;
+  const cart = coupleLetters.length;
+  const ep = (n) => `${n} ep${n > 1 ? "s" : ""}`;
+  if (eps < 1) return `assistam 1 ep pra ganhar 🍿`;
+  if (mem < 1) return `1 memória pro abajur 💡`;
+  if (eps < 5) return `${ep(5 - eps)} pro sofá 🛋️`;
+  if (mem < 3) return `${3 - mem} memórias pra plantinha 🪴`;
+  if (cart < 1) return `1 cartinha pro quadro 🖼️`;
+  if (fin < 1) return `1 finalizado pra TV 📺`;
+  if (eps < 10) return `${ep(10 - eps)} pro laço 🎀`;
+  if (eps < 50) return `${ep(50 - eps)} pra coroa 👑`;
+  return `cantinho completo! 🏠`;
+}
+
+function petStatusCurto(fel) {
+  if (fel >= 85) return "está radiante 🥰";
+  if (fel >= 55) return "está feliz 😊";
+  if (fel >= 30) return "tá de boa 🐾";
+  return "com saudade 🥺";
+}
+
+// Cardzinho do pet no painel (estilo Couple2: presença + carinho rápido).
+function couplePetMini() {
+  if (!couplePet) {
+    return `
+      <button class="couple-petmini empty" type="button" data-couple-section="diversao">
+        <span class="pet-mini-face">🐱</span>
+        <span class="pet-mini-text"><strong>Adotem um bichinho</strong><small>Um cantinho fofo só de vocês.</small></span>
+        <span class="ns-cta">Adotar →</span>
+      </button>`;
+  }
+  const fel = petFelicidade();
+  return `
+    <div class="couple-petmini">
+      <span class="pet-mini-face">${couplePet.species || "🐱"}</span>
+      <span class="pet-mini-text"><strong>${esc(couplePet.name || "Nosso pet")} ${petStatusCurto(fel)}</strong><small>${esc(proximaDecoTexto())}</small></span>
+      <button class="recado-mini" type="button" data-pet-care="carinho">❤️ Carinho</button>
+      <button class="recado-mini" type="button" data-couple-section="diversao">Cantinho →</button>
+    </div>`;
+}
+
 function coupleInicioSection() {
   return `
     ${coupleRecadoTemplate()}
     ${coupleGreetingTemplate()}
+    ${coupleProximoPasso()}
     ${coupleFocusCard()}
+    ${couplePetMini()}
     <div class="section-title compact"><h2>Resumo de vocês</h2></div>
     ${coupleResumoTemplate()}
     <div class="section-title compact"><h2>Linha do tempo</h2></div>
@@ -4347,7 +4414,7 @@ function bindShell() {
   document.querySelectorAll("[data-couple-move-to]").forEach((sel) => {
     listen(sel, "change", () => handleCoupleMoveTo(sel.dataset.coupleMoveTo, sel.value));
   });
-  listen(document.querySelector("[data-couple-sortear-fila]"), "click", handleCoupleSortearFila);
+  document.querySelectorAll("[data-couple-sortear-fila]").forEach((b) => listen(b, "click", handleCoupleSortearFila));
   document.querySelectorAll("[data-diary-kind]").forEach((button) => {
     listen(button, "click", () => { coupleDiaryKind = button.dataset.diaryKind; render(); });
   });
@@ -4948,6 +5015,8 @@ function handlePetCare(tipo) {
   const nome = couplePet.name || "Seu pet";
   const lista = PET_REACOES[tipo] || PET_REACOES.carinho;
   petReacao = `${nome} ${lista[Math.floor(Math.random() * lista.length)]}`;
+  // Fora da seção do pet (ex.: no painel) o balão não aparece — dá feedback no toast.
+  if (coupleSection !== "diversao") toast(petReacao);
   render();
 }
 

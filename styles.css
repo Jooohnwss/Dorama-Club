@@ -1345,6 +1345,78 @@ textarea:focus {
   display: none;
 }
 
+/* Próximo passo inteligente (painel do casal) */
+.couple-nextstep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  text-align: left;
+  border-radius: 16px;
+  color: var(--cor-texto);
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 28%, transparent);
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--cor-primaria) 14%, transparent), transparent 50%),
+    color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+}
+.couple-nextstep:hover { filter: brightness(1.02); }
+.ns-emoji {
+  font-size: 1.7rem;
+  flex: 0 0 auto;
+}
+.ns-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ns-text small {
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  color: var(--cor-primaria);
+}
+.ns-text strong {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+.ns-cta {
+  flex: 0 0 auto;
+  font-weight: 800;
+  color: var(--cor-primaria);
+  font-size: 0.86rem;
+}
+
+/* Pet no painel (mini) */
+.couple-petmini {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  text-align: left;
+  border-radius: 16px;
+  color: var(--cor-texto);
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+}
+.pet-mini-face {
+  font-size: 2.2rem;
+  flex: 0 0 auto;
+}
+.pet-mini-text {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+}
+.pet-mini-text strong { font-size: 0.98rem; }
+.pet-mini-text small { color: var(--cor-texto-suave); font-size: 0.8rem; }
+
 /* Saudação compacta do painel do casal (no lugar do hero gigante) */
 .couple-greeting {
   display: flex;
