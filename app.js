@@ -2268,9 +2268,10 @@ function dramaCard(drama) {
   const total = Number(drama.episodes || 0);
   const pct = total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
   const showProgress = drama.status !== "wishlist" && total > 0 && ep > 0;
+  const temEpisodio = drama.status !== "wishlist" && total > 0;
   const meta = drama.status === "wishlist"
     ? `${drama.year || "—"} · ${esc(drama.priority || "Quero assistir")}`
-    : `${drama.year || "—"} · ${statusLabel(drama.status)} · Ep. ${ep}/${total || "?"}`;
+    : `${drama.year || "—"} · ${statusLabel(drama.status)}`;
 
   const moodChips = [
     Number(drama.cry) > 0 ? `<span class="chip choro">😭 ${drama.cry}</span>` : "",
@@ -2285,6 +2286,7 @@ function dramaCard(drama) {
       <div>
         <h3>${esc(drama.title)}</h3>
         <p class="meta">${meta}</p>
+        ${temEpisodio ? `<button class="ep-set card-ep" data-set-ep="${drama.id}">Ep. ${ep}/${total} ✏️</button>` : ""}
         ${showProgress ? `<div class="progress"><span style="width:${pct}%"></span></div>` : ""}
         <div class="chips">
           ${(drama.genres || []).slice(0, 2).map((genre) => `<span class="chip">${esc(genre)}</span>`).join("")}
@@ -2297,7 +2299,6 @@ function dramaCard(drama) {
         </div>
         <div class="mini-actions">
           ${drama.status === "watching" ? `<button data-plus-one="${drama.id}">${icon("add")} +1 ep</button>` : ""}
-          ${drama.status === "watching" ? `<button data-set-ep="${drama.id}">✏️ ep</button>` : ""}
           <button data-detail="${drama.id}">${icon("detail")} Detalhes</button>
           <button data-toggle-favorite="${drama.id}">${icon("heart")} ${drama.favorite ? "Tirar" : "Favoritar"}</button>
         </div>

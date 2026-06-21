@@ -1178,6 +1178,10 @@ textarea:focus {
   color: var(--cor-primaria);
 }
 
+.card-ep {
+  margin: 2px 0 8px;
+}
+
 .hello-share {
   flex: 0 0 auto;
   align-self: flex-start;
