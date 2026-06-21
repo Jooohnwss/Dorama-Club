@@ -449,7 +449,6 @@ button.card:hover {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  min-height: 106px;
   overflow: hidden;
   padding: 14px;
   position: relative;
@@ -499,7 +498,7 @@ button.card:hover {
   font-size: 0.76rem;
   font-style: normal;
   font-weight: 800;
-  margin-top: auto;
+  margin-top: 6px;
   padding: 4px 10px;
 }
 
