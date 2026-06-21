@@ -1238,6 +1238,38 @@ textarea:focus {
   display: none;
 }
 
+/* Saudação compacta do painel do casal (no lugar do hero gigante) */
+.couple-greeting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.couple-greeting-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.couple-greeting-text strong {
+  font-size: 1.15rem;
+}
+.couple-greeting-text span {
+  color: var(--cor-texto-suave);
+  font-size: 0.84rem;
+}
+.couple-greeting-btn {
+  margin-left: auto;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+}
+.couple-greeting-wait {
+  flex-basis: 100%;
+  color: var(--cor-texto-suave);
+  font-size: 0.82rem;
+}
+
 /* ---------- Alternador Pessoal ↔ Nós dois (na sidebar, estilo app financeiro) ---------- */
 .space-switch {
   display: flex;

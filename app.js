@@ -2492,24 +2492,38 @@ function coupleTimelineTemplate() {
     </section>`;
 }
 
-function coupleHeroTemplate() {
-  const title = state.couple?.title || "Nós dois";
-  const tagline = state.couple?.tagline || "Nosso lugar pra guardar o que a gente assiste, sente e inventa junto.";
-  const names = coupleMembers.map((m) => m.name || m.nickname || "Minha pessoa").join(" & ");
+// Saudação compacta do painel (no lugar do hero gigante).
+function coupleGreetingTemplate() {
+  const nome = (state.couple?.title || "").trim();
+  const names = coupleMembers.map((m) => m.name || m.nickname).filter(Boolean).join(" & ");
   const sozinho = coupleMembers.length < 2;
   return `
-    <section class="couple-hero slim">
-      <div>
-        <span>Cantinho privado</span>
-        <h2>${esc(title)}</h2>
-        <p>${esc(tagline)}</p>
-        <div class="chips">
-          ${names ? `<span class="chip">${esc(names)}</span>` : ""}
-          ${state.couple.specialDate ? `<span class="chip">Desde ${esc(state.couple.specialDate)}</span>` : ""}
-        </div>
-        ${sozinho ? `<p class="couple-waiting">💌 Falta sua pessoa entrar. O código fica em <strong>Ajustes</strong>.</p>` : ""}
+    <div class="couple-greeting">
+      <div class="couple-greeting-text">
+        <strong>${nome ? `Oi, ${esc(nome)}! 💕` : "Oi, casal! 💕"}</strong>
+        ${nome
+          ? (names ? `<span>${esc(names)}</span>` : "")
+          : `<span>Vocês ainda não têm nome. Bora batizar o casal?</span>`}
       </div>
-    </section>`;
+      <button class="btn ghost couple-greeting-btn" type="button" data-couple-name>${nome ? "Renomear" : "Definir nome"}</button>
+      ${sozinho ? `<span class="couple-greeting-wait">💌 Falta sua pessoa entrar — código em <strong>Ajustes</strong></span>` : ""}
+    </div>`;
+}
+
+async function handleCoupleSetName() {
+  if (!state.couple) return;
+  const nome = await perguntar("Nome do casal", state.couple.title || "", { ok: "Salvar", placeholder: "Jonatas & Abikeila" });
+  if (nome == null) return;
+  const novo = String(nome).trim();
+  try {
+    await updateCoupleCapa(state.couple.id, { title: novo, tagline: state.couple.tagline, specialDate: state.couple.specialDate });
+    state.couple.title = novo;
+    saveState();
+    render();
+    toast("Nome do casal salvo! 💕");
+  } catch {
+    toast("Não consegui salvar o nome.");
+  }
 }
 
 // Hero do painel: o dorama que vocês estão vivendo agora (com a imagem dele).
@@ -2757,7 +2771,7 @@ function coupleDashAtalhos() {
 function coupleInicioSection() {
   return `
     ${couplePinnedLetterTemplate()}
-    ${coupleHeroTemplate()}
+    ${coupleGreetingTemplate()}
     ${coupleFocusCard()}
     ${coupleDashAtalhos()}
     <div class="section-title compact"><h2>Resumo de vocês</h2></div>
@@ -4096,6 +4110,7 @@ function bindShell() {
   document.querySelectorAll("[data-couple-finish]").forEach((button) => {
     listen(button, "click", () => handleCoupleFinish(button.dataset.coupleFinish));
   });
+  listen(document.querySelector("[data-couple-name]"), "click", handleCoupleSetName);
   document.querySelectorAll("[data-del-couple-drama]").forEach((button) => {
     listen(button, "click", () => handleDeleteCoupleDrama(button.dataset.delCoupleDrama));
   });
