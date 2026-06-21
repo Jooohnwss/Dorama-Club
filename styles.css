@@ -371,11 +371,16 @@ button {
 
 .hello-card {
   align-items: center;
-  display: inline-flex;
+  display: flex;
   gap: 12px;
   margin-bottom: 18px;
-  max-width: min(100%, 420px);
+  max-width: min(100%, 580px);
   padding: 14px 18px;
+}
+
+.hello-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .hello-card strong {
@@ -1121,43 +1126,78 @@ textarea:focus {
   border-color: var(--cor-primaria);
 }
 
+.ep-set {
+  align-self: flex-start;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--cor-superficie-2);
+  border: 1px solid var(--cor-borda);
+  color: var(--cor-texto);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.ep-set:hover {
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria);
+}
+
+.hello-share {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
 .mood-result {
+  margin-top: 12px;
+  animation: pop 0.2s ease;
+}
+
+.mood-result-main {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  margin-top: 12px;
   padding: 8px;
   border-radius: var(--raio);
   border: 1px solid var(--cor-borda);
   background: var(--cor-superficie);
   text-align: left;
-  animation: pop 0.2s ease;
 }
 
-.mood-result img {
+.mood-result-main:hover {
+  border-color: var(--cor-primaria);
+}
+
+.mood-share {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.mood-result-main img {
   width: 44px;
   aspect-ratio: 2 / 3;
   border-radius: 8px;
   object-fit: cover;
 }
 
-.mood-result > div {
+.mood-result-main > div {
   flex: 1;
   min-width: 0;
 }
 
-.mood-result span {
+.mood-result-main span {
   display: block;
   color: var(--cor-texto-suave);
   font-size: 0.74rem;
 }
 
-.mood-result strong {
+.mood-result-main strong {
   font-size: 0.98rem;
 }
 
-.mood-result em {
+.mood-result-main em {
   display: flex;
   align-items: center;
   gap: 4px;

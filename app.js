@@ -903,6 +903,27 @@ function fraseDoDia() {
 // Resultado do "humor de hoje" mostrado na própria home.
 let moodResult = null;
 
+function shareMeuDia() {
+  const watching = byStatus("watching");
+  const destaque = watching[0];
+  const partes = [];
+  if (destaque) partes.push(`📺 Assistindo ${destaque.title}${destaque.episodes ? ` (ep ${destaque.currentEpisode || 0}/${destaque.episodes})` : ""}`);
+  partes.push(`✅ ${byStatus("finished").length} finalizados · ⭐ ${byStatus("favorites").length} favoritos`);
+  if (moodResult) {
+    const m = moods.find((x) => x.tag === moodResult.tag);
+    if (m) partes.push(`Hoje no clima de ${m.label} ${m.emoji}`);
+  }
+  const text = `Meu dia no Dorama Club 💜\n\n${partes.join("\n")}\n\nO app é esse: ${inviteLink()}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+}
+
+function handleMoodShare(tag) {
+  const m = moods.find((x) => x.tag === tag);
+  if (!m || !state.club) return;
+  registrarAtividade(`${state.profile?.name || "Alguém"} está no clima de "${m.label}" hoje ${m.emoji}`);
+  toast("Contado pras doramigas! 💜");
+}
+
 function sugerirNoHome(tag) {
   const generos = moodGenres[tag] || [];
   const combina = (d) => (d.genres || []).some((g) => generos.includes(g));
@@ -931,8 +952,8 @@ function watchingCarousel(lista) {
           </button>
           <strong class="watch-name">${esc(d.title)}</strong>
           <div class="watch-actions">
-            <button data-plus-one="${d.id}" title="Marcar +1 episódio">＋1 ep</button>
-            <small>${total ? `${ep}/${total}` : `ep ${ep}`}</small>
+            <button data-plus-one="${d.id}" title="Marcar +1 episódio">＋1</button>
+            <button class="ep-set" data-set-ep="${d.id}" title="Marcar episódio">${total ? `${ep}/${total}` : `ep ${ep}`} ✏️</button>
           </div>
         </article>`;
         })
@@ -975,11 +996,12 @@ function homeTemplate() {
     </div>
     <section class="hello-card">
       <img class="hero-avatar" src="${esc(avatarUrl(profile))}" alt="" />
-      <div>
+      <div class="hello-text">
         <strong>Olá, ${esc(profile.name)}!</strong>
         <span>${dashboardMeta.map(esc).join(" · ")}</span>
         <span class="frase-dia">${esc(fraseDoDia())}</span>
       </div>
+      <button class="btn ghost hello-share" data-share-day>${icon("share")} Meu dia</button>
     </section>
     <section class="focus-card" ${destaque?.cover ? `style="--focus-cover:url('${esc(destaque.cover)}')"` : ""}>
       <div class="focus-bg"></div>
@@ -988,11 +1010,12 @@ function homeTemplate() {
            <div class="focus-copy">
              <span>Continue assistindo</span>
              <h3>${esc(destaque.title)}</h3>
-             <p>${total ? `Episódio ${ep} de ${total}` : `Episódio ${ep}`}</p>
+             <button class="ep-set" data-set-ep="${destaque.id}">${total ? `Episódio ${ep} de ${total}` : `Episódio ${ep}`} ✏️</button>
              <div class="focus-progress"><span style="width:${progressPct}%"></span></div>
              <div class="actions">
-               ${destaque.status === "watching" ? `<button class="btn" data-plus-one="${destaque.id}">${icon("add")} +1 episódio</button>` : ""}
-               <button class="btn secondary" data-detail="${destaque.id}">${icon("play")} Detalhes</button>
+               ${destaque.status === "watching" ? `<button class="btn" data-plus-one="${destaque.id}">${icon("add")} +1 ep</button>` : ""}
+               ${destaque.status === "watching" ? `<button class="btn secondary" data-set-ep="${destaque.id}">Marcar episódio</button>` : ""}
+               <button class="btn ghost" data-detail="${destaque.id}">${icon("play")} Detalhes</button>
                <button class="btn ghost" data-comentar-surto="${destaque.id}">${icon("club")} Surto</button>
              </div>
            </div>`
@@ -1033,24 +1056,16 @@ function homeTemplate() {
       </div>
       ${moodResult
         ? moodResult.drama
-          ? `<button class="mood-result" data-detail="${moodResult.drama.id}">
-               <img src="${esc(thumb(moodResult.drama.cover) || POSTER_PLACEHOLDER)}" alt="" />
-               <div><span>Hoje combina com</span><strong>${esc(moodResult.drama.title)}</strong></div>
-               <em>${icon("play")} Ver</em>
-             </button>`
+          ? `<div class="mood-result">
+               <button class="mood-result-main" data-detail="${moodResult.drama.id}">
+                 <img src="${esc(thumb(moodResult.drama.cover) || POSTER_PLACEHOLDER)}" alt="" />
+                 <div><span>Hoje combina com</span><strong>${esc(moodResult.drama.title)}</strong></div>
+                 <em>${icon("play")} Ver</em>
+               </button>
+               ${state.club ? `<button class="btn ghost mood-share" data-mood-share="${esc(moodResult.tag)}">${icon("club")} Contar pras doramigas</button>` : ""}
+             </div>`
           : `<div class="empty" style="margin-top:12px">Nada na sua lista com esse clima ainda. Adicione mais doramas! ✨</div>`
         : ""}
-    </section>
-    <div class="section-title">
-      <h2>Atalhos</h2>
-    </div>
-    <section class="grid cards">
-      ${statuses
-        .slice(0, 6)
-        .map((status) => `<button class="card" data-list="${status.key}"><span class="card-ico">${icon(statusIcons[status.key] || "lists")}</span><strong>${status.label}</strong><span class="muted">${byStatus(status.key).length} doramas</span></button>`)
-        .join("")}
-      <button class="card" data-view="club"><span class="card-ico">${icon("club")}</span><strong>${state.club ? esc(state.club.name) : "Clube das Doramigas"}</strong><span class="muted">${state.club ? esc(state.club.code) : "Criar ou entrar"}</span></button>
-      <button class="card" data-view="add"><span class="card-ico">${icon("add")}</span><strong>Adicionar dorama</strong><span class="muted">Buscar no TMDB</span></button>
     </section>
     <div class="section-title">
       <h2>${icon("play")} Assistindo agora</h2>
@@ -2471,6 +2486,9 @@ function bindShell() {
   document.querySelectorAll("[data-plus-one]").forEach((button) => {
     listen(button, "click", () => incrementEpisode(button.dataset.plusOne));
   });
+  document.querySelectorAll("[data-set-ep]").forEach((button) => {
+    listen(button, "click", () => setEpisodeQuick(button.dataset.setEp));
+  });
 
   document.querySelectorAll("[data-detail]").forEach((button) => {
     listen(button, "click", () => openDetail(button.dataset.detail));
@@ -2513,6 +2531,10 @@ function bindShell() {
   document.querySelectorAll("[data-mood-home]").forEach((button) => {
     listen(button, "click", () => sugerirNoHome(button.dataset.moodHome));
   });
+  document.querySelectorAll("[data-mood-share]").forEach((button) => {
+    listen(button, "click", () => handleMoodShare(button.dataset.moodShare));
+  });
+  listen(document.querySelector("[data-share-day]"), "click", shareMeuDia);
 
   document.querySelectorAll("[data-discover]").forEach((button) => {
     listen(button, "click", () => addFromDiscover(button.dataset.discover));
@@ -2753,20 +2775,24 @@ function saveDramaDetails(event) {
   toast("Detalhes salvos.");
 }
 
-function incrementEpisode(id) {
+// Define o episódio atual direto (sem ficar apertando +1 várias vezes).
+function setEpisode(id, alvo) {
   let justFinished = false;
   let updated = null;
   const dramas = state.dramas.map((drama) => {
     if (drama.id !== id) return drama;
-    const currentEpisode = Math.min(Number(drama.currentEpisode || 0) + 1, drama.episodes);
-    const reachedEnd = currentEpisode >= drama.episodes && drama.status !== "finished";
+    const total = Number(drama.episodes || 0);
+    let ep = Math.max(0, Number(alvo) || 0);
+    if (total) ep = Math.min(ep, total);
+    const reachedEnd = total && ep >= total && drama.status !== "finished";
     if (reachedEnd) justFinished = true;
-    updated = { ...drama, currentEpisode, status: reachedEnd ? "finished" : drama.status };
+    updated = { ...drama, currentEpisode: ep, status: reachedEnd ? "finished" : drama.status };
     return updated;
   });
+  if (!updated) return;
   state.dramas = dramas;
   saveState();
-  if (updated) syncDrama(updated);
+  syncDrama(updated);
   if (justFinished) {
     registrarAtividade(`${state.profile?.name || "Alguém"} terminou ${updated.title}! 🎉`);
     // Spec seção 7: ao terminar, abrir avaliação (nota, choro, surto, raiva, recomenda).
@@ -2775,8 +2801,25 @@ function incrementEpisode(id) {
     toast("Terminou! Conta como foi: nota, choro, surto e raiva.");
   } else {
     render();
-    toast("+1 episódio registrado.");
+    toast(`Episódio ${updated.currentEpisode} marcado.`);
   }
+}
+
+function incrementEpisode(id) {
+  const drama = state.dramas.find((d) => d.id === id);
+  if (drama) setEpisode(id, Number(drama.currentEpisode || 0) + 1);
+}
+
+// Pergunta o episódio (pra quem maratonou vários de uma vez).
+function setEpisodeQuick(id) {
+  const drama = state.dramas.find((d) => d.id === id);
+  if (!drama) return;
+  const total = Number(drama.episodes || 0);
+  const resp = window.prompt(`Em qual episódio você está?${total ? ` (de ${total})` : ""}`, String(drama.currentEpisode || 0));
+  if (resp === null) return;
+  const n = parseInt(resp, 10);
+  if (Number.isNaN(n)) return;
+  setEpisode(id, n);
 }
 
 function toggleField(id, field) {
