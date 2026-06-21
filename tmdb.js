@@ -87,6 +87,16 @@ export async function discoverDramas(criterio) {
   return (data.results || []).filter((r) => r.poster_path).map(toBrief);
 }
 
+// Backdrop (fundo cinematográfico) de um dorama, pra usar no card de compartilhar.
+export async function getBackdrop(tmdbId) {
+  try {
+    const r = await tmdb(`/tv/${tmdbId}`);
+    return r.backdrop_path ? IMG_BACKDROP + r.backdrop_path : "";
+  } catch {
+    return "";
+  }
+}
+
 // Onde assistir (streaming) no Brasil. Retorna [{ name, logo }].
 export async function getWatchProviders(tmdbId) {
   try {

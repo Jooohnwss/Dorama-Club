@@ -1,4 +1,4 @@
-import { searchDramas, getDramaDetails, getWatchProviders, trendingWeek, discoverDramas, tmdbReady } from "./tmdb.js";
+import { searchDramas, getDramaDetails, getWatchProviders, getBackdrop, trendingWeek, discoverDramas, tmdbReady } from "./tmdb.js";
 import { temas, acharTema, temaPadrao, categorias } from "./temas.js";
 import {
   supabaseReady,
@@ -954,13 +954,33 @@ async function gerarCardMeuDia(drama) {
   const primaria = cor("--cor-primaria", "#df4f94");
   const secundaria = cor("--cor-secundaria", "#8a5cf6");
 
-  const g = ctx.createLinearGradient(0, 0, W, H);
-  g.addColorStop(0, primaria);
-  g.addColorStop(1, secundaria);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = "rgba(0,0,0,0.30)";
-  ctx.fillRect(0, 0, W, H);
+  // Fundo: backdrop do dorama (cinema) ou gradiente do tema.
+  let bgFeito = false;
+  if (drama?.tmdbId && tmdbReady()) {
+    const bdUrl = await getBackdrop(drama.tmdbId);
+    const bd = bdUrl ? await carregarImagem(bdUrl) : null;
+    if (bd) {
+      posterRound(ctx, bd, 0, 0, W, H, 0);
+      ctx.fillStyle = "rgba(8,6,14,0.55)";
+      ctx.fillRect(0, 0, W, H);
+      const veil = ctx.createLinearGradient(0, 0, 0, H);
+      veil.addColorStop(0, "rgba(0,0,0,0.35)");
+      veil.addColorStop(0.55, "rgba(0,0,0,0.1)");
+      veil.addColorStop(1, "rgba(0,0,0,0.75)");
+      ctx.fillStyle = veil;
+      ctx.fillRect(0, 0, W, H);
+      bgFeito = true;
+    }
+  }
+  if (!bgFeito) {
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, primaria);
+    g.addColorStop(1, secundaria);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(0,0,0,0.30)";
+    ctx.fillRect(0, 0, W, H);
+  }
 
   ctx.textAlign = "center";
   ctx.fillStyle = "#ffffff";
@@ -1001,6 +1021,19 @@ async function gerarCardMeuDia(drama) {
     if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, y, bw, 14, 7); ctx.fill(); }
     ctx.fillStyle = "#ffffff";
     if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, y, bw * pct, 14, 7); ctx.fill(); }
+    y += 56;
+  }
+
+  // Nota / semáforo / choro deste dorama (quando tiver).
+  const extras = [];
+  if (drama?.personalRating) extras.push(`⭐ ${drama.personalRating}/10`);
+  if (drama?.semaforo) extras.push(semaforoEmoji(drama.semaforo));
+  if (Number(drama?.cry) > 0) extras.push(`😭 ${drama.cry}`);
+  if (Number(drama?.hype) > 0) extras.push(`🔥 ${drama.hype}`);
+  if (extras.length) {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = '800 38px Inter, system-ui, sans-serif';
+    ctx.fillText(extras.join("    "), W / 2, y);
     y += 56;
   }
 
@@ -1047,6 +1080,18 @@ async function shareMeuDia() {
     await compartilharImagem(blob, `Meu dia no Dorama Club 💜 ${inviteLink()}`);
   } catch {
     toast("Não consegui gerar o card agora.");
+  }
+}
+
+async function compartilharDorama(id) {
+  const drama = state.dramas.find((d) => d.id === id);
+  if (!drama) return;
+  toast("Gerando card…");
+  try {
+    const blob = await gerarCardMeuDia(drama);
+    await compartilharImagem(blob, `${drama.title} — no Dorama Club 💜 ${inviteLink()}`);
+  } catch {
+    toast("Não consegui gerar o card.");
   }
 }
 
@@ -1125,7 +1170,10 @@ function homeTemplate() {
         <h2>Início</h2>
         <p>Seu cantinho dorameiro de hoje.</p>
       </div>
-      <button class="btn secondary dashboard-add" data-view="add">${icon("add")} Adicionar</button>
+      <div class="home-head-actions">
+        <button class="btn secondary" data-view="add">${icon("add")} Adicionar</button>
+        <button class="btn ghost" data-share-day>${icon("share")} Meu dia</button>
+      </div>
     </div>
     <section class="hello-card">
       <img class="hero-avatar" src="${esc(avatarUrl(profile))}" alt="" />
@@ -1134,7 +1182,6 @@ function homeTemplate() {
         <span>${dashboardMeta.map(esc).join(" · ")}</span>
         <span class="frase-dia">${esc(fraseDoDia())}</span>
       </div>
-      <button class="btn ghost hello-share" data-share-day>${icon("share")} Meu dia</button>
     </section>
     <section class="focus-card" ${destaque?.cover ? `style="--focus-cover:url('${esc(destaque.cover)}')"` : ""}>
       <div class="focus-bg"></div>
@@ -2325,7 +2372,7 @@ function modalTemplate() {
             <label class="field"><input type="checkbox" name="comfort" ${drama.comfort ? "checked" : ""} /> Dorama conforto</label>
             <div class="actions field full">
               <button class="btn" type="submit">Salvar detalhes</button>
-              <button class="btn secondary" type="button" data-whatsapp="${drama.id}">Compartilhar no WhatsApp</button>
+              <button class="btn secondary" type="button" data-share-card="${drama.id}">${icon("share")} Compartilhar</button>
               <button class="btn danger" type="button" data-remove="${drama.id}">${icon("trash")} Remover</button>
             </div>
           </form>
@@ -2803,7 +2850,7 @@ function bindModal() {
   });
   listen(document.querySelector("#profile-form"), "submit", saveProfile);
   listen(document.querySelector("#drama-form"), "submit", saveDramaDetails);
-  listen(document.querySelector("[data-whatsapp]"), "click", shareWhatsApp);
+  listen(document.querySelector("[data-share-card]"), "click", () => compartilharDorama(modal.id));
   document.querySelectorAll("[data-sortear]").forEach((button) => {
     listen(button, "click", () => sortearComFiltro(button.dataset.sortear));
   });

@@ -358,6 +358,13 @@ button {
   flex: 0 0 auto;
 }
 
+.home-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+}
+
 .hello-card,
 .focus-card,
 .strip-card,
@@ -1664,6 +1671,14 @@ textarea:focus {
 
   .dashboard-add {
     width: 100%;
+  }
+
+  .home-head-actions {
+    width: 100%;
+  }
+
+  .home-head-actions .btn {
+    flex: 1;
   }
 
   .hello-card {
