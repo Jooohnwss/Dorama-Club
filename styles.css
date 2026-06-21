@@ -1223,6 +1223,40 @@ textarea:focus {
   white-space: pre-wrap;
 }
 
+/* ---------- Alternador Pessoal ↔ Nós dois (segmented, estilo app financeiro) ---------- */
+.space-switch {
+  display: inline-flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 5px;
+  border-radius: 14px;
+  background: var(--cor-superficie-2);
+  border: 1px solid var(--cor-borda);
+}
+.space-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cor-texto-suave);
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+.space-switch button .ico {
+  width: 17px;
+  height: 17px;
+}
+.space-switch button.on {
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+}
+.space-switch button.on .ico {
+  stroke: var(--cor-primaria-texto);
+}
+
 /* ---------- Portal "Nós dois" (entrar/voltar do ambiente do casal) ---------- */
 .couple-portal-btn {
   display: flex;
@@ -2343,6 +2377,24 @@ textarea:focus {
     background: transparent;
     font-size: 0.66rem;
     text-align: center;
+  }
+
+  /* Muitas seções no casal: barra inferior rola na horizontal (não espreme). */
+  .couple-sidebar .nav {
+    grid-auto-columns: 60px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .couple-sidebar .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* No celular, o alternador ocupa a largura toda. */
+  .space-switch {
+    display: flex;
+  }
+  .space-switch button {
+    flex: 1;
   }
 
   .main {

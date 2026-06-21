@@ -966,6 +966,7 @@ function render() {
     <div class="app shell${noCasal ? " couple-space" : ""}">
       ${noCasal ? coupleSidebarTemplate() : sidebarTemplate()}
       <main class="main">
+        ${spaceSwitchTemplate()}
         ${noCasal ? coupleSpaceView() : viewTemplate()}
       </main>
       ${modal ? modalTemplate() : ""}
@@ -1106,6 +1107,16 @@ function sidebarTemplate() {
       ${supabaseReady() ? `<button class="logout" data-logout>${icon("out")}<span>Sair</span></button>` : ""}
     </aside>
   `;
+}
+
+// Alternador Pessoal ↔ Nós dois (aparece só no celular, no topo do conteúdo).
+function spaceSwitchTemplate() {
+  const couple = state.space === "couple";
+  return `
+    <div class="space-switch">
+      <button type="button" class="${!couple ? "on" : ""}" data-space-go="solo">${icon("home")}<span>Meu app</span></button>
+      <button type="button" class="${couple ? "on" : ""}" data-space-go="couple">${icon("heart")}<span>Nós dois</span></button>
+    </div>`;
 }
 
 // Sidebar do ambiente do casal: seções próprias + voltar pro app.
@@ -3887,6 +3898,9 @@ function bindShell() {
   listen(document.querySelector("[data-enter-couple]"), "click", enterCoupleSpace);
   document.querySelectorAll("[data-home-couple]").forEach((b) => listen(b, "click", enterCoupleSpace));
   listen(document.querySelector("[data-leave-space]"), "click", leaveCoupleSpace);
+  document.querySelectorAll("[data-space-go]").forEach((b) => {
+    listen(b, "click", () => (b.dataset.spaceGo === "couple" ? enterCoupleSpace() : leaveCoupleSpace()));
+  });
   document.querySelectorAll("[data-couple-section]").forEach((button) => {
     listen(button, "click", () => setCoupleSection(button.dataset.coupleSection));
   });
