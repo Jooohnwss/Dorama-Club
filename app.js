@@ -474,6 +474,7 @@ let coupleLetters = [];
 let coupleLoading = false;
 let coupleSection = "inicio"; // seção interna do ambiente do casal
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
+let recadoIndex = Math.floor(Math.random() * 1000); // qual recadinho mostrar no topo
 let temaSearchCasal = { query: "", loading: false, results: [] }; // busca de tema dentro do casal
 let runtimeCache = {}; // tmdbId -> minutos por episódio (TMDB), pra estimar horas
 let coupleRuntimesFor = null; // casal cujos runtimes já buscamos (evita loop)
@@ -2736,52 +2737,37 @@ function coupleLettersTemplate() {
 }
 
 // Cartinha fixa: carta sempre visível no topo do espaço do casal.
-function couplePinnedLetterTemplate() {
-  const carta = (state.couple?.pinnedLetter || "").trim();
-  if (!carta) return "";
+// "Nossos recadinhos": rotaciona os bilhetes do casal (muda sempre) + deixar novo.
+function coupleRecadoTemplate() {
+  const recados = (coupleLetters || []).map((l) => (l.body || "").trim()).filter(Boolean);
+  const pinned = (state.couple?.pinnedLetter || "").trim();
+  const pool = recados.length ? recados : (pinned ? [pinned] : []);
+  if (!pool.length) {
+    return `
+      <section class="couple-pinned empty">
+        <span class="couple-pinned-tag">💌 Nossos recadinhos</span>
+        <p class="muted" style="margin:6px 0 10px">Nenhum recadinho ainda. Deixe um pra sua pessoa encontrar. 💕</p>
+        <button class="recado-mini" type="button" data-couple-recado>✏️ Deixar recadinho</button>
+      </section>`;
+  }
+  const texto = pool[recadoIndex % pool.length];
   return `
     <section class="couple-pinned">
-      <span class="couple-pinned-tag">💌 Nossa cartinha</span>
-      <p>${esc(carta)}</p>
-    </section>`;
-}
-
-// Atalhos do painel (cards pra cada área), com um teaser do conteúdo.
-function coupleDashAtalhos() {
-  const ultimaMemoria = coupleDiary
-    .slice()
-    .sort((a, b) => new Date(b.created_at || b.watched_on || 0) - new Date(a.created_at || a.watched_on || 0))[0];
-  const ganhos = coupleCertificados().filter((c) => c.earned).length;
-  const petNome = couplePet?.name || "Nosso pet";
-  const sobrePreenchido = Object.values(coupleAbout).filter((v) => String(v || "").trim()).length;
-  const sobreTotal = aboutLabels.length;
-  return `
-    <section class="couple-dashboard">
-      <button class="couple-dash-card" type="button" data-couple-section="diario">
-        <span class="muted">📖 Diário</span>
-        <strong>${ultimaMemoria ? esc(ultimaMemoria.drama_title || "Última memória") : "Diário em branco"}</strong>
-        <small>${ultimaMemoria ? esc(ultimaMemoria.fav_moment || ultimaMemoria.comment || "Guardada no cantinho de vocês.") : "Primeira página: o que vocês viram, comeram e sentiram."}</small>
-      </button>
-      <button class="couple-dash-card" type="button" data-couple-section="sobre">
-        <span class="muted">💞 Sobre nós</span>
-        <strong>${sobrePreenchido}/${sobreTotal} respostas</strong>
-        <small>Preferências, piadas internas e coisinhas que só vocês entendem.</small>
-      </button>
-      <button class="couple-dash-card" type="button" data-couple-section="diversao">
-        <span class="muted">🎲 Diversão</span>
-        <strong>${esc(petNome)}</strong>
-        <small>${ganhos} certificado${ganhos === 1 ? "" : "s"} desbloqueado${ganhos === 1 ? "" : "s"} · roleta de date.</small>
-      </button>
+      <span class="couple-pinned-tag">💌 Nossos recadinhos</span>
+      <p>${esc(texto)}</p>
+      <div class="recado-actions">
+        ${pool.length > 1 ? `<button class="recado-mini" type="button" data-recado-shuffle>🔀 Outro</button>` : ""}
+        <button class="recado-mini" type="button" data-couple-recado>✏️ Deixar recadinho</button>
+      </div>
     </section>`;
 }
 
 // Seção "Painel" do casal: a imagem do que estão vivendo + atalhos + resumo + timeline.
 function coupleInicioSection() {
   return `
-    ${couplePinnedLetterTemplate()}
+    ${coupleRecadoTemplate()}
     ${coupleGreetingTemplate()}
     ${coupleFocusCard()}
-    ${coupleDashAtalhos()}
     <div class="section-title compact"><h2>Resumo de vocês</h2></div>
     ${coupleResumoTemplate()}
     <div class="section-title compact"><h2>Linha do tempo</h2></div>
@@ -4140,6 +4126,8 @@ function bindShell() {
     listen(button, "click", () => handleCoupleFinish(button.dataset.coupleFinish));
   });
   listen(document.querySelector("[data-couple-name]"), "click", handleCoupleSetName);
+  listen(document.querySelector("[data-couple-recado]"), "click", handleCoupleRecado);
+  listen(document.querySelector("[data-recado-shuffle]"), "click", handleRecadoShuffle);
   document.querySelectorAll("[data-del-couple-drama]").forEach((button) => {
     listen(button, "click", () => handleDeleteCoupleDrama(button.dataset.delCoupleDrama));
   });
@@ -4618,6 +4606,7 @@ function setCoupleSection(sec) {
   coupleSection = sec;
   petReacao = "";
   coupleMemoryDraft = null;
+  if (sec === "inicio") recadoIndex = Math.floor(Math.random() * 1000); // recadinho muda sempre
   render();
 }
 
@@ -4899,6 +4888,29 @@ async function handleCoupleLetter(event) {
   } catch {
     toast("Não consegui guardar a cartinha.");
   }
+}
+
+// Deixar um recadinho rápido (do painel) — vira mais uma cartinha do casal.
+async function handleCoupleRecado() {
+  if (!state.couple) return;
+  const texto = await perguntar("Deixe um recadinho 💌", "", { ok: "Guardar", placeholder: "Uma coisa que eu amei hoje…" });
+  if (texto == null) return;
+  const body = String(texto).trim();
+  if (!body) return;
+  try {
+    await addCoupleLetter(state.couple.id, authUser.id, { kind: "recado", body });
+    coupleLetters = await loadCoupleLetters(state.couple.id);
+    recadoIndex = 0; // recém-criado fica em primeiro (lista vem do mais novo)
+    render();
+    toast("Recadinho guardado. 💌");
+  } catch {
+    toast("Não consegui guardar o recadinho.");
+  }
+}
+
+function handleRecadoShuffle() {
+  recadoIndex = recadoIndex + 1;
+  render();
 }
 
 function handleDateRoulette() {
