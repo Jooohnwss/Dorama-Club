@@ -4824,12 +4824,21 @@ function coupleAddCat() {
   return document.querySelector("#couple-add-cat")?.value || "watching";
 }
 
+// Já existe esse dorama no casal? (por tmdb_id, ou título quando não tem id)
+function coupleDramaExistente(tmdbId, title) {
+  return coupleDramas.find((d) =>
+    (tmdbId && d.tmdb_id && Number(d.tmdb_id) === Number(tmdbId)) ||
+    (!tmdbId && title && (d.title || "").trim().toLowerCase() === String(title).trim().toLowerCase()),
+  );
+}
+
 async function handleCoupleAddDrama(event) {
   event.preventDefault();
   const dramaId = new FormData(event.currentTarget).get("dramaId");
   const drama = state.dramas.find((d) => d.id === dramaId);
   if (!drama) { toast("Escolha um dorama da sua lista."); return; }
   if (!state.couple) return;
+  if (coupleDramaExistente(drama.tmdbId, drama.title)) { toast(`${drama.title} já está no casal de vocês.`); return; }
   try {
     await addCoupleDrama(state.couple.id, authUser.id, { ...drama, status: coupleAddCat() });
     coupleDramas = await loadCoupleDramas(state.couple.id);
@@ -4860,6 +4869,13 @@ async function runCoupleSearch(event) {
 async function handleCoupleAddTmdb(tmdbId, mediaType) {
   const brief = coupleAddSearch.results.find((d) => d.tmdbId === Number(tmdbId));
   if (!brief || !state.couple) return;
+  // Não duplica no casal.
+  if (coupleDramaExistente(brief.tmdbId, brief.title)) {
+    coupleAddSearch = { query: "", loading: false, results: [] };
+    render();
+    toast(`${brief.title} já está no casal de vocês.`);
+    return;
+  }
   const status = coupleAddCat();
   toast("Adicionando…");
   let details;
@@ -4869,8 +4885,13 @@ async function handleCoupleAddTmdb(tmdbId, mediaType) {
     details = brief;
   }
   const dados = { ...brief, ...details };
-  // Espelha na lista pessoal (regra: o que entra no casal entra no pessoal).
-  if (!state.dramas.some((d) => d.tmdbId && d.tmdbId === dados.tmdbId)) {
+  // Espelha na lista pessoal (regra: o que entra no casal entra no pessoal),
+  // sem duplicar: confere por tmdbId e, se não tiver, por título.
+  const jaNoPessoal = state.dramas.some((d) =>
+    (dados.tmdbId && d.tmdbId && d.tmdbId === dados.tmdbId) ||
+    (!dados.tmdbId && (d.title || "").trim().toLowerCase() === (dados.title || "").trim().toLowerCase()),
+  );
+  if (!jaNoPessoal) {
     const personal = normalizeDrama({
       ...dados,
       id: createId(),
@@ -4886,7 +4907,7 @@ async function handleCoupleAddTmdb(tmdbId, mediaType) {
     coupleDramas = await loadCoupleDramas(state.couple.id);
     coupleAddSearch = { query: "", loading: false, results: [] };
     render();
-    toast(`${dados.title} entrou no casal e na sua lista. 💕`);
+    toast(`${dados.title} entrou no casal${jaNoPessoal ? "" : " e na sua lista"}. 💕`);
   } catch {
     toast("Não consegui adicionar ao casal.");
   }
