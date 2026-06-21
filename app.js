@@ -894,25 +894,25 @@ function homeLiveCards() {
     const progresso = total ? `ep. ${ep} de ${total}` : `ep. ${ep}`;
     cards.push({
       title: "Continuar o surto",
-      text: `${atual.title} esta em ${progresso}. Quer atualizar ou registrar como foi?`,
+      text: `${atual.title} esta no ${progresso}.`,
       attrs: `data-detail="${atual.id}"`,
-      cta: "Abrir dorama",
+      cta: "Abrir",
     });
   }
 
   if (clubHasNews && state.club) {
     cards.push({
       title: "Tem novidade das doramigas",
-      text: `${state.club.name} tem comentario novo esperando voce.`,
+      text: `${state.club.name} tem comentario novo.`,
       attrs: `data-view="club"`,
-      cta: "Ver clube",
+      cta: "Ver",
     });
   } else if (state.club) {
     cards.push({
       title: "Clube ativo",
-      text: `Voce esta em ${state.club.name}. Da uma olhada no dorama do mes e no mural.`,
+      text: `Passe no mural de ${state.club.name}.`,
       attrs: `data-view="club"`,
-      cta: "Abrir Doramigas",
+      cta: "Abrir",
     });
   }
 
@@ -920,27 +920,27 @@ function homeLiveCards() {
     const drama = paused[0];
     cards.push({
       title: "Pausado na geladeira",
-      text: `${drama.title} ficou pausado. Hoje e dia de dar outra chance ou assumir o drop?`,
+      text: `${drama.title} ficou pausado. Volta ou dropa?`,
       attrs: `data-detail="${drama.id}"`,
-      cta: "Decidir destino",
+      cta: "Decidir",
     });
   }
 
   if (wishlist.length) {
     cards.push({
       title: "Fila de espera",
-      text: `${wishlist.length} ${wishlist.length === 1 ? "dorama esta" : "doramas estao"} na sua watchlist. Posso sortear o proximo.`,
+      text: `${wishlist.length} ${wishlist.length === 1 ? "dorama esta" : "doramas estao"} na watchlist.`,
       attrs: "data-random",
-      cta: "Sortear agora",
+      cta: "Sortear",
     });
   }
 
   if (comfort.length) {
     cards.push({
       title: "Modo conforto",
-      text: `${comfort[0].title} esta marcado como dorama conforto. Perfeito pra dias de cobertor.`,
+      text: `${comfort[0].title} esta salvo pra dias de cobertor.`,
       attrs: `data-detail="${comfort[0].id}"`,
-      cta: "Abrir conforto",
+      cta: "Abrir",
     });
   }
 
@@ -953,7 +953,16 @@ function homeLiveCards() {
         ? `${destaque.title} levou 10/10. Esse aqui merece panfleto.`
         : `Voce ja finalizou ${finished.length} ${finished.length === 1 ? "dorama" : "doramas"}.`,
       attrs: `data-detail="${destaque.id}"`,
-      cta: "Rever detalhes",
+      cta: "Rever",
+    });
+  }
+
+  if (cards.length < 3 && watching.length > 1) {
+    cards.push({
+      title: "Maratona aberta",
+      text: `${watching.length} doramas em andamento agora.`,
+      attrs: `data-list="watching"`,
+      cta: "Ver lista",
     });
   }
 
@@ -966,7 +975,7 @@ function homeLiveCards() {
     });
   }
 
-  return cards.slice(0, 4);
+  return cards.slice(0, 3);
 }
 
 function homeTemplate() {
@@ -1007,10 +1016,10 @@ function homeTemplate() {
     <div class="section-title">
       <h2>Agora no seu Dorama Club</h2>
     </div>
-    <section class="grid cards live-cards">
+    <section class="live-cards">
       ${liveCards
         .map(
-          (card) => `<button class="card live-card" ${card.attrs}><span class="muted">${esc(card.title)}</span><strong>${esc(card.text)}</strong><span class="chip">${esc(card.cta)}</span></button>`,
+          (card) => `<button class="live-card" ${card.attrs}><span>${esc(card.title)}</span><strong>${esc(card.text)}</strong><em>${esc(card.cta)}</em></button>`,
         )
         .join("")}
     </section>
