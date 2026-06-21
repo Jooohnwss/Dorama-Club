@@ -2353,8 +2353,10 @@ function coupleCertificados() {
     if (l) lanches[l] = (lanches[l] || 0) + 1;
   });
   const lancheTop = Object.entries(lanches).sort((a, b) => b[1] - a[1])[0];
+  const fechouBingo = coupleDiary.some((e) => /bingo/i.test(e.drama_title || ""));
 
   return [
+    { emoji: "🎬", nome: "Bingo dorameiro", desc: "Fecharam um bingo do episódio", earned: fechouBingo },
     { emoji: "🏃", nome: "Primeira maratona", desc: "10h juntos", earned: horas >= 10 },
     { emoji: "💞", nome: "Casal Dorameiro Oficial", desc: "25h juntos", earned: horas >= 25 },
     { emoji: "🥲", nome: "Sobreviventes do Sofrimento", desc: "50h juntos", earned: horas >= 50 },
@@ -2512,6 +2514,8 @@ function coupleTimelineTemplate() {
   if (comPiada) eventos.push([(comPiada.watched_on || comPiada.created_at || "").slice(0, 10), "💬", "Frase que virou nossa", comPiada.inside_joke]);
   const cartinha = coupleLetters[0];
   if (cartinha) eventos.push([(cartinha.created_at || "").slice(0, 10), "💌", "Primeira cartinha guardada", ""]);
+  const bingo = coupleDiary.find((d) => /bingo/i.test(d.drama_title || ""));
+  if (bingo) eventos.push([(bingo.watched_on || bingo.created_at || "").slice(0, 10), "🎬", "Fecharam o bingo do episódio", ""]);
 
   const limpos = eventos
     .filter(([data]) => data)
@@ -3054,16 +3058,14 @@ const BINGO_CLICHES = [
   "Cair em cima do(a) crush", "Mão segura de repente", "Olhar demorado",
 ];
 const BINGO_KEY = "dorama-club-bingo";
-let bingoCard = null; // { size, cells:[{t,on}] }
-let bingoGanhouAvisado = false;
+let bingoCard = null; // { size, cells:[{t,on}], saved }
 
 function salvarBingo() { try { localStorage.setItem(BINGO_KEY, JSON.stringify(bingoCard)); } catch { /* ignore */ } }
 function carregarBingo() { try { const b = JSON.parse(localStorage.getItem(BINGO_KEY) || "null"); if (b && Array.isArray(b.cells)) bingoCard = b; } catch { /* ignore */ } }
 function gerarBingoCard(size = 3) {
   const n = size * size;
   const pool = [...BINGO_CLICHES].sort(() => Math.random() - 0.5).slice(0, n);
-  bingoCard = { size, cells: pool.map((t) => ({ t, on: false })) };
-  bingoGanhouAvisado = false;
+  bingoCard = { size, cells: pool.map((t) => ({ t, on: false })), saved: false };
   salvarBingo();
 }
 function bingoLinhas(size) {
@@ -3090,15 +3092,38 @@ function bingoTemplate() {
     ${venceu ? `<div class="bingo-win">🎉 BINGO! Vocês fecharam uma linha! <button class="btn" type="button" data-bingo-share>${icon("share")} Compartilhar</button></div>` : ""}`;
 }
 
-function toggleBingoCell(i) {
+async function toggleBingoCell(i) {
   if (!bingoCard?.cells[i]) return;
-  const jaTinha = bingoVenceu();
+  const jaVenceu = bingoVenceu();
   bingoCard.cells[i].on = !bingoCard.cells[i].on;
   salvarBingo();
   render();
-  if (!jaTinha && bingoVenceu() && !bingoGanhouAvisado) {
-    bingoGanhouAvisado = true;
-    toast("BINGO! Vocês fecharam uma linha 🎉");
+  if (!jaVenceu && bingoVenceu() && !bingoCard.saved) {
+    await registrarBingoConquista();
+  }
+}
+
+// Bingo vira conquista do casal: salva uma página de diário (vai pra timeline
+// e alimenta o pet) e habilita o certificado.
+async function registrarBingoConquista() {
+  bingoCard.saved = true;
+  salvarBingo();
+  toast("BINGO! Vocês fecharam uma linha 🎉");
+  if (!state.couple || !cloudOn()) return;
+  const marcados = bingoCard.cells.filter((c) => c.on).map((c) => c.t).slice(0, 4).join(", ");
+  try {
+    await addCoupleDiary(state.couple.id, authUser.id, {
+      kind: "marco",
+      dramaTitle: "Fechamos o bingo do episódio! 🎬",
+      watchedOn: new Date().toISOString().slice(0, 10),
+      favMoment: marcados,
+      comment: "Bingo dorameiro fechado — clichês na conta!",
+    });
+    coupleDiary = await loadCoupleDiary(state.couple.id);
+    render();
+    toast("Guardado no diário do casal 🏆");
+  } catch {
+    /* silencioso: o bingo continua valendo localmente */
   }
 }
 
