@@ -65,7 +65,7 @@ const STORAGE_KEY = "dorama-club-state-v1";
 const POSTER_PLACEHOLDER =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='180'><rect width='120' height='180' fill='%23ffe2ef'/><text x='60' y='95' font-size='40' text-anchor='middle' fill='%23df4f94'>DC</text></svg>`,
+    `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='180'><rect width='120' height='180' fill='%23ffe2ef'/><text x='60' y='104' font-size='52' text-anchor='middle' fill='%23df4f94'>♥</text></svg>`,
   );
 
 const AVATAR_PLACEHOLDER =
@@ -449,9 +449,17 @@ function icon(name) {
   return `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
 }
 
-// Marca do app: um coração (combina mais que "DC").
+// Marca do app: dois balões de fala com coraçõezinhos — doramigas conversando
+// e surtando juntas. Usa as cores do tema; corações brancos por dentro.
 function logoMark() {
-  return `<svg class="logo-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+  return `<svg class="logo-mark" viewBox="0 0 48 48" aria-hidden="true">
+    <rect x="23" y="6" width="21" height="16" rx="7" fill="var(--cor-secundaria)"/>
+    <polygon points="31,20 31,27 38,20" fill="var(--cor-secundaria)"/>
+    <path d="M33.4 17.6c-2.7-1.6-3.2-2.7-2.6-3.6.6-.9 2.1-.7 2.6.3.5-1 2-1.2 2.6-.3.6.9.1 2-2.6 3.6z" fill="#fff" opacity="0.92"/>
+    <rect x="5" y="15" width="25" height="20" rx="8" fill="var(--cor-primaria)"/>
+    <polygon points="12,33 9,41 20,33" fill="var(--cor-primaria)"/>
+    <path d="M17.3 28.4c-4.4-2.7-5.2-4.6-4.1-6 1.1-1.5 3.6-1.1 4.1.7.5-1.8 3-2.2 4.1-.7 1.1 1.4.3 3.3-4.1 6z" fill="#fff"/>
+  </svg>`;
 }
 
 // ---------- Temas ----------
