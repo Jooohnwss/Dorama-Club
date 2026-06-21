@@ -368,6 +368,127 @@ export async function updateCoupleCapa(coupleId, capa) {
   if (error) throw error;
 }
 
+export async function loadCoupleDramas(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_dramas")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCoupleDrama(coupleId, userId, drama) {
+  const { error } = await supabase.from("couple_dramas").insert({
+    couple_id: coupleId,
+    tmdb_id: drama.tmdbId ?? null,
+    title: drama.title,
+    cover: drama.cover || null,
+    status: drama.status || "wishlist",
+    current_episode: Number(drama.currentEpisode || 0),
+    episodes: Number(drama.episodes || 0),
+    added_by: userId,
+  });
+  if (error) throw error;
+}
+
+export async function updateCoupleDrama(id, patch) {
+  const row = {};
+  if (patch.status != null) row.status = patch.status;
+  if (patch.currentEpisode != null) row.current_episode = Number(patch.currentEpisode || 0);
+  const { error } = await supabase.from("couple_dramas").update(row).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteCoupleDrama(id) {
+  const { error } = await supabase.from("couple_dramas").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadCoupleDiary(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_diary")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("watched_on", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCoupleDiary(coupleId, userId, entry) {
+  const { error } = await supabase.from("couple_diary").insert({
+    couple_id: coupleId,
+    tmdb_id: entry.tmdbId ?? null,
+    drama_title: entry.dramaTitle || null,
+    episode: Number(entry.episode || 0),
+    watched_on: entry.watchedOn || null,
+    place: entry.place || null,
+    snack: entry.snack || null,
+    mood: entry.mood || null,
+    chosen_by: entry.chosenBy || null,
+    fav_moment: entry.favMoment || null,
+    inside_joke: entry.insideJoke || null,
+    note_him: entry.noteHim || null,
+    note_her: entry.noteHer || null,
+    who_cried: entry.whoCried || null,
+    who_raged: entry.whoRaged || null,
+    comment: entry.comment || null,
+    author_id: userId,
+  });
+  if (error) throw error;
+}
+
+export async function deleteCoupleDiary(id) {
+  const { error } = await supabase.from("couple_diary").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadCoupleAbout(coupleId) {
+  const { data, error } = await supabase.from("couple_about").select("*").eq("couple_id", coupleId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveCoupleAbout(coupleId, userId, key, value) {
+  const { error } = await supabase.from("couple_about").upsert(
+    {
+      couple_id: coupleId,
+      key,
+      value,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "couple_id,key" },
+  );
+  if (error) throw error;
+}
+
+export async function loadCoupleLetters(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_letters")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCoupleLetter(coupleId, userId, letter) {
+  const { error } = await supabase.from("couple_letters").insert({
+    couple_id: coupleId,
+    kind: letter.kind || "memoria",
+    body: letter.body,
+    author_id: userId,
+  });
+  if (error) throw error;
+}
+
+export async function deleteCoupleLetter(id) {
+  const { error } = await supabase.from("couple_letters").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ---------- SOCIAL DO CLUBE ----------
 const mesAtual = () => new Date().toISOString().slice(0, 7); // YYYY-MM
 

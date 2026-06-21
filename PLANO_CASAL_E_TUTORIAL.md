@@ -57,23 +57,33 @@ Dois grandes blocos, nesta ordem:
 - [x] `node --check app.js` + `npm run build` OK.
 - [x] Commit + push.
 
-### Etapa 2 — Planejamento seguro do casal (código de convite)  → **FEITO (código) / falta rodar SQL** ✅
+### Etapa 2 — Planejamento seguro do casal (código de convite)  → **FEITO** ✅
 - [x] Migração `supabase/13 - criar-espaco-do-casal.sql`: tabelas `couples`, `couple_members`, `couple_dramas`, `couple_diary`, `couple_about`, `couple_letters`, RLS, RPC `create_couple`/`join_couple`/`my_couple`/`couple_members_list`.
 - [x] Código único do casal; máximo 2 membros; **1 casal por pessoa**; dados privados (só o casal vê via `is_couple_member`). `leave_couple` = delete da própria filiação (policy `couple_members_delete_self`).
 - [x] Funções em `supabase.js`: `createCouple`, `joinCouple`, `myCouple`, `coupleMembersList`, `leaveCouple`, `updateCoupleCapa`. (CRUD de dramas/diário/about/cartinhas será adicionado na Etapa 3.)
 - [x] Atualizar `supabase/README.md` (linha 13) e `PENDENTE.md` (item 1b: rodar a migração).
-- [ ] **AÇÃO DO USUÁRIO**: rodar `supabase/13 - criar-espaco-do-casal.sql` no SQL Editor do Supabase. Sem isso a Etapa 3 não funciona em produção.
+- [x] **AÇÃO DO USUÁRIO**: rodar `supabase/13 - criar-espaco-do-casal.sql` no SQL Editor do Supabase. Confirmado pelo usuário.
 
 > Nota: criei TODAS as tabelas do casal já nesta migração (não só o vínculo) pra você rodar SQL uma vez só. A Etapa 3 será só UI + funções CRUD em `supabase.js`, sem nova migração.
 
-### Etapa 3 — Área "Nós dois"  → **PENDENTE**
-- [ ] Capa do casal, "Assistindo juntos", Diário do casal, Sobre nós, Timeline automática, Roleta de date, Cartinhas/memórias.
+### Etapa 3 — Área "Nós dois"  → **EM ANDAMENTO / primeira versão implementada**
+- [x] Capa do casal.
+- [x] Criar/entrar por código na UI.
+- [x] Membros do casal.
+- [x] "Assistindo juntos" com doramas vindos da lista pessoal.
+- [x] Diário do casal com memórias por episódio/date.
+- [x] Sobre nós (chave/valor afetivo).
+- [ ] Timeline automática mais elaborada.
+- [x] Roleta de date.
+- [x] Cartinhas/memórias.
+- [ ] Polimento visual e testes reais em duas contas.
 
 ### Etapa 4 — Navegação  → **PENDENTE**
 - [ ] Entrada "Nós dois" (sidebar desktop + decisão mobile: bottom nav vs. card de destaque na Home/Perfil).
 
 ### Etapa 5 — Tutorial específico do casal  → **PENDENTE**
-- [ ] Acrescentar passos do casal ao tutorial geral (criar espaço, enviar código, entrar no casal certo, registrar memórias, roleta, privacidade).
+- [x] Tutorial geral já menciona a aba "Nós dois".
+- [ ] Acrescentar tutorial específico/mais detalhado do casal (criar espaço, enviar código, entrar no casal certo, registrar memórias, roleta, privacidade).
 
 ---
 
@@ -87,12 +97,13 @@ Dois grandes blocos, nesta ordem:
 ## 📂 Arquivos alterados (acumulado)
 - **Etapa 1**: `app.js` (estado + `tutorialTemplate`/`bindTutorial` + auto-abrir + entrada no Perfil), `styles.css` (estilos do overlay), `PLANO_CASAL_E_TUTORIAL.md`.
 - **Etapa 2**: `supabase/13 - criar-espaco-do-casal.sql` (novo), `supabase.js` (funções do casal), `supabase/README.md`, `PENDENTE.md`, `PLANO_CASAL_E_TUTORIAL.md`.
+- **Etapa 3 primeira versão**: `supabase.js` (CRUD do casal), `app.js` (aba "Nós dois" + handlers), `styles.css` (visual do cantinho), `PENDENTE.md`, `PLANO_CASAL_E_TUTORIAL.md`.
 
 ---
 
 ## 🗄️ Migrações SQL necessárias
 - Etapa 1: **nenhuma** (localStorage).
-- Etapa 2: `supabase/13 - criar-espaco-do-casal.sql` (a criar).
+- Etapa 2: `supabase/13 - criar-espaco-do-casal.sql` (rodada pelo usuário em 2026-06-21).
 
 ---
 

@@ -12,11 +12,11 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: faz o **tema seguir a conta** (em qualquer aparelho) e habilita **renomear o clube**
 - Sem isso: trocar tema não acompanha a pessoa em outro celular; renomear clube dá erro
 
-### 1b. Rodar a migração 13 no Supabase (espaço do casal)
+### 1b. ~~Rodar a migração 13 no Supabase (espaço do casal)~~ ✅ FEITO
 - Onde: painel do Supabase → **SQL Editor** → New query
 - O quê: colar o conteúdo de `supabase/13 - criar-espaco-do-casal.sql` e clicar em **Run**
 - Pra quê: cria o espaço "Nós dois" (tabelas do casal + segurança). Código único, máx. 2 pessoas, só o casal vê os dados.
-- Sem isso: a aba "Nós dois" não vai conseguir criar/entrar em casal (vai dar erro de função/tabela inexistente)
+- Status: você confirmou que já rodou a migração 13.
 
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**

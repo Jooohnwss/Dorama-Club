@@ -1051,6 +1051,122 @@ textarea:focus {
   color: var(--cor-primaria);
 }
 
+/* ---------- Nós dois ---------- */
+.couple-welcome,
+.couple-hero {
+  background:
+    radial-gradient(circle at 12% 10%, color-mix(in srgb, var(--cor-primaria) 22%, transparent), transparent 32%),
+    color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+  border: 1px solid var(--cor-borda);
+  border-radius: 22px;
+  box-shadow: 0 18px 38px color-mix(in srgb, var(--cor-sombra) 55%, transparent);
+  margin-bottom: 16px;
+  padding: 22px;
+}
+
+.couple-welcome span,
+.couple-hero span,
+.couple-drama-card span,
+.couple-memory span {
+  color: var(--cor-texto-suave);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.couple-welcome h2,
+.couple-hero h2 {
+  font-size: clamp(1.8rem, 4vw, 3.2rem);
+  line-height: 1;
+  margin: 8px 0;
+}
+
+.couple-welcome p,
+.couple-hero p {
+  color: var(--cor-texto-suave);
+  font-weight: 700;
+  max-width: 720px;
+}
+
+.couple-hero {
+  align-items: end;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.couple-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.couple-drama-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin: 14px 0 22px;
+}
+
+.couple-drama-card {
+  background: color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+  border: 1px solid var(--cor-borda);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 82px minmax(0, 1fr);
+  padding: 12px;
+}
+
+.couple-drama-card img {
+  aspect-ratio: 2 / 3;
+  border-radius: 12px;
+  object-fit: cover;
+  width: 82px;
+}
+
+.couple-drama-card strong {
+  display: block;
+  font-size: 1rem;
+  margin: 3px 0;
+}
+
+.couple-drama-card small {
+  color: var(--cor-texto-suave);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.couple-timeline {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0 22px;
+}
+
+.couple-memory {
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+  border: 1px solid var(--cor-borda);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.couple-memory strong {
+  display: block;
+  font-size: 1.05rem;
+  margin-top: 4px;
+}
+
+.couple-memory p {
+  margin: 8px 0 0;
+}
+
+.couple-letter p {
+  font-size: 1rem;
+  line-height: 1.45;
+  margin: 10px 0;
+}
+
 /* ---------- Descobrir ---------- */
 .discover-hero {
   display: flex;

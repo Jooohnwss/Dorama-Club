@@ -58,6 +58,24 @@ import {
   adminComments,
   adminDeleteComment,
   adminDeleteUser,
+  createCouple,
+  joinCouple,
+  myCouple,
+  coupleMembersList,
+  leaveCouple,
+  updateCoupleCapa,
+  loadCoupleDramas,
+  addCoupleDrama,
+  updateCoupleDrama,
+  deleteCoupleDrama,
+  loadCoupleDiary,
+  addCoupleDiary,
+  deleteCoupleDiary,
+  loadCoupleAbout,
+  saveCoupleAbout,
+  loadCoupleLetters,
+  addCoupleLetter,
+  deleteCoupleLetter,
 } from "./supabase.js";
 
 const STORAGE_KEY = "dorama-club-state-v1";
@@ -181,6 +199,7 @@ const defaults = {
   dramas: [],
   club: null,
   clubs: [],
+  couple: null,
 };
 
 let state = loadState();
@@ -284,7 +303,7 @@ const TUTORIAL_STEPS = [
   { emoji: "👯", title: "Doramigas e clube", body: "Na aba <strong>Doramigas</strong> você cria ou entra num clube pelo código, surta no mural (com trava de spoiler!), vê o dorama do mês e o quanto combinam." },
   { emoji: "🌈", title: "Humor do dia", body: "Na <strong>Início</strong>, diz como tá se sentindo e o app sugere um dorama pra esse humor. Bom dia de chorar, dia de rir, dia de raiva — tem pra tudo." },
   { emoji: "🎨", title: "Temas", body: "No <strong>Perfil</strong> você troca o tema do app. Dá até pra montar um tema com as cores do seu dorama favorito. O símbolo lá em cima muda de cor junto. 💅" },
-  { emoji: "💕", title: "Em breve: Nós dois", body: "Vem aí um cantinho só do casal — diário de doramas vistos juntos, memórias e dates. Fica de olho. 😉" },
+  { emoji: "💕", title: "Nós dois", body: "Na aba <strong>Nós dois</strong>, crie um espaço privado por código para guardar doramas vistos juntos, memórias, cartinhas e dates dorameiros." },
 ];
 
 function tutorialVisto() {
@@ -386,6 +405,14 @@ function marcarClubeVisto() {
 }
 // Social do clube (feed automático, dorama do mês, ranking, diário compartilhado).
 let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
+// Espaço "Nós dois" (carregado sob demanda).
+let coupleFor = null;
+let coupleMembers = [];
+let coupleDramas = [];
+let coupleDiary = [];
+let coupleAbout = {};
+let coupleLetters = [];
+let coupleLoading = false;
 // Favoritos especiais (aba Perfil).
 let favoritos = [];
 let favoritosFor = null;
@@ -694,6 +721,7 @@ function loadState() {
     merged.dramas = Array.isArray(saved.dramas) ? saved.dramas.map(normalizeDrama) : merged.dramas;
     merged.club = saved.club || null;
     merged.clubs = Array.isArray(saved.clubs) ? saved.clubs : [];
+    merged.couple = saved.couple || null;
     return merged;
   } catch {
     return cloneDefaults();
@@ -904,6 +932,7 @@ function sidebarTemplate() {
     ["lists", "Listas", "lists"],
     ["discover", "Descobrir", "compass"],
     ["club", "Doramigas", "club"],
+    ["couple", "Nós dois", "heart"],
     ["profile", "Perfil", "profile"],
   ];
   if (isAdmin()) items.push(["admin", "Admin", "admin"]);
@@ -932,6 +961,7 @@ function viewTemplate() {
     add: addTemplate,
     lists: listsTemplate,
     club: clubTemplate,
+    couple: coupleTemplate,
     profile: profileTemplate,
     admin: adminTemplate,
   };
@@ -1972,6 +2002,202 @@ function clubFeedTemplate() {
   `;
 }
 
+const coupleStatusLabel = { wishlist: "Queremos ver", watching: "Assistindo juntos", watched: "Já vimos", favorite: "Favorito do casal" };
+const aboutLabels = [
+  ["primeiro_dorama", "Primeiro dorama juntos"],
+  ["dorama_conforto", "Nosso dorama conforto"],
+  ["casal_favorito", "Casal fictício favorito"],
+  ["lanche_oficial", "Lanche oficial"],
+  ["frase_interna", "Frase interna"],
+  ["nosso_10", "Nosso 10/10"],
+];
+
+function coupleSetupTemplate() {
+  if (!cloudOn()) return `<div class="empty">Configure o Supabase para usar o espaço do casal.</div>`;
+  return `
+    <div class="section-title"><h2>Nós dois</h2></div>
+    <section class="couple-welcome">
+      <div>
+        <span>Diário do casal</span>
+        <h2>Um cantinho só de vocês.</h2>
+        <p>Crie um espaço privado, envie o código para a sua pessoa e guardem doramas, dates, memórias e cartinhas.</p>
+      </div>
+    </section>
+    <section class="grid cards">
+      <form id="create-couple-form" class="form-card">
+        <h3>Criar nosso espaço</h3>
+        <div class="field full">
+          <label for="couple-title">Nome da capa</label>
+          <input id="couple-title" name="title" placeholder="Jonatas & meu amor" />
+        </div>
+        <div class="actions"><button class="btn" type="submit">Criar código do casal</button></div>
+      </form>
+      <form id="join-couple-form" class="form-card">
+        <h3>Entrar com código</h3>
+        <p class="muted">Entre só com o código que sua pessoa te enviar. O casal fica privado para vocês dois.</p>
+        <div class="field full">
+          <label for="couple-code">Código do casal</label>
+          <input id="couple-code" name="code" placeholder="CASAL-123456" autocomplete="off" required />
+        </div>
+        <div class="actions"><button class="btn secondary" type="submit">Entrar no casal certo</button></div>
+      </form>
+    </section>`;
+}
+
+function coupleStats() {
+  const eps = coupleDramas.reduce((sum, d) => sum + Number(d.current_episode || 0), 0);
+  const watched = coupleDramas.filter((d) => d.status === "watched" || d.status === "favorite").length;
+  return [
+    ["Episódios juntos", eps],
+    ["Doramas juntos", coupleDramas.length],
+    ["Já vimos", watched],
+    ["Memórias", coupleDiary.length],
+  ];
+}
+
+function coupleHeroTemplate() {
+  const title = state.couple?.title || "Nós dois";
+  const tagline = state.couple?.tagline || "Nosso cantinho de doramas, dates e surtos.";
+  const names = coupleMembers.map((m) => m.name || m.nickname || "Minha pessoa").join(" & ");
+  return `
+    <section class="couple-hero">
+      <div>
+        <span>Espaço privado</span>
+        <h2>${esc(title)}</h2>
+        <p>${esc(tagline)}</p>
+        <div class="chips">
+          <span class="chip">Código: ${esc(state.couple.code)}</span>
+          ${names ? `<span class="chip">${esc(names)}</span>` : ""}
+          ${state.couple.specialDate ? `<span class="chip">Desde ${esc(state.couple.specialDate)}</span>` : ""}
+        </div>
+      </div>
+      <div class="couple-actions">
+        <button class="btn secondary" data-copy-couple-code>${icon("share")} Copiar código</button>
+        <button class="btn ghost" data-date-roulette>${icon("dice")} Sortear date</button>
+      </div>
+    </section>`;
+}
+
+function coupleDramaOptions() {
+  const fromPersonal = state.dramas.filter((d) => d.title);
+  return fromPersonal.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+}
+
+function coupleDramasTemplate() {
+  const cards = coupleDramas.length
+    ? coupleDramas.map((d) => {
+        const pct = d.episodes ? Math.min(100, Math.round((Number(d.current_episode || 0) / Number(d.episodes || 0)) * 100)) : 0;
+        return `
+          <article class="couple-drama-card">
+            <img src="${esc(d.cover || POSTER_PLACEHOLDER)}" alt="" />
+            <div>
+              <span>${esc(coupleStatusLabel[d.status] || d.status)}</span>
+              <strong>${esc(d.title)}</strong>
+              <small>Ep. ${Number(d.current_episode || 0)}${d.episodes ? `/${d.episodes}` : ""}</small>
+              <div class="focus-progress"><span style="width:${pct}%"></span></div>
+              <div class="mini-actions">
+                <button data-couple-ep="${d.id}">Ep.</button>
+                <button data-couple-memory="${d.id}">Memória</button>
+                <button data-del-couple-drama="${d.id}">${icon("trash")} Tirar</button>
+              </div>
+            </div>
+          </article>`;
+      }).join("")
+    : `<div class="empty">Adicione o primeiro dorama que vocês vão assistir juntos.</div>`;
+  return `
+    <div class="section-title"><h2>Assistindo juntos</h2></div>
+    <form id="couple-add-drama-form" class="search-bar">
+      <select name="dramaId" required>
+        <option value="">Adicionar um dorama seu ao casal…</option>
+        ${coupleDramaOptions()}
+      </select>
+      <select name="status">
+        <option value="watching">Assistindo juntos</option>
+        <option value="wishlist">Queremos ver</option>
+        <option value="watched">Já vimos</option>
+        <option value="favorite">Favorito do casal</option>
+      </select>
+      <button class="btn" type="submit">Adicionar</button>
+    </form>
+    <section class="couple-drama-grid">${cards}</section>`;
+}
+
+function coupleDiaryTemplate() {
+  const options = coupleDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+  const entries = coupleDiary.length
+    ? coupleDiary.map((e) => `
+      <article class="couple-memory">
+        <div><span>${e.watched_on ? esc(e.watched_on) : "Memória"}</span><strong>${esc(e.drama_title || "Nosso dorama")}${e.episode ? ` · ep. ${e.episode}` : ""}</strong></div>
+        ${e.snack || e.place || e.mood ? `<p class="muted">${[e.place, e.snack, e.mood].filter(Boolean).map(esc).join(" · ")}</p>` : ""}
+        ${e.fav_moment ? `<p><b>Momento favorito:</b> ${esc(e.fav_moment)}</p>` : ""}
+        ${e.inside_joke ? `<p><b>Frase interna:</b> ${esc(e.inside_joke)}</p>` : ""}
+        ${e.comment ? `<p>${esc(e.comment)}</p>` : ""}
+        <div class="mini-actions"><button data-del-couple-diary="${e.id}">${icon("trash")} Apagar</button></div>
+      </article>`).join("")
+    : `<div class="empty">As memórias dos episódios aparecem aqui.</div>`;
+  return `
+    <div class="section-title"><h2>Diário do casal</h2></div>
+    <form id="couple-diary-form" class="form-card form-grid">
+      <div class="field"><label>Dorama</label><select name="dramaId">${options}<option value="">Outro / geral</option></select></div>
+      <div class="field"><label>Episódio</label><input name="episode" type="number" min="0" placeholder="8" /></div>
+      <div class="field"><label>Data</label><input name="watchedOn" type="date" /></div>
+      <div class="field"><label>Lanche</label><input name="snack" placeholder="pipoca doce" /></div>
+      <div class="field"><label>Humor</label><input name="mood" placeholder="choramos, surtamos…" /></div>
+      <div class="field"><label>Onde?</label><input name="place" placeholder="sofá, chamada, cinema…" /></div>
+      <div class="field full"><label>Momento favorito</label><input name="favMoment" placeholder="a cena da chuva" /></div>
+      <div class="field full"><label>Frase interna</label><input name="insideJoke" placeholder="eu avisei" /></div>
+      <div class="field full"><label>O que lembrar desse dia?</label><textarea name="comment" placeholder="Escreve como se fosse uma página de álbum."></textarea></div>
+      <div class="actions field full"><button class="btn" type="submit">Registrar memória</button></div>
+    </form>
+    <section class="couple-timeline">${entries}</section>`;
+}
+
+function coupleAboutTemplate() {
+  const cards = aboutLabels.map(([key, label]) => `<div class="card"><span class="muted">${label}</span><strong>${esc(coupleAbout[key] || "—")}</strong></div>`).join("");
+  return `
+    <div class="section-title"><h2>Sobre nós</h2></div>
+    <form id="couple-about-form" class="search-bar">
+      <select name="key">${aboutLabels.map(([key, label]) => `<option value="${key}">${esc(label)}</option>`).join("")}</select>
+      <input name="value" placeholder="Nossa resposta…" required />
+      <button class="btn secondary" type="submit">Salvar</button>
+    </form>
+    <section class="grid cards">${cards}</section>`;
+}
+
+function coupleLettersTemplate() {
+  const letters = coupleLetters.length
+    ? coupleLetters.map((l) => `<article class="card couple-letter"><span class="chip">${esc(l.kind || "memória")}</span><p>${esc(l.body)}</p><div class="mini-actions"><button data-del-couple-letter="${l.id}">${icon("trash")} Apagar</button></div></article>`).join("")
+    : `<div class="empty">Guarde bilhetes, cartinhas e coisas que vocês querem lembrar.</div>`;
+  return `
+    <div class="section-title"><h2>Cartinhas e memórias</h2></div>
+    <form id="couple-letter-form" class="search-bar">
+      <select name="kind"><option value="memoria">Memória</option><option value="mensagem">Mensagem</option><option value="lembrar">Pra lembrar</option></select>
+      <input name="body" placeholder="Coisa que eu amei hoje…" required />
+      <button class="btn" type="submit">Guardar</button>
+    </form>
+    <section class="grid cards">${letters}</section>`;
+}
+
+function coupleTemplate() {
+  if (!state.couple) return coupleSetupTemplate();
+  if (coupleFor !== state.couple.id) return `<div class="section-title"><h2>Nós dois</h2></div><div class="empty">Carregando o cantinho de vocês…</div>`;
+  return `
+    ${coupleHeroTemplate()}
+    <section class="grid stats">${coupleStats().map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}</section>
+    <section class="form-card">
+      <form id="couple-capa-form" class="form-grid">
+        <div class="field"><label>Nome da capa</label><input name="title" value="${esc(state.couple.title || "")}" placeholder="Nós dois" /></div>
+        <div class="field"><label>Data especial</label><input name="specialDate" type="date" value="${esc(state.couple.specialDate || "")}" /></div>
+        <div class="field full"><label>Frase do casal</label><input name="tagline" value="${esc(state.couple.tagline || "")}" placeholder="Nosso cantinho de doramas e dates." /></div>
+        <div class="actions field full"><button class="btn secondary" type="submit">Salvar capa</button><button class="btn ghost" type="button" data-leave-couple>Sair deste casal</button></div>
+      </form>
+    </section>
+    ${coupleDramasTemplate()}
+    ${coupleDiaryTemplate()}
+    ${coupleAboutTemplate()}
+    ${coupleLettersTemplate()}`;
+}
+
 function timeAgo(iso) {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diff / 60000);
@@ -2827,6 +3053,7 @@ async function handleLogout() {
   state.dramas = [];
   state.club = null;
   state.clubs = [];
+  state.couple = null;
   state.view = "home";
   addingClub = false;
   moodResult = null;
@@ -2835,6 +3062,13 @@ async function handleLogout() {
   clubFeedItems = [];
   clubFeedFor = null;
   clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
+  coupleFor = null;
+  coupleMembers = [];
+  coupleDramas = [];
+  coupleDiary = [];
+  coupleAbout = {};
+  coupleLetters = [];
+  coupleLoading = false;
   casais = [];
   casaisFor = null;
   favoritos = [];
@@ -3068,6 +3302,31 @@ function bindShell() {
   listen(document.querySelector("#profile-form"), "submit", saveProfile);
   listen(document.querySelector("#create-club-form"), "submit", handleCreateClub);
   listen(document.querySelector("#join-club-form"), "submit", handleJoinClub);
+  listen(document.querySelector("#create-couple-form"), "submit", handleCreateCouple);
+  listen(document.querySelector("#join-couple-form"), "submit", handleJoinCouple);
+  listen(document.querySelector("#couple-capa-form"), "submit", handleCoupleCapa);
+  listen(document.querySelector("#couple-add-drama-form"), "submit", handleCoupleAddDrama);
+  listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
+  listen(document.querySelector("#couple-about-form"), "submit", handleCoupleAbout);
+  listen(document.querySelector("#couple-letter-form"), "submit", handleCoupleLetter);
+  listen(document.querySelector("[data-copy-couple-code]"), "click", copyCoupleCode);
+  listen(document.querySelector("[data-date-roulette]"), "click", handleDateRoulette);
+  listen(document.querySelector("[data-leave-couple]"), "click", handleLeaveCouple);
+  document.querySelectorAll("[data-couple-ep]").forEach((button) => {
+    listen(button, "click", () => handleCoupleEpisode(button.dataset.coupleEp));
+  });
+  document.querySelectorAll("[data-couple-memory]").forEach((button) => {
+    listen(button, "click", () => handleCoupleMemory(button.dataset.coupleMemory));
+  });
+  document.querySelectorAll("[data-del-couple-drama]").forEach((button) => {
+    listen(button, "click", () => handleDeleteCoupleDrama(button.dataset.delCoupleDrama));
+  });
+  document.querySelectorAll("[data-del-couple-diary]").forEach((button) => {
+    listen(button, "click", () => handleDeleteCoupleDiary(button.dataset.delCoupleDiary));
+  });
+  document.querySelectorAll("[data-del-couple-letter]").forEach((button) => {
+    listen(button, "click", () => handleDeleteCoupleLetter(button.dataset.delCoupleLetter));
+  });
   listen(document.querySelector("#comment-form"), "submit", handlePostComment);
   document.querySelectorAll("[data-del-comment]").forEach((button) => {
     listen(button, "click", () => handleDeleteComment(button.dataset.delComment));
@@ -3130,6 +3389,7 @@ function bindShell() {
   if (state.view === "club" && state.club && clubMembersFor !== state.club.id) loadClubMembers();
   if (state.view === "club" && state.club && clubFeedFor !== state.club.id) loadClubFeed();
   if (state.view === "club" && state.club && clubSocial.for !== state.club.id) loadClubSocial();
+  if (state.view === "couple" && state.couple && coupleFor !== state.couple.id) loadCoupleData();
   if (state.view === "profile" && casaisFor !== (authUser?.id || "_")) loadCasaisData();
   if (state.view === "profile" && favoritosFor !== (authUser?.id || "_")) loadFavoritosData();
 }
@@ -3414,6 +3674,274 @@ async function loadClubSocial() {
     clubSocial = empty;
   }
   render();
+}
+
+async function loadCoupleData() {
+  if (!state.couple || !cloudOn() || coupleLoading) return;
+  coupleLoading = true;
+  const id = state.couple.id;
+  try {
+    const [members, dramas, diary, aboutRows, letters] = await Promise.all([
+      coupleMembersList(id),
+      loadCoupleDramas(id),
+      loadCoupleDiary(id),
+      loadCoupleAbout(id),
+      loadCoupleLetters(id),
+    ]);
+    coupleFor = id;
+    coupleMembers = members;
+    coupleDramas = dramas;
+    coupleDiary = diary;
+    coupleLetters = letters;
+    coupleAbout = Object.fromEntries((aboutRows || []).map((row) => [row.key, row.value || ""]));
+  } catch {
+    toast("Não consegui carregar o espaço do casal.");
+  } finally {
+    coupleLoading = false;
+  }
+  render();
+}
+
+async function refreshCouple() {
+  const couple = await myCouple();
+  state.couple = couple ? { id: couple.id, code: couple.code, title: couple.title || "", tagline: couple.tagline || "", specialDate: couple.special_date || "" } : null;
+  coupleFor = null;
+  saveState();
+  if (state.couple) await loadCoupleData();
+  render();
+}
+
+async function handleCreateCouple(event) {
+  event.preventDefault();
+  if (!cloudOn()) return;
+  const title = String(new FormData(event.currentTarget).get("title") || "").trim();
+  try {
+    const couple = await createCouple(title);
+    state.couple = { id: couple.id, code: couple.code, title: couple.title || "", tagline: couple.tagline || "", specialDate: couple.special_date || "" };
+    saveState();
+    toast("Espaço do casal criado. Envie o código para a sua pessoa. 💕");
+    await loadCoupleData();
+  } catch (error) {
+    toast(error?.message || "Não consegui criar o espaço do casal.");
+  }
+}
+
+async function handleJoinCouple(event) {
+  event.preventDefault();
+  const code = String(new FormData(event.currentTarget).get("code") || "").trim().toUpperCase();
+  if (!code) return;
+  const ok = await confirmar("Entrar neste espaço de casal?", {
+    sub: `Confira se o código veio da sua pessoa: ${code}`,
+    ok: "Sim, entrar",
+  });
+  if (!ok) return;
+  try {
+    const couple = await joinCouple(code);
+    state.couple = { id: couple.id, code: couple.code, title: couple.title || "", tagline: couple.tagline || "", specialDate: couple.special_date || "" };
+    saveState();
+    toast("Você entrou no espaço do casal. 💕");
+    await loadCoupleData();
+  } catch (error) {
+    toast(error?.message || "Não consegui entrar neste casal.");
+  }
+}
+
+async function handleCoupleCapa(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  try {
+    await updateCoupleCapa(state.couple.id, data);
+    await refreshCouple();
+    toast("Capa do casal salva.");
+  } catch {
+    toast("Não consegui salvar a capa.");
+  }
+}
+
+async function handleCoupleAddDrama(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const drama = state.dramas.find((d) => d.id === data.dramaId);
+  if (!drama || !state.couple) return;
+  try {
+    await addCoupleDrama(state.couple.id, authUser.id, { ...drama, status: data.status });
+    coupleDramas = await loadCoupleDramas(state.couple.id);
+    render();
+    toast(`${drama.title} entrou no cantinho de vocês.`);
+  } catch {
+    toast("Não consegui adicionar esse dorama ao casal.");
+  }
+}
+
+async function handleCoupleEpisode(id) {
+  const drama = coupleDramas.find((d) => d.id === id);
+  if (!drama) return;
+  const valor = await perguntar(`Episódio atual de ${drama.title}`, String(drama.current_episode || 0), { inputType: "number", ok: "Salvar" });
+  if (valor == null) return;
+  try {
+    await updateCoupleDrama(id, { currentEpisode: valor });
+    coupleDramas = await loadCoupleDramas(state.couple.id);
+    render();
+    toast("Episódio do casal atualizado.");
+  } catch {
+    toast("Não consegui atualizar.");
+  }
+}
+
+function handleCoupleMemory(id) {
+  const drama = coupleDramas.find((d) => d.id === id);
+  const select = document.querySelector("#couple-diary-form [name='dramaId']");
+  const ep = document.querySelector("#couple-diary-form [name='episode']");
+  if (select && drama) select.value = drama.id;
+  if (ep && drama) ep.value = Number(drama.current_episode || 0);
+  document.querySelector("#couple-diary-form textarea")?.focus();
+}
+
+async function handleCoupleDiary(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const drama = coupleDramas.find((d) => d.id === data.dramaId);
+  try {
+    await addCoupleDiary(state.couple.id, authUser.id, {
+      tmdbId: drama?.tmdb_id,
+      dramaTitle: drama?.title || "",
+      episode: data.episode,
+      watchedOn: data.watchedOn,
+      place: data.place,
+      snack: data.snack,
+      mood: data.mood,
+      favMoment: data.favMoment,
+      insideJoke: data.insideJoke,
+      comment: data.comment,
+    });
+    event.currentTarget.reset();
+    coupleDiary = await loadCoupleDiary(state.couple.id);
+    render();
+    toast("Memória guardada no diário. 💕");
+  } catch {
+    toast("Não consegui guardar essa memória.");
+  }
+}
+
+async function handleCoupleAbout(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  if (!state.couple || !data.key || !String(data.value || "").trim()) return;
+  try {
+    await saveCoupleAbout(state.couple.id, authUser.id, data.key, String(data.value).trim());
+    coupleAbout[data.key] = String(data.value).trim();
+    event.currentTarget.reset();
+    render();
+    toast("Sobre nós atualizado.");
+  } catch {
+    toast("Não consegui salvar.");
+  }
+}
+
+async function handleCoupleLetter(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const body = String(data.body || "").trim();
+  if (!state.couple || !body) return;
+  try {
+    await addCoupleLetter(state.couple.id, authUser.id, { kind: data.kind, body });
+    event.currentTarget.reset();
+    coupleLetters = await loadCoupleLetters(state.couple.id);
+    render();
+    toast("Cartinha guardada.");
+  } catch {
+    toast("Não consegui guardar a cartinha.");
+  }
+}
+
+function handleDateRoulette() {
+  const drama = (coupleDramas.length ? coupleDramas : state.dramas)[Math.floor(Math.random() * Math.max(1, (coupleDramas.length ? coupleDramas : state.dramas).length))];
+  const snacks = ["pipoca doce", "brigadeiro", "chocolate", "salgadinho", "café gelado", "pedido surpresa"];
+  const missoes = ["cada um escolhe uma frase icônica", "pausar no maior surto", "dar nota no final", "tirar print da cena favorita", "escrever uma cartinha depois"];
+  const snack = snacks[Math.floor(Math.random() * snacks.length)];
+  const missao = missoes[Math.floor(Math.random() * missoes.length)];
+  uiModal = {
+    type: "confirm",
+    message: "Date dorameiro sorteado",
+    sub: `${drama ? drama.title : "Escolham um dorama novo"} + ${snack}. Missão: ${missao}.`,
+    ok: "Amei",
+    cancel: "Fechar",
+    resolve: () => {},
+  };
+  render();
+}
+
+async function copyCoupleCode() {
+  if (!state.couple?.code) return;
+  await navigator.clipboard?.writeText(state.couple.code).catch(() => {});
+  toast("Código do casal copiado.");
+}
+
+async function handleLeaveCouple() {
+  if (!state.couple) return;
+  const ok = await confirmar("Sair deste espaço de casal?", {
+    sub: "Você deixa de ver o diário e as memórias. A outra pessoa continua com o espaço se ainda estiver nele.",
+    ok: "Sair",
+    cancel: "Ficar",
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    await leaveCouple(state.couple.id);
+    state.couple = null;
+    coupleFor = null;
+    coupleMembers = [];
+    coupleDramas = [];
+    coupleDiary = [];
+    coupleAbout = {};
+    coupleLetters = [];
+    saveState();
+    render();
+    toast("Você saiu do espaço do casal.");
+  } catch {
+    toast("Não consegui sair agora.");
+  }
+}
+
+async function handleDeleteCoupleDrama(id) {
+  const ok = await confirmar("Tirar este dorama do casal?", { ok: "Tirar", danger: true });
+  if (!ok) return;
+  try {
+    await deleteCoupleDrama(id);
+    coupleDramas = coupleDramas.filter((d) => d.id !== id);
+    render();
+    toast("Dorama removido do casal.");
+  } catch {
+    toast("Não consegui remover.");
+  }
+}
+
+async function handleDeleteCoupleDiary(id) {
+  const ok = await confirmar("Apagar esta memória?", { ok: "Apagar", danger: true });
+  if (!ok) return;
+  try {
+    await deleteCoupleDiary(id);
+    coupleDiary = coupleDiary.filter((d) => d.id !== id);
+    render();
+    toast("Memória apagada.");
+  } catch {
+    toast("Não consegui apagar.");
+  }
+}
+
+async function handleDeleteCoupleLetter(id) {
+  const ok = await confirmar("Apagar esta cartinha?", { ok: "Apagar", danger: true });
+  if (!ok) return;
+  try {
+    await deleteCoupleLetter(id);
+    coupleLetters = coupleLetters.filter((l) => l.id !== id);
+    render();
+    toast("Cartinha apagada.");
+  } catch {
+    toast("Só quem escreveu consegue apagar essa cartinha.");
+  }
 }
 
 // Registra uma atividade no feed do clube (silencioso; só se logado e num clube).
@@ -3739,6 +4267,12 @@ async function hydrateFromCloud() {
   } catch {
     state.clubs = [];
     state.club = null;
+  }
+  try {
+    const couple = await myCouple();
+    state.couple = couple ? { id: couple.id, code: couple.code, title: couple.title || "", tagline: couple.tagline || "", specialDate: couple.special_date || "" } : null;
+  } catch {
+    state.couple = null;
   }
   saveState();
   resolveInvite();
