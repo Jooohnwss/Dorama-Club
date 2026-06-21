@@ -17,6 +17,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 06 | `06 - feed-do-clube.sql` | Função `club_feed` (mural do clube com autor) — comentários com trava de spoiler | B |
 | 07 | `07 - criar-diario-de-surtos-e-casais.sql` | Tabelas `surtos` (diário por episódio) e `casais` (que eu shippo) + RLS | Pessoal |
 | 08 | `08 - social-do-clube.sql` | Feed automático, "posso comentar com quem", dorama do mês (`club_picks`), ranking e diário compartilhado | B |
+| 09 | `09 - codigo-de-convite-e-indicacao.sql` | Código de convite por pessoa (`invite_code`) + `invited_by` (quem convidou quem); `admin_users` mostra indicações | Social |
 
 ## Convenção de nome
 

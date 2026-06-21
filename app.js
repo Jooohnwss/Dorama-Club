@@ -9,6 +9,8 @@ import {
   onAuthChange,
   loadProfile,
   saveProfile as saveProfileRemote,
+  findInviter,
+  setInvitedBy,
   loadDramas,
   upsertDrama,
   deleteDramaRemote,
@@ -185,6 +187,77 @@ let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [] };
 // "Posso comentar com quem" do dorama aberto no modal.
 let detailProgress = null;
+
+// ---------- Convite / indicação ----------
+const INVITE_KEY = "dorama-club-convite";
+
+// Captura ?c=CODIGO da URL (link de convite) e guarda pra usar no cadastro.
+(function capturarConvite() {
+  try {
+    const code = new URLSearchParams(location.search).get("c");
+    if (code) localStorage.setItem(INVITE_KEY, code.trim().toUpperCase());
+  } catch {
+    /* ignore */
+  }
+})();
+
+function getPendingInvite() {
+  try {
+    return localStorage.getItem(INVITE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function clearPendingInvite() {
+  try {
+    localStorage.removeItem(INVITE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function inviteLink() {
+  const code = state.profile?.inviteCode;
+  return code ? `${location.origin}/?c=${code}` : location.origin;
+}
+
+// Se entrei por um convite e ainda não estou atribuída, registra quem me chamou.
+async function resolveInvite() {
+  if (!cloudOn() || !state.profile) return;
+  if (state.profile.invitedBy) {
+    clearPendingInvite();
+    return;
+  }
+  const code = getPendingInvite();
+  if (!code) return;
+  try {
+    const inviter = await findInviter(code);
+    if (inviter && inviter.id !== authUser.id) {
+      await setInvitedBy(authUser.id, inviter.id);
+      state.profile.invitedBy = inviter.id;
+      saveState();
+      toast(`Você entrou pelo convite de ${inviter.name || "uma doramiga"} 💜`);
+    }
+  } catch {
+    /* ignore */
+  }
+  clearPendingInvite();
+}
+
+function shareInvite() {
+  const text =
+    `Vem usar o Dorama Club comigo! 💜 Organiza seus doramas e a gente surta junto.\n\n` +
+    `É só abrir e criar sua conta: ${inviteLink()}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+}
+
+async function copyInvite() {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(inviteLink());
+  }
+  toast("Link de convite copiado.");
+}
 // "Onde assistir" do dorama aberto no modal: null = carregando, [] = nada.
 let detailProviders = null;
 // Diário de surtos do dorama aberto no modal: null = carregando, [] = vazio.
@@ -394,6 +467,11 @@ function authTemplate() {
             <label for="password">Senha</label>
             <input id="password" name="password" type="password" minlength="6" placeholder="mínimo 6 caracteres" required />
           </div>
+          ${signup ? `
+          <div class="field full">
+            <label for="invite">Código de convite (opcional)</label>
+            <input id="invite" name="invite" value="${esc(getPendingInvite())}" placeholder="Quem te chamou?" autocomplete="off" />
+          </div>` : ""}
           <div class="actions field full">
             <button class="btn" type="submit" ${authBusy ? "disabled" : ""}>${authBusy ? "Aguarde…" : signup ? "Criar conta" : "Entrar"}</button>
           </div>
@@ -565,7 +643,7 @@ function adminTemplate() {
     <div class="section-title"><h2>Usuárias (${admin.users.length})</h2></div>
     <section class="grid cards">
       ${admin.users.length
-        ? admin.users.map((u) => `<div class="card"><strong>${esc(u.name || "(sem nome)")}</strong><p class="muted">${esc(u.email || "")}</p><div class="chips">${u.nickname ? `<span class="chip">${esc(u.nickname)}</span>` : ""}<span class="chip">${u.dramas || 0} doramas</span>${u.since ? `<span class="chip">desde ${u.since}</span>` : ""}</div><div class="mini-actions"><button data-admin-del-user="${u.id}" data-admin-user-name="${esc(u.name || u.email || "")}">${icon("trash")} Excluir</button></div></div>`).join("")
+        ? admin.users.map((u) => `<div class="card"><strong>${esc(u.name || "(sem nome)")}</strong><p class="muted">${esc(u.email || "")}</p><div class="chips">${u.nickname ? `<span class="chip">${esc(u.nickname)}</span>` : ""}<span class="chip">${u.dramas || 0} doramas</span>${u.invited_by_name ? `<span class="chip">👋 por ${esc(u.invited_by_name)}</span>` : ""}${u.invites ? `<span class="chip">convidou ${u.invites}</span>` : ""}</div><div class="mini-actions"><button data-admin-del-user="${u.id}" data-admin-user-name="${esc(u.name || u.email || "")}">${icon("trash")} Excluir</button></div></div>`).join("")
         : `<div class="empty">Nenhuma usuária ainda.</div>`}
     </section>
 
@@ -1004,6 +1082,14 @@ function profileTemplate() {
         <p class="muted" style="margin:4px 0 0">${esc(profile.nickname || profile.type || "")}</p>
       </div>
     </div>
+    <div class="section-title"><h2>🔗 Convidar amigas</h2></div>
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 10px">Seu código de convite: <strong style="color:var(--cor-texto)">${esc(profile.inviteCode || "—")}</strong>. Cada amiga que entrar pelo seu link fica registrada como convidada por você.</p>
+      <div class="actions" style="margin:0">
+        <button class="btn" type="button" data-invite-share>${icon("share")} Convidar no WhatsApp</button>
+        <button class="btn ghost" type="button" data-invite-copy>Copiar link</button>
+      </div>
+    </section>
     <section class="form-card">
       <form id="profile-form" class="form-grid">
         ${profileFields(profile)}
@@ -1511,6 +1597,8 @@ async function handleAuthSubmit(event) {
   render();
   try {
     if (authMode === "signup") {
+      // Guarda o código digitado pra registrar quem convidou (depois do perfil).
+      if (data.invite) localStorage.setItem(INVITE_KEY, String(data.invite).trim().toUpperCase());
       await signUp(String(data.email).trim(), data.password, String(data.name || "").trim());
       const user = await getCurrentUser();
       if (!user) {
@@ -1703,6 +1791,8 @@ function bindShell() {
   listen(document.querySelector("[data-logout]"), "click", handleLogout);
   listen(document.querySelector("[data-share-club]"), "click", shareClub);
   listen(document.querySelector("[data-leave-club]"), "click", handleLeaveClub);
+  listen(document.querySelector("[data-invite-share]"), "click", shareInvite);
+  listen(document.querySelector("[data-invite-copy]"), "click", copyInvite);
   listen(document.querySelector("[data-admin-refresh]"), "click", () => loadAdmin(true));
   listen(document.querySelector("#search-form"), "submit", runSearch);
   listen(document.querySelector("#add-form"), "submit", addDrama);
@@ -1812,6 +1902,12 @@ async function saveProfile(event) {
   if (cloudOn()) {
     try {
       await saveProfileRemote(authUser.id, data);
+      // Recarrega pra trazer o código de convite (e quem convidou).
+      const fresh = await loadProfile(authUser.id);
+      if (fresh) {
+        data.inviteCode = fresh.inviteCode;
+        data.invitedBy = fresh.invitedBy;
+      }
     } catch {
       toast("Não consegui salvar o perfil na nuvem. Tente de novo.");
       return;
@@ -1819,6 +1915,7 @@ async function saveProfile(event) {
   }
   modal = null;
   setState({ profile: data, view: "home" });
+  resolveInvite();
   toast(`Bem-vinda, ${data.name}.`);
 }
 
@@ -2080,7 +2177,7 @@ async function handleLeaveClub() {
 
 function shareClub() {
   if (!state.club) return;
-  const link = location.origin;
+  const link = inviteLink();
   const text =
     `Vem pro meu clube de doramas, o ${state.club.name}! 💜\n\n` +
     `1) Abre o app: ${link}\n` +
@@ -2212,6 +2309,7 @@ async function hydrateFromCloud() {
     state.club = null;
   }
   saveState();
+  resolveInvite();
 }
 
 async function init() {

@@ -58,7 +58,26 @@ export async function loadProfile(userId) {
     photo: data.photo || "",
     since: data.since ? String(data.since) : "",
     type: data.type || "",
+    inviteCode: data.invite_code || "",
+    invitedBy: data.invited_by || null,
   };
+}
+
+// Procura quem tem aquele código de convite (retorna { id, name } ou null).
+export async function findInviter(code) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, name")
+    .eq("invite_code", String(code).toUpperCase())
+    .maybeSingle();
+  if (error) return null;
+  return data || null;
+}
+
+// Marca quem me convidou (uma vez só).
+export async function setInvitedBy(userId, inviterId) {
+  const { error } = await supabase.from("profiles").update({ invited_by: inviterId }).eq("id", userId);
+  if (error) throw error;
 }
 
 export async function saveProfile(userId, profile) {
