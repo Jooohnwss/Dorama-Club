@@ -311,7 +311,7 @@ const TUTORIAL_STEPS = [
   { emoji: "👯", title: "Doramigas e clube", body: "Na aba <strong>Doramigas</strong> você cria ou entra num clube pelo código, surta no mural (com trava de spoiler!), vê o dorama do mês e o quanto combinam." },
   { emoji: "🌈", title: "Humor do dia", body: "Na <strong>Início</strong>, diz como tá se sentindo e o app sugere um dorama pra esse humor. Bom dia de chorar, dia de rir, dia de raiva — tem pra tudo." },
   { emoji: "🎨", title: "Temas", body: "No <strong>Perfil</strong> você troca o tema do app. Dá até pra montar um tema com as cores do seu dorama favorito. O símbolo lá em cima muda de cor junto. 💅" },
-  { emoji: "💕", title: "Nós dois", body: "Toque em <strong>Nós dois</strong> (o coração 💕 no menu, ou o card na Início) para entrar no cantinho do casal: um espaço privado por código com doramas vistos juntos, memórias, cartinhas, dates e até um tema só de vocês." },
+  { emoji: "💕", title: "Nós dois", body: "Tem um cantinho só do casal: doramas vistos juntos, memórias, cartinhas, dates, um pet e um tema só de vocês. Crie no seu <strong>Perfil → Espaço do casal</strong> e mande o código pra sua pessoa — depois um alternador <strong>🏠 / 💕</strong> aparece no topo pra trocar de ambiente." },
 ];
 
 // Passos do tutorial do casal — só aparece pra quem já TEM um casal.
@@ -944,6 +944,9 @@ function render() {
     return;
   }
 
+  // Segurança: só dá pra estar no ambiente do casal se existe casal.
+  if (state.space === "couple" && !state.couple) state.space = "solo";
+
   // Abre o tutorial geral automaticamente na primeira vez (só uma vez por sessão).
   if (!tutorialChecked) {
     tutorialChecked = true;
@@ -1103,19 +1106,20 @@ function sidebarTemplate() {
       <nav class="nav">
         ${items.map(([key, label, ic]) => `<button class="${state.view === key ? "active" : ""}" data-view="${key}">${icon(ic)}${key === "club" && clubHasNews ? `<span class="nav-dot"></span>` : ""}<span class="nav-label">${label}</span></button>`).join("")}
       </nav>
-      <button class="couple-portal-btn" data-enter-couple>${icon("heart")}<span>Nós dois</span></button>
       ${supabaseReady() ? `<button class="logout" data-logout>${icon("out")}<span>Sair</span></button>` : ""}
     </aside>
   `;
 }
 
-// Alternador Pessoal ↔ Nós dois (aparece só no celular, no topo do conteúdo).
+// Alternador Pessoal ↔ Nós dois. Só aparece pra quem JÁ TEM casal — igual ao
+// app financeiro (sem casal não faz sentido alternar). Cria-se o casal no Perfil.
 function spaceSwitchTemplate() {
+  if (!state.couple) return "";
   const couple = state.space === "couple";
   return `
     <div class="space-switch">
       <button type="button" class="${!couple ? "on" : ""}" data-space-go="solo">${icon("home")}<span>Meu app</span></button>
-      <button type="button" class="${couple ? "on" : ""}" data-space-go="couple">${icon("heart")}<span>Nós dois</span></button>
+      <button type="button" class="${couple ? "on" : ""}" data-space-go="couple">${icon("heart")}<span>${esc(state.couple.title || "Nós dois")}</span></button>
     </div>`;
 }
 
@@ -1572,35 +1576,6 @@ function watchingCarousel(lista) {
     </section>`;
 }
 
-// Card de destaque do casal na Home — portal pro ambiente "Nós dois".
-function homeCoupleCard() {
-  if (!cloudOn()) return "";
-  if (state.couple) {
-    const nome = state.couple.title || "Nosso cantinho";
-    const frase = state.couple.tagline || "Doramas, dates e memórias só de vocês dois.";
-    return `
-      <button class="couple-home-card" data-home-couple>
-        <div class="couple-home-emoji">💕</div>
-        <div class="couple-home-text">
-          <span>Nós dois</span>
-          <strong>${esc(nome)}</strong>
-          <small>${esc(frase)}</small>
-        </div>
-        <span class="couple-home-cta">Abrir ${icon("heart")}</span>
-      </button>`;
-  }
-  return `
-    <button class="couple-home-card empty" data-home-couple>
-      <div class="couple-home-emoji">💕</div>
-      <div class="couple-home-text">
-        <span>Nós dois</span>
-        <strong>Criem o cantinho de vocês</strong>
-        <small>Um espaço privado por código pra guardar doramas, memórias e dates do casal.</small>
-      </div>
-      <span class="couple-home-cta">Conhecer ${icon("heart")}</span>
-    </button>`;
-}
-
 function homeTemplate() {
   const profile = state.profile;
   const stats = [
@@ -1671,7 +1646,6 @@ function homeTemplate() {
              </div>
            </div>`}
     </section>
-    ${homeCoupleCard()}
     <section class="grid stats">
       ${stats.map(([label, value, key]) => key
         ? `<button class="stat tappable" data-list="${key}"><span class="muted">${label}</span><strong>${value}</strong></button>`
@@ -2293,38 +2267,6 @@ const aboutLabels = [
   ["nosso_10", "Nosso 10/10"],
 ];
 
-function coupleSetupTemplate() {
-  if (!cloudOn()) return `<div class="empty">Configure o Supabase para usar o espaço do casal.</div>`;
-  return `
-    <div class="section-title"><h2>Nós dois</h2></div>
-    <section class="couple-welcome">
-      <div>
-        <span>Diário do casal</span>
-        <h2>Um cantinho só de vocês.</h2>
-        <p>Crie um espaço privado, envie o código para a sua pessoa e guardem doramas, dates, memórias e cartinhas.</p>
-      </div>
-    </section>
-    <section class="grid cards">
-      <form id="create-couple-form" class="form-card">
-        <h3>Criar nosso espaço</h3>
-        <div class="field full">
-          <label for="couple-title">Nome da capa</label>
-          <input id="couple-title" name="title" placeholder="Jonatas & meu amor" />
-        </div>
-        <div class="actions"><button class="btn" type="submit">Criar código do casal</button></div>
-      </form>
-      <form id="join-couple-form" class="form-card">
-        <h3>Entrar com código</h3>
-        <p class="muted">Entre só com o código que sua pessoa te enviar. O casal fica privado para vocês dois.</p>
-        <div class="field full">
-          <label for="couple-code">Código do casal</label>
-          <input id="couple-code" name="code" placeholder="CASAL-123456" autocomplete="off" required />
-        </div>
-        <div class="actions"><button class="btn secondary" type="submit">Entrar no casal certo</button></div>
-      </form>
-    </section>`;
-}
-
 function coupleStats() {
   const eps = coupleDramas.reduce((sum, d) => sum + Number(d.current_episode || 0), 0);
   const watched = coupleDramas.filter((d) => d.status === "watched" || d.status === "favorite").length;
@@ -2764,7 +2706,7 @@ function coupleTemaSection() {
 
 // Roteador das seções do ambiente do casal.
 function coupleSpaceView() {
-  if (!state.couple) return coupleSetupTemplate();
+  if (!state.couple) return `<div class="section-title"><h2>Nós dois</h2></div><div class="empty">Crie o espaço do casal no seu <strong>Perfil</strong> pra abrir o cantinho de vocês. 💕</div>`;
   if (coupleFor !== state.couple.id) return `<div class="section-title"><h2>Nós dois</h2></div><div class="empty">Carregando o cantinho de vocês…</div>`;
   switch (coupleSection) {
     case "assistindo": return coupleDramasTemplate();
@@ -2806,6 +2748,41 @@ function averageRating() {
   return (rated.reduce((sum, value) => sum + value, 0) / rated.length).toFixed(1);
 }
 
+// Gestão do espaço do casal — mora no Perfil (igual o "Espaço Casal" das
+// Configurações do app financeiro). É o ÚNICO lugar de criar/entrar/sair.
+function coupleProfileSection() {
+  if (!cloudOn()) return "";
+  if (!state.couple) {
+    return `
+      <div class="section-title"><h2>💕 Espaço do casal</h2></div>
+      <section class="form-card">
+        <p class="muted" style="margin:0 0 12px">Um cantinho privado só de vocês dois — doramas vistos juntos, memórias, cartinhas, dates, um pet e um tema só de vocês. Crie e mande o código pra sua pessoa.</p>
+        <form id="create-couple-form" class="form-grid">
+          <div class="field full"><label for="couple-title">Nome do casal</label><input id="couple-title" name="title" placeholder="Jonatas & meu amor" /></div>
+          <div class="actions field full"><button class="btn" type="submit">Criar nosso espaço 💕</button></div>
+        </form>
+      </section>
+      <section class="form-card">
+        <p class="muted" style="margin:0 0 10px">Recebeu um código da sua pessoa? Entre no casal certo.</p>
+        <form id="join-couple-form" class="search-bar">
+          <input name="code" placeholder="CASAL-123456" autocomplete="off" required />
+          <button class="btn secondary" type="submit">Entrar</button>
+        </form>
+      </section>`;
+  }
+  return `
+    <div class="section-title"><h2>💕 Espaço do casal</h2></div>
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 6px">Vocês já têm um cantinho! Pra entrar, use o alternador <strong>🏠 Meu app / 💕 Nós dois</strong> lá no topo.</p>
+      <p class="muted" style="margin:0 0 12px">Código do casal: <strong style="color:var(--cor-texto)">${esc(state.couple.code)}</strong></p>
+      <div class="actions" style="margin:0">
+        <button class="btn" type="button" data-space-go="couple">${icon("heart")} Abrir nosso cantinho</button>
+        <button class="btn secondary" type="button" data-copy-couple-code>Copiar código</button>
+        <button class="btn ghost" type="button" data-leave-couple>Sair deste casal</button>
+      </div>
+    </section>`;
+}
+
 function profileTemplate() {
   const profile = state.profile;
   const episodes = state.dramas.reduce((sum, drama) => sum + Number(drama.currentEpisode || 0), 0);
@@ -2827,6 +2804,7 @@ function profileTemplate() {
         <button class="btn ghost" type="button" data-invite-copy>Copiar link</button>
       </div>
     </section>
+    ${coupleProfileSection()}
     <section class="form-card">
       <form id="profile-form" class="form-grid">
         ${profileFields(profile)}
@@ -3895,8 +3873,6 @@ function bindShell() {
   listen(document.querySelector("[data-copy-couple-code]"), "click", copyCoupleCode);
   listen(document.querySelector("[data-date-roulette]"), "click", handleDateRoulette);
   listen(document.querySelector("[data-leave-couple]"), "click", handleLeaveCouple);
-  listen(document.querySelector("[data-enter-couple]"), "click", enterCoupleSpace);
-  document.querySelectorAll("[data-home-couple]").forEach((b) => listen(b, "click", enterCoupleSpace));
   listen(document.querySelector("[data-leave-space]"), "click", leaveCoupleSpace);
   document.querySelectorAll("[data-space-go]").forEach((b) => {
     listen(b, "click", () => (b.dataset.spaceGo === "couple" ? enterCoupleSpace() : leaveCoupleSpace()));
@@ -4406,6 +4382,8 @@ async function handleCreateCouple(event) {
   try {
     const couple = await createCouple(title);
     state.couple = mapCoupleRow(couple);
+    state.space = "couple"; // já entra no cantinho recém-criado (o "segundo app")
+    coupleSection = "inicio";
     saveState();
     aplicarTemaAmbiente();
     toast("Espaço do casal criado. Envie o código para a sua pessoa. 💕");
@@ -4427,6 +4405,8 @@ async function handleJoinCouple(event) {
   try {
     const couple = await joinCouple(code);
     state.couple = mapCoupleRow(couple);
+    state.space = "couple"; // entra direto no cantinho de vocês
+    coupleSection = "inicio";
     saveState();
     aplicarTemaAmbiente();
     toast("Você entrou no espaço do casal. 💕");
