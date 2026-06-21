@@ -308,11 +308,26 @@ function icon(name) {
 
 // ---------- Temas ----------
 const TEMA_KEY = "dorama-club-tema";
+const TEMA_CUSTOM_KEY = "dorama-club-tema-custom";
+
+// Tema "ao vivo": se for "custom", lê o tema montado de um dorama (localStorage).
+function temaCorrente() {
+  const id = temaAtual();
+  if (id === "custom") {
+    try {
+      const t = JSON.parse(localStorage.getItem(TEMA_CUSTOM_KEY) || "null");
+      if (t && t.variaveis) return t;
+    } catch {
+      /* ignore */
+    }
+  }
+  return acharTema(id);
+}
 
 function aplicarTema(id) {
-  const tema = acharTema(id);
+  const tema = id === "custom" ? temaCorrente() : acharTema(id);
   const root = document.documentElement;
-  root.dataset.tema = tema.id;
+  root.dataset.tema = tema.id || id;
   for (const [chave, valor] of Object.entries(tema.variaveis)) {
     root.style.setProperty(chave, valor);
   }
@@ -339,6 +354,102 @@ function salvarTema(id) {
     /* ignore */
   }
   aplicarTema(id);
+  render();
+}
+
+// ---------- Tema a partir de QUALQUER dorama (TMDB) ----------
+let temaSearch = { query: "", loading: false, results: [] };
+
+// Pega a cor mais "viva" da imagem (no canvas). Cai numa cor rosa se falhar.
+function extrairCor(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const c = document.createElement("canvas");
+        c.width = 50;
+        c.height = 50;
+        const ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0, 50, 50);
+        const data = ctx.getImageData(0, 0, 50, 50).data;
+        let best = [223, 79, 148];
+        let bestScore = -1;
+        for (let i = 0; i < data.length; i += 4) {
+          const R = data[i], G = data[i + 1], B = data[i + 2];
+          const max = Math.max(R, G, B), min = Math.min(R, G, B);
+          const sat = max - min, lum = (max + min) / 2;
+          const score = sat - Math.abs(lum - 140) * 0.45;
+          if (score > bestScore) { bestScore = score; best = [R, G, B]; }
+        }
+        resolve(best);
+      } catch {
+        resolve([223, 79, 148]);
+      }
+    };
+    img.onerror = () => resolve([223, 79, 148]);
+    img.src = url;
+  });
+}
+
+function clarear([r, g, b], minLum = 95) {
+  const lum = (r * 299 + g * 587 + b * 114) / 1000;
+  if (lum < minLum) {
+    const f = minLum / Math.max(lum, 1);
+    r = Math.min(255, r * f);
+    g = Math.min(255, g * f);
+    b = Math.min(255, b * f);
+  }
+  return [Math.round(r), Math.round(g), Math.round(b)];
+}
+
+async function usarDoramaComoTema(drama) {
+  toast("Montando o tema…");
+  const cor = clarear(await extrairCor(drama.cover || drama.backdrop));
+  const [r, g, b] = cor;
+  const lum = (r * 299 + g * 587 + b * 114) / 1000;
+  const corTexto = lum > 150 ? "#15101f" : "#ffffff";
+  const tema = {
+    id: "custom",
+    nome: drama.title,
+    backdrop: drama.backdrop || drama.cover,
+    marca: { emoji: "🎬" },
+    variaveis: {
+      "--cor-fundo": "#0c0b12",
+      "--cor-superficie": "#16141f",
+      "--cor-superficie-2": "#1f1b2c",
+      "--cor-texto": "#f4f1ff",
+      "--cor-texto-suave": "#b6aecd",
+      "--cor-primaria": `rgb(${r},${g},${b})`,
+      "--cor-primaria-texto": corTexto,
+      "--cor-secundaria": `rgb(${Math.min(255, r + 25)},${Math.min(255, g + 15)},${Math.min(255, b + 40)})`,
+      "--cor-borda": "#2c2740",
+      "--fonte-base": 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif',
+    },
+  };
+  try {
+    localStorage.setItem(TEMA_CUSTOM_KEY, JSON.stringify(tema));
+    localStorage.setItem(TEMA_KEY, "custom");
+  } catch {
+    /* ignore */
+  }
+  temaSearch = { query: "", loading: false, results: [] };
+  aplicarTema("custom");
+  render();
+  toast(`Tema: ${drama.title} 🎬`);
+}
+
+async function runTemaSearch(event) {
+  event.preventDefault();
+  const query = String(new FormData(event.currentTarget).get("q") || "").trim();
+  if (!query) return;
+  temaSearch = { query, loading: true, results: [] };
+  render();
+  try {
+    temaSearch = { query, loading: false, results: await searchDramas(query) };
+  } catch {
+    temaSearch = { query, loading: false, results: [] };
+  }
   render();
 }
 
@@ -679,7 +790,7 @@ function homeTemplate() {
     <section class="hero">
       <div class="hero-top">
         <img class="hero-avatar" src="${esc(avatarUrl(profile))}" alt="" />
-        <p class="kicker">Oi, ${esc(profile.name)} ${acharTema(temaAtual()).marca.emoji}</p>
+        <p class="kicker">Oi, ${esc(profile.name)} ${temaCorrente().marca?.emoji || "💜"}</p>
       </div>
       <h2>Qual vai ser o surto de hoje?</h2>
       <div class="actions">
@@ -1224,7 +1335,30 @@ function rankingEmocionalTemplate() {
 
 function temasTemplate() {
   const atual = temaAtual();
-  return categorias
+  const custom = atual === "custom" ? temaCorrente() : null;
+  const buscaDorama = `
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 8px;font-weight:800">🎬 Tema de qualquer dorama</p>
+      <p class="muted" style="margin:0 0 10px;font-size:.82rem">Busca um dorama e o app fica com a cara dele (fundo e cores tiradas da imagem).</p>
+      <form id="tema-search-form" class="search-bar">
+        <input name="q" placeholder="Ex.: Goblin, Rainha das Lágrimas…" value="${esc(temaSearch.query)}" autocomplete="off" />
+        <button class="btn" type="submit">Buscar</button>
+      </form>
+      ${temaSearch.loading ? `<p class="muted" style="margin-top:10px">Buscando…</p>` : ""}
+      ${temaSearch.results.length
+        ? `<div class="search-results">${temaSearch.results
+            .slice(0, 12)
+            .map(
+              (d) => `<button type="button" class="search-result" data-tema-dorama="${d.tmdbId}"><img src="${esc(thumb(d.cover) || POSTER_PLACEHOLDER)}" alt="" loading="lazy" /><span class="search-result-info"><strong>${esc(d.title)}</strong><small>${d.year || "—"}</small></span></button>`,
+            )
+            .join("")}</div>`
+        : ""}
+      ${custom ? `<p class="muted" style="margin-top:12px">Tema atual: <strong style="color:var(--cor-texto)">🎬 ${esc(custom.nome)}</strong></p>` : ""}
+    </section>`;
+
+  return (
+    buscaDorama +
+    categorias
     .map((categoria) => {
       const lista = temas.filter((tema) => tema.categoria === categoria);
       return `
@@ -1247,7 +1381,8 @@ function temasTemplate() {
             .join("")}
         </section>`;
     })
-    .join("");
+    .join("")
+  );
 }
 
 function profileFields(profile = {}) {
@@ -1784,6 +1919,13 @@ function bindShell() {
 
   document.querySelectorAll("[data-tema]").forEach((button) => {
     listen(button, "click", () => salvarTema(button.dataset.tema));
+  });
+  listen(document.querySelector("#tema-search-form"), "submit", runTemaSearch);
+  document.querySelectorAll("[data-tema-dorama]").forEach((button) => {
+    listen(button, "click", () => {
+      const d = temaSearch.results.find((x) => x.tmdbId === Number(button.dataset.temaDorama));
+      if (d) usarDoramaComoTema(d);
+    });
   });
 
   listen(document.querySelector("[data-random]"), "click", randomDrama);

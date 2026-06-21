@@ -4,6 +4,7 @@ import { TMDB_BEARER } from "./config.js";
 
 const BASE = "https://api.themoviedb.org/3";
 const IMG = "https://image.tmdb.org/t/p/w342";
+const IMG_BACKDROP = "https://image.tmdb.org/t/p/w780";
 
 export function tmdbReady() {
   return Boolean(TMDB_BEARER) && !TMDB_BEARER.startsWith("COLE_AQUI");
@@ -34,6 +35,7 @@ function toBrief(result) {
     year: result.first_air_date ? Number(result.first_air_date.slice(0, 4)) : "",
     rating: result.vote_average ? Number(result.vote_average.toFixed(1)) : "",
     cover: posterUrl(result.poster_path),
+    backdrop: result.backdrop_path ? IMG_BACKDROP + result.backdrop_path : "",
     synopsis: result.overview || "",
   };
 }
