@@ -73,7 +73,8 @@ Dois grandes blocos, nesta ordem:
 - [x] "Assistindo juntos" com doramas vindos da lista pessoal.
 - [x] Diário do casal com memórias por episódio/date.
 - [x] Sobre nós (chave/valor afetivo).
-- [ ] Timeline automática mais elaborada.
+- [x] Timeline automática inicial.
+- [x] Campos afetivos no diário (quem escolheu, notas dele/dela, quem chorou, quem passou raiva).
 - [x] Roleta de date.
 - [x] Cartinhas/memórias.
 - [ ] Polimento visual e testes reais em duas contas.

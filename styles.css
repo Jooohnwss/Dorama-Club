@@ -1144,6 +1144,16 @@ textarea:focus {
   margin: 14px 0 22px;
 }
 
+.couple-auto-timeline {
+  background: color-mix(in srgb, var(--cor-superficie) 82%, transparent);
+  border: 1px solid var(--cor-borda);
+  border-radius: 18px;
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 16px;
+}
+
 .couple-memory {
   background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
   border: 1px solid var(--cor-borda);
@@ -1159,6 +1169,7 @@ textarea:focus {
 
 .couple-memory p {
   margin: 8px 0 0;
+  line-height: 1.45;
 }
 
 .couple-letter p {

@@ -2055,6 +2055,40 @@ function coupleStats() {
   ];
 }
 
+function formatDateShort(value) {
+  if (!value) return "";
+  try {
+    return new Date(`${value}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return String(value);
+  }
+}
+
+function coupleTimelineTemplate() {
+  const eventos = [];
+  if (state.couple?.specialDate) eventos.push([state.couple.specialDate, "💕 Data especial do casal"]);
+  const primeiroDorama = coupleDramas.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[0];
+  if (primeiroDorama) eventos.push([primeiroDorama.created_at?.slice(0, 10), `🎬 Primeiro dorama no cantinho: ${primeiroDorama.title}`]);
+  const finalizado = coupleDramas.find((d) => d.status === "watched" || d.status === "favorite");
+  if (finalizado) eventos.push([finalizado.created_at?.slice(0, 10), `🏁 Primeiro finalizado juntos: ${finalizado.title}`]);
+  const primeiraMemoria = coupleDiary.slice().sort((a, b) => new Date(a.watched_on || a.created_at) - new Date(b.watched_on || b.created_at))[0];
+  if (primeiraMemoria) eventos.push([(primeiraMemoria.watched_on || primeiraMemoria.created_at || "").slice(0, 10), `📖 Primeira memória: ${primeiraMemoria.drama_title || "nosso diário"}`]);
+  const comPiada = coupleDiary.find((d) => d.inside_joke);
+  if (comPiada) eventos.push([(comPiada.watched_on || comPiada.created_at || "").slice(0, 10), `💬 Frase interna: ${comPiada.inside_joke}`]);
+  const cartinha = coupleLetters[0];
+  if (cartinha) eventos.push([(cartinha.created_at || "").slice(0, 10), "💌 Primeira cartinha guardada"]);
+
+  const limpos = eventos
+    .filter(([data]) => data)
+    .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+    .slice(0, 6);
+  if (!limpos.length) return `<div class="empty">A linha do tempo nasce conforme vocês adicionam doramas, memórias e cartinhas.</div>`;
+  return `
+    <section class="couple-auto-timeline">
+      ${limpos.map(([data, texto]) => `<div class="tl-item"><span class="tl-ano">${esc(formatDateShort(data))}</span><span class="tl-texto">${esc(texto)}</span></div>`).join("")}
+    </section>`;
+}
+
 function coupleHeroTemplate() {
   const title = state.couple?.title || "Nós dois";
   const tagline = state.couple?.tagline || "Nosso cantinho de doramas, dates e surtos.";
@@ -2131,6 +2165,9 @@ function coupleDiaryTemplate() {
         ${e.snack || e.place || e.mood ? `<p class="muted">${[e.place, e.snack, e.mood].filter(Boolean).map(esc).join(" · ")}</p>` : ""}
         ${e.fav_moment ? `<p><b>Momento favorito:</b> ${esc(e.fav_moment)}</p>` : ""}
         ${e.inside_joke ? `<p><b>Frase interna:</b> ${esc(e.inside_joke)}</p>` : ""}
+        ${e.chosen_by ? `<p><b>Quem escolheu:</b> ${esc(e.chosen_by)}</p>` : ""}
+        ${e.who_cried || e.who_raged ? `<p><b>Placar emocional:</b> ${[e.who_cried ? `chorou mais: ${e.who_cried}` : "", e.who_raged ? `passou mais raiva: ${e.who_raged}` : ""].filter(Boolean).map(esc).join(" · ")}</p>` : ""}
+        ${e.note_him || e.note_her ? `<p><b>Notas:</b> ${[e.note_him ? `dele ${e.note_him}` : "", e.note_her ? `dela ${e.note_her}` : ""].filter(Boolean).map(esc).join(" · ")}</p>` : ""}
         ${e.comment ? `<p>${esc(e.comment)}</p>` : ""}
         <div class="mini-actions"><button data-del-couple-diary="${e.id}">${icon("trash")} Apagar</button></div>
       </article>`).join("")
@@ -2144,6 +2181,11 @@ function coupleDiaryTemplate() {
       <div class="field"><label>Lanche</label><input name="snack" placeholder="pipoca doce" /></div>
       <div class="field"><label>Humor</label><input name="mood" placeholder="choramos, surtamos…" /></div>
       <div class="field"><label>Onde?</label><input name="place" placeholder="sofá, chamada, cinema…" /></div>
+      <div class="field"><label>Quem escolheu?</label><input name="chosenBy" placeholder="eu, ela, os dois…" /></div>
+      <div class="field"><label>Quem chorou mais?</label><input name="whoCried" placeholder="ninguém, ela, eu…" /></div>
+      <div class="field"><label>Quem passou raiva?</label><input name="whoRaged" placeholder="todo mundo" /></div>
+      <div class="field"><label>Nota dele</label><input name="noteHim" placeholder="10/10" /></div>
+      <div class="field"><label>Nota dela</label><input name="noteHer" placeholder="mil estrelas" /></div>
       <div class="field full"><label>Momento favorito</label><input name="favMoment" placeholder="a cena da chuva" /></div>
       <div class="field full"><label>Frase interna</label><input name="insideJoke" placeholder="eu avisei" /></div>
       <div class="field full"><label>O que lembrar desse dia?</label><textarea name="comment" placeholder="Escreve como se fosse uma página de álbum."></textarea></div>
@@ -2184,6 +2226,8 @@ function coupleTemplate() {
   return `
     ${coupleHeroTemplate()}
     <section class="grid stats">${coupleStats().map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}</section>
+    <div class="section-title"><h2>Linha do tempo de vocês</h2></div>
+    ${coupleTimelineTemplate()}
     <section class="form-card">
       <form id="couple-capa-form" class="form-grid">
         <div class="field"><label>Nome da capa</label><input name="title" value="${esc(state.couple.title || "")}" placeholder="Nós dois" /></div>
@@ -3812,8 +3856,13 @@ async function handleCoupleDiary(event) {
       place: data.place,
       snack: data.snack,
       mood: data.mood,
+      chosenBy: data.chosenBy,
       favMoment: data.favMoment,
       insideJoke: data.insideJoke,
+      noteHim: data.noteHim,
+      noteHer: data.noteHer,
+      whoCried: data.whoCried,
+      whoRaged: data.whoRaged,
       comment: data.comment,
     });
     event.currentTarget.reset();
