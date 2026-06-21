@@ -337,8 +337,21 @@ export async function joinCouple(code) {
 }
 
 // Meu casal (ou null se não estou em nenhum).
+// Busca direto pelas tabelas (fonte da verdade) — mais confiável que o RPC,
+// e sempre traz a linha COMPLETA do casal (com o código).
 export async function myCouple() {
-  const { data, error } = await supabase.rpc("my_couple");
+  const { data: mem, error: e1 } = await supabase
+    .from("couple_members")
+    .select("couple_id")
+    .limit(1)
+    .maybeSingle();
+  if (e1) throw e1;
+  if (!mem) return null; // não estou em nenhum casal
+  const { data, error } = await supabase
+    .from("couples")
+    .select("*")
+    .eq("id", mem.couple_id)
+    .maybeSingle();
   if (error) throw error;
   return data || null;
 }

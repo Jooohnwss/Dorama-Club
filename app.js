@@ -860,8 +860,10 @@ function loadState() {
     merged.dramas = Array.isArray(saved.dramas) ? saved.dramas.map(normalizeDrama) : merged.dramas;
     merged.club = saved.club || null;
     merged.clubs = Array.isArray(saved.clubs) ? saved.clubs : [];
-    merged.couple = saved.couple || null;
-    merged.space = saved.space === "couple" ? "couple" : "solo";
+    // Só aceita casal salvo se estiver completo (id + código). Evita o estado
+    // quebrado de "tenho casal" com código vazio até o hydrate confirmar.
+    merged.couple = saved.couple && saved.couple.id && saved.couple.code ? saved.couple : null;
+    merged.space = saved.space === "couple" && merged.couple ? "couple" : "solo";
     return merged;
   } catch {
     return cloneDefaults();
@@ -4324,20 +4326,22 @@ async function loadCoupleData() {
 }
 
 // Converte a linha do banco (couples) para o formato do estado (camelCase + tema).
+// Só considera casal VÁLIDO quando tem id e código — senão devolve null
+// (evita o estado quebrado de "tenho casal" com código vazio).
 function mapCoupleRow(couple) {
-  return couple
-    ? {
-        id: couple.id,
-        code: couple.code,
-        title: couple.title || "",
-        tagline: couple.tagline || "",
-        specialDate: couple.special_date || "",
-        tema: couple.tema || "",
-        temaCustom: couple.tema_custom || "",
-        createdBy: couple.created_by || null,
-        pinnedLetter: couple.pinned_letter || "",
-      }
-    : null;
+  if (Array.isArray(couple)) couple = couple[0];
+  if (!couple || !couple.id || !couple.code) return null;
+  return {
+    id: couple.id,
+    code: couple.code,
+    title: couple.title || "",
+    tagline: couple.tagline || "",
+    specialDate: couple.special_date || "",
+    tema: couple.tema || "",
+    temaCustom: couple.tema_custom || "",
+    createdBy: couple.created_by || null,
+    pinnedLetter: couple.pinned_letter || "",
+  };
 }
 
 async function refreshCouple() {
@@ -4380,8 +4384,9 @@ async function handleCreateCouple(event) {
   if (!cloudOn()) return;
   const title = String(new FormData(event.currentTarget).get("title") || "").trim();
   try {
-    const couple = await createCouple(title);
-    state.couple = mapCoupleRow(couple);
+    await createCouple(title);
+    state.couple = mapCoupleRow(await myCouple()); // re-busca a linha completa (com código)
+    if (!state.couple) throw new Error("Criado, mas não consegui carregar. Recarregue.");
     state.space = "couple"; // já entra no cantinho recém-criado (o "segundo app")
     coupleSection = "inicio";
     saveState();
@@ -4403,8 +4408,9 @@ async function handleJoinCouple(event) {
   });
   if (!ok) return;
   try {
-    const couple = await joinCouple(code);
-    state.couple = mapCoupleRow(couple);
+    await joinCouple(code);
+    state.couple = mapCoupleRow(await myCouple()); // re-busca a linha completa (com código)
+    if (!state.couple) throw new Error("Entrei, mas não consegui carregar. Recarregue.");
     state.space = "couple"; // entra direto no cantinho de vocês
     coupleSection = "inicio";
     saveState();
