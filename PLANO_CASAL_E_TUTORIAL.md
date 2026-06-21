@@ -83,7 +83,7 @@ Dois grandes blocos, nesta ordem:
 
 > **Falta só validação manual em 2 contas** (não dá pra automatizar — precisa de 2 logins reais). Checklist de teste abaixo, em "O que ainda falta testar".
 
-### Etapa 4 — Navegação ("Nós dois" como AMBIENTE separado)  → **FEITO (código) / falta rodar SQL 14** ✅
+### Etapa 4 — Navegação ("Nós dois" como AMBIENTE separado)  → **FEITO** ✅ (SQL 14 já rodada)
 Decisão do usuário: o casal não é mais uma aba espremida — é um **ambiente próprio** ("outro mundo"), com navegação própria e **tema compartilhado**.
 - [x] Estado `state.space = "solo" | "couple"` (persistido). Tirado "Nós dois" da barra normal → mobile respira (5 itens).
 - [x] **Portal de entrada**: card de destaque na Home (`homeCoupleCard`) + botão no rodapé da sidebar (desktop). No mobile, entrada pelo card (botão da sidebar escondido).
@@ -92,7 +92,7 @@ Decisão do usuário: o casal não é mais uma aba espremida — é um **ambient
 - [x] "Voltar pro app" (`leaveCoupleSpace`) só troca de ambiente; "Sair deste casal" desfaz o vínculo e volta pro solo.
 - [x] **Tema compartilhado**: migração 14 (`couples.tema`/`tema_custom`), `saveCoupleTheme`, `salvarTemaCasal`/`usarDoramaComoTemaCasal`, `aplicarTemaAmbiente` (aplica o tema do casal no ambiente, restaura o pessoal ao voltar). Mesma mecânica de hoje (cores + buscar dorama); quando um muda, vale pros dois (sincroniza ao abrir/recarregar).
 - [x] Mobile: reaproveita `.sidebar`/`.nav` (vira barra inferior); "Voltar" entra na barra.
-- [ ] **AÇÃO DO USUÁRIO**: rodar `supabase/14 - tema-do-casal.sql` no Supabase (sem ela, só o tema-do-casal não salva).
+- [x] **AÇÃO DO USUÁRIO**: rodar `supabase/14 - tema-do-casal.sql` no Supabase. Confirmado pelo usuário (2026-06-21).
 
 ### Etapa 5 — Tutorial específico do casal  → **FEITO** ✅
 - [x] Tutorial geral já menciona a aba "Nós dois".
