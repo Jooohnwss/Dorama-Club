@@ -25,6 +25,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 14 | `14 - tema-do-casal.sql` | Tema **compartilhado** do casal: colunas `tema` / `tema_custom` em `couples` (quando um muda, vale pros dois). Usa a policy de update da 13 | Casal |
 | 15 | `15 - cartinha-fixa-do-casal.sql` | Coluna `pinned_letter` em `couples`: cartinha fixa no topo do casal (e usada na tela de "modo presente") | Casal |
 | 16 | `16 - pet-do-casal.sql` | Tabela `couple_pet` (nome + carinha do mascote) + RLS (só o casal). Felicidade/acessórios são derivados das ações | Casal |
+| 17 | `17 - tipo-de-pagina-do-diario.sql` | Coluna `kind` em `couple_diary`: diário vira álbum por tipo (episódio/date/cartinha/surto/momento/marco) | Casal |
 
 ## Convenção de nome
 

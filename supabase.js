@@ -472,6 +472,7 @@ export async function loadCoupleDiary(coupleId) {
 export async function addCoupleDiary(coupleId, userId, entry) {
   const { error } = await supabase.from("couple_diary").insert({
     couple_id: coupleId,
+    kind: entry.kind || "episodio",
     tmdb_id: entry.tmdbId ?? null,
     drama_title: entry.dramaTitle || null,
     episode: Number(entry.episode || 0),

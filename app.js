@@ -474,6 +474,7 @@ let coupleLetters = [];
 let coupleLoading = false;
 let coupleSection = "inicio"; // seção interna do ambiente do casal
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
+let coupleDiaryKind = "episodio"; // tipo de página do diário sendo criada
 let recadoIndex = Math.floor(Math.random() * 1000); // qual recadinho mostrar no topo
 let coupleAddSearch = { query: "", loading: false, results: [] }; // busca TMDB no add do casal
 let coupleAddCatSel = "watching"; // categoria escolhida no add do casal (persiste no re-render)
@@ -2681,56 +2682,122 @@ function coupleDramasTemplate() {
     ${fim.length ? grade(fim, "fim") : `<div class="empty">Quando terminarem um dorama, ele vira troféu aqui. 🎉</div>`}`;
 }
 
-function coupleDiaryTemplate() {
+const DIARY_KINDS = [
+  ["episodio", "📺", "Episódio"],
+  ["date", "🍿", "Date"],
+  ["cartinha", "💌", "Cartinha"],
+  ["surto", "😭", "Surto"],
+  ["momento", "✨", "Momento"],
+  ["marco", "🏆", "Marco"],
+];
+const diaryKindMeta = (k) => DIARY_KINDS.find((x) => x[0] === k) || DIARY_KINDS[0];
+
+// Campos do formulário conforme o tipo de página.
+function coupleDiaryFields(kind) {
   const options = coupleDramas.map((d) => `<option value="${d.id}" ${coupleMemoryDraft === d.id ? "selected" : ""}>${esc(d.title)}</option>`).join("");
+  const dorama = `<div class="field"><label>Dorama</label><select name="dramaId">${options}<option value="">Outro / geral</option></select></div>`;
+  const tituloLivre = (lbl, ph) => `<div class="field full"><label>${lbl}</label><input name="titleLivre" placeholder="${ph}" /></div>`;
+  const data = `<div class="field"><label>Data</label><input name="watchedOn" type="date" /></div>`;
+  const texto = (lbl, ph) => `<div class="field full"><label>${lbl}</label><textarea name="comment" placeholder="${ph}"></textarea></div>`;
+
+  if (kind === "date") {
+    return `
+      ${tituloLivre("Nome do date", "Cinema em casa, jantar dorameiro…")}
+      ${data}
+      <div class="field"><label>Onde?</label><input name="place" placeholder="sofá, cinema, parque…" /></div>
+      <div class="field"><label>Lanche</label><input name="snack" placeholder="pipoca doce" /></div>
+      <div class="field full"><label>Melhor momento</label><input name="favMoment" placeholder="o que ficou marcado" /></div>
+      <div class="field full"><label>Faríamos de novo?</label><input name="insideJoke" placeholder="com certeza / nunca mais kkk" /></div>
+      ${texto("Como foi?", "Conta esse date como uma página de álbum.")}`;
+  }
+  if (kind === "cartinha") {
+    return `
+      ${tituloLivre("Para quem / título (opcional)", "Pra você, amor…")}
+      ${texto("Sua cartinha", "Escreve o recadinho que vocês vão querer reler.")}`;
+  }
+  if (kind === "surto") {
+    return `
+      ${dorama}
+      <div class="field"><label>Episódio</label><input name="episode" type="number" min="0" placeholder="8" /></div>
+      <div class="field full"><label>O que causou o surto?</label><input name="favMoment" placeholder="a cena que destruiu vocês" /></div>
+      ${texto("Surtem aqui 😭", "Pode soltar tudo.")}`;
+  }
+  if (kind === "momento") {
+    return `
+      ${tituloLivre("Título (opcional)", "Aquele dia que…")}
+      ${data}
+      <div class="field full"><label>O momento</label><input name="favMoment" placeholder="o que aconteceu de especial" /></div>
+      ${texto("Detalhes", "Guarda esse momento de vocês.")}`;
+  }
+  if (kind === "marco") {
+    return `
+      ${tituloLivre("Qual o marco?", "1 mês juntos, 1º dorama finalizado…")}
+      ${data}
+      ${texto("Por que importa", "O que esse marco significa pra vocês.")}`;
+  }
+  // episódio (completo)
+  return `
+    ${dorama}
+    <div class="field"><label>Episódio</label><input name="episode" type="number" min="0" placeholder="8" /></div>
+    ${data}
+    <div class="field"><label>Lanche</label><input name="snack" placeholder="pipoca doce" /></div>
+    <div class="field"><label>Humor</label><input name="mood" placeholder="choramos, surtamos…" /></div>
+    <div class="field"><label>Onde?</label><input name="place" placeholder="sofá, chamada, cinema…" /></div>
+    <div class="field"><label>Quem escolheu?</label><input name="chosenBy" placeholder="eu, ela, os dois…" /></div>
+    <div class="field"><label>Quem chorou mais?</label><input name="whoCried" placeholder="ninguém, ela, eu…" /></div>
+    <div class="field"><label>Quem passou raiva?</label><input name="whoRaged" placeholder="todo mundo" /></div>
+    <div class="field"><label>Nota dele</label><input name="noteHim" placeholder="10/10" /></div>
+    <div class="field"><label>Nota dela</label><input name="noteHer" placeholder="mil estrelas" /></div>
+    <div class="field full"><label>Momento favorito</label><input name="favMoment" placeholder="a cena da chuva" /></div>
+    <div class="field full"><label>Frase interna</label><input name="insideJoke" placeholder="eu avisei" /></div>
+    ${texto("O que esse dia teve de especial?", "Escreve como se fosse uma página de álbum.")}`;
+}
+
+function coupleDiaryEntryCard(e) {
+  const [, emoji, label] = diaryKindMeta(e.kind);
+  const titulo = e.drama_title || label;
+  const linha1 = [e.place, e.snack, e.mood].filter(Boolean).map(esc).join(" · ");
+  const placar = [e.chosen_by ? `Escolha: ${e.chosen_by}` : "", e.who_cried ? `Choro: ${e.who_cried}` : "", e.who_raged ? `Raiva: ${e.who_raged}` : ""].filter(Boolean).map(esc).join(" · ");
+  const notas = [e.note_him ? `dele ${e.note_him}` : "", e.note_her ? `dela ${e.note_her}` : ""].filter(Boolean).map(esc).join(" · ");
+  return `
+    <article class="couple-memory album-page kind-${esc(e.kind || "episodio")}">
+      <header>
+        <span class="album-kind">${emoji} ${esc(label)}${e.watched_on ? ` · ${esc(formatDateShort(e.watched_on))}` : ""}</span>
+        <strong>${esc(titulo)}${e.episode ? ` · ep. ${e.episode}` : ""}</strong>
+        ${linha1 ? `<small>${linha1}</small>` : ""}
+      </header>
+      <div class="album-body">
+        ${e.fav_moment ? `<p class="album-quote">“${esc(e.fav_moment)}”</p>` : ""}
+        ${e.comment ? `<p>${esc(e.comment)}</p>` : ""}
+        ${e.inside_joke ? `<p><b>${e.kind === "date" ? "Faríamos de novo?" : "Frase que virou nossa:"}</b> ${esc(e.inside_joke)}</p>` : ""}
+        ${placar ? `<p><b>Placar emocional:</b> ${placar}</p>` : ""}
+        ${notas ? `<p><b>Notas:</b> ${notas}</p>` : ""}
+      </div>
+      <div class="mini-actions"><button data-del-couple-diary="${e.id}">${icon("trash")} Apagar</button></div>
+    </article>`;
+}
+
+function coupleDiaryTemplate() {
+  const [, emojiAtual, labelAtual] = diaryKindMeta(coupleDiaryKind);
   const entries = coupleDiary.length
-    ? coupleDiary.map((e) => {
-        const meta = [e.place, e.snack, e.mood].filter(Boolean).map(esc).join(" · ");
-        const placar = [e.chosen_by ? `Escolha: ${e.chosen_by}` : "", e.who_cried ? `Choro: ${e.who_cried}` : "", e.who_raged ? `Raiva: ${e.who_raged}` : ""].filter(Boolean).map(esc).join(" · ");
-        const notas = [e.note_him ? `dele ${e.note_him}` : "", e.note_her ? `dela ${e.note_her}` : ""].filter(Boolean).map(esc).join(" · ");
-        return `
-          <article class="couple-memory album-page">
-            <header>
-              <span>${e.watched_on ? esc(formatDateShort(e.watched_on)) : "Página do diário"}</span>
-              <strong>${esc(e.drama_title || "Memória de nós dois")}${e.episode ? ` · ep. ${e.episode}` : ""}</strong>
-              ${meta ? `<small>${meta}</small>` : ""}
-            </header>
-            <div class="album-body">
-              ${e.fav_moment ? `<p class="album-quote">“${esc(e.fav_moment)}”</p>` : ""}
-              ${e.comment ? `<p>${esc(e.comment)}</p>` : ""}
-              ${e.inside_joke ? `<p><b>Frase que virou nossa:</b> ${esc(e.inside_joke)}</p>` : ""}
-              ${placar ? `<p><b>Placar emocional:</b> ${placar}</p>` : ""}
-              ${notas ? `<p><b>Notas do episódio:</b> ${notas}</p>` : ""}
-            </div>
-            <div class="mini-actions"><button data-del-couple-diary="${e.id}">${icon("trash")} Apagar</button></div>
-          </article>`;
-      }).join("")
-    : `<div class="empty diary-empty"><strong>O diário ainda está em branco.</strong><span>A primeira página pode ser um episódio, um date, uma ligação assistindo junto ou só um surto que vocês querem lembrar.</span></div>`;
+    ? coupleDiary.map(coupleDiaryEntryCard).join("")
+    : `<div class="empty diary-empty"><strong>O diário ainda está em branco.</strong><span>A primeira página pode ser um episódio, um date, uma cartinha ou só um surto que vocês querem lembrar.</span></div>`;
   return `
     <section class="diary-hero">
       <span>Álbum vivo</span>
       <h2>Diário do casal</h2>
-      <p>Não é só “registrar episódio”. É guardar o dia: o que vocês viram, onde estavam, o que comeram, quem surtou e qual cena virou memória.</p>
+      <p>Cada página é uma lembrança de vocês. Escolha o tipo e preencha só o que fizer sentido.</p>
     </section>
+    <div class="diary-kinds">
+      ${DIARY_KINDS.map(([k, em, lb]) => `<button type="button" class="diary-kind ${coupleDiaryKind === k ? "on" : ""}" data-diary-kind="${k}">${em} ${lb}</button>`).join("")}
+    </div>
     <form id="couple-diary-form" class="form-card form-grid diary-form">
+      <input type="hidden" name="kind" value="${esc(coupleDiaryKind)}" />
       <div class="field full diary-form-title">
-        <strong>Nova página do diário</strong>
+        <strong>Nova página: ${emojiAtual} ${labelAtual}</strong>
         <span>Preencha só o que fizer sentido. O resto pode ficar vazio.</span>
       </div>
-      <div class="field"><label>Dorama</label><select name="dramaId">${options}<option value="">Outro / geral</option></select></div>
-      <div class="field"><label>Episódio</label><input name="episode" type="number" min="0" placeholder="8" /></div>
-      <div class="field"><label>Data</label><input name="watchedOn" type="date" /></div>
-      <div class="field"><label>Lanche</label><input name="snack" placeholder="pipoca doce" /></div>
-      <div class="field"><label>Humor</label><input name="mood" placeholder="choramos, surtamos…" /></div>
-      <div class="field"><label>Onde?</label><input name="place" placeholder="sofá, chamada, cinema…" /></div>
-      <div class="field"><label>Quem escolheu?</label><input name="chosenBy" placeholder="eu, ela, os dois…" /></div>
-      <div class="field"><label>Quem chorou mais?</label><input name="whoCried" placeholder="ninguém, ela, eu…" /></div>
-      <div class="field"><label>Quem passou raiva?</label><input name="whoRaged" placeholder="todo mundo" /></div>
-      <div class="field"><label>Nota dele</label><input name="noteHim" placeholder="10/10" /></div>
-      <div class="field"><label>Nota dela</label><input name="noteHer" placeholder="mil estrelas" /></div>
-      <div class="field full"><label>Momento favorito</label><input name="favMoment" placeholder="a cena da chuva" /></div>
-      <div class="field full"><label>Frase interna</label><input name="insideJoke" placeholder="eu avisei" /></div>
-      <div class="field full"><label>O que esse dia teve de especial?</label><textarea name="comment" placeholder="Escreve como se fosse uma página de álbum."></textarea></div>
+      ${coupleDiaryFields(coupleDiaryKind)}
       <div class="actions field full"><button class="btn" type="submit">Guardar página</button></div>
     </form>
     <section class="couple-timeline">${entries}</section>`;
@@ -4176,6 +4243,9 @@ function bindShell() {
     listen(sel, "change", () => handleCoupleMoveTo(sel.dataset.coupleMoveTo, sel.value));
   });
   listen(document.querySelector("[data-couple-sortear-fila]"), "click", handleCoupleSortearFila);
+  document.querySelectorAll("[data-diary-kind]").forEach((button) => {
+    listen(button, "click", () => { coupleDiaryKind = button.dataset.diaryKind; render(); });
+  });
   listen(document.querySelector("#couple-add-cat"), "change", (e) => { coupleAddCatSel = e.target.value; });
   listen(document.querySelector("#couple-search-form"), "submit", runCoupleSearch);
   document.querySelectorAll("[data-couple-add-tmdb]").forEach((button) => {
@@ -5016,10 +5086,18 @@ async function handleCoupleDiary(event) {
   if (!state.couple) return;
   const data = Object.fromEntries(new FormData(event.currentTarget));
   const drama = coupleDramas.find((d) => d.id === data.dramaId);
+  // Tipos sem dorama usam um título livre; com dorama, usa o título dele.
+  const titulo = drama?.title || String(data.titleLivre || "").trim();
+  // Exige ao menos algum conteúdo (título ou texto).
+  if (!titulo && !String(data.comment || "").trim() && !String(data.favMoment || "").trim()) {
+    toast("Escreva algo pra guardar essa página. 💕");
+    return;
+  }
   try {
     await addCoupleDiary(state.couple.id, authUser.id, {
+      kind: data.kind || "episodio",
       tmdbId: drama?.tmdb_id,
-      dramaTitle: drama?.title || "",
+      dramaTitle: titulo || "",
       episode: data.episode,
       watchedOn: data.watchedOn,
       place: data.place,
@@ -5034,10 +5112,10 @@ async function handleCoupleDiary(event) {
       whoRaged: data.whoRaged,
       comment: data.comment,
     });
-    event.currentTarget.reset();
+    coupleMemoryDraft = null;
     coupleDiary = await loadCoupleDiary(state.couple.id);
     render();
-    toast("Memória guardada no diário. 💕");
+    toast("Página guardada no álbum. 💕");
   } catch {
     toast("Não consegui guardar essa memória.");
   }

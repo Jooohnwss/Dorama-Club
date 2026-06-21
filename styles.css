@@ -1811,6 +1811,40 @@ textarea:focus {
   line-height: 1.5;
 }
 
+/* Seletor de tipo de página do diário */
+.diary-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.diary-kind {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--cor-superficie-2);
+  border: 1px solid var(--cor-borda);
+  color: var(--cor-texto-suave);
+  font-weight: 800;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+.diary-kind:hover {
+  color: var(--cor-texto);
+}
+.diary-kind.on {
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+  border-color: transparent;
+}
+
+.album-kind {
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--cor-primaria);
+}
+
 .diary-form {
   margin-bottom: 16px;
 }
