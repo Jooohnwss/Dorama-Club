@@ -2963,6 +2963,82 @@ function coupleAjustesSection() {
     ${coupleTemaSection()}`;
 }
 
+// ---------- Bingo do episódio (joguinho do casal, local) ----------
+const BINGO_CLICHES = [
+  "Quase beijo interrompido", "CEO frio que amolece", "Alguém chora na chuva",
+  "Trauma de infância revelado", "Vilão sorri suspeito", "Protagonista passa vergonha",
+  "Mãe rica desaprova", "Acidente de carro", "Flashback em câmera lenta",
+  "Cena no hospital", "Mal-entendido bobo", "Abraço por trás",
+  "Bêbado(a) se declarando", "Sem guarda-chuva na chuva", "Triângulo amoroso",
+  "Segredo de família", "Reencontro de infância", "Comida feita com amor",
+  "Carregar nas costas (piggyback)", "Ciúme escancarado", "Tapa na cara",
+  "Declaração na neve", "Salvamento no último segundo", "Beijo na testa",
+  "Cair em cima do(a) crush", "Mão segura de repente", "Olhar demorado",
+];
+const BINGO_KEY = "dorama-club-bingo";
+let bingoCard = null; // { size, cells:[{t,on}] }
+let bingoGanhouAvisado = false;
+
+function salvarBingo() { try { localStorage.setItem(BINGO_KEY, JSON.stringify(bingoCard)); } catch { /* ignore */ } }
+function carregarBingo() { try { const b = JSON.parse(localStorage.getItem(BINGO_KEY) || "null"); if (b && Array.isArray(b.cells)) bingoCard = b; } catch { /* ignore */ } }
+function gerarBingoCard(size = 3) {
+  const n = size * size;
+  const pool = [...BINGO_CLICHES].sort(() => Math.random() - 0.5).slice(0, n);
+  bingoCard = { size, cells: pool.map((t) => ({ t, on: false })) };
+  bingoGanhouAvisado = false;
+  salvarBingo();
+}
+function bingoLinhas(size) {
+  const linhas = [];
+  for (let r = 0; r < size; r++) linhas.push(Array.from({ length: size }, (_, c) => r * size + c));
+  for (let c = 0; c < size; c++) linhas.push(Array.from({ length: size }, (_, r) => r * size + c));
+  linhas.push(Array.from({ length: size }, (_, i) => i * size + i));
+  linhas.push(Array.from({ length: size }, (_, i) => i * size + (size - 1 - i)));
+  return linhas;
+}
+function bingoVenceu() {
+  return bingoCard && bingoLinhas(bingoCard.size).some((l) => l.every((i) => bingoCard.cells[i]?.on));
+}
+
+function bingoTemplate() {
+  if (!bingoCard) { carregarBingo(); if (!bingoCard) gerarBingoCard(3); }
+  const venceu = bingoVenceu();
+  return `
+    <div class="section-title compact"><h2>🎬 Bingo do episódio</h2><button class="btn ghost" type="button" data-bingo-novo>Nova cartela</button></div>
+    <p class="muted" style="margin:-6px 0 12px;font-size:.84rem">Antes do play, chutem os clichês que vão aparecer. Fechou uma linha (↔ ↕ ⤢)? <strong>BINGO!</strong> 🎉</p>
+    <section class="bingo-grid size-${bingoCard.size}">
+      ${bingoCard.cells.map((c, i) => `<button class="bingo-cell ${c.on ? "on" : ""}" type="button" data-bingo-cell="${i}">${esc(c.t)}</button>`).join("")}
+    </section>
+    ${venceu ? `<div class="bingo-win">🎉 BINGO! Vocês fecharam uma linha! <button class="btn" type="button" data-bingo-share>${icon("share")} Compartilhar</button></div>` : ""}`;
+}
+
+function toggleBingoCell(i) {
+  if (!bingoCard?.cells[i]) return;
+  const jaTinha = bingoVenceu();
+  bingoCard.cells[i].on = !bingoCard.cells[i].on;
+  salvarBingo();
+  render();
+  if (!jaTinha && bingoVenceu() && !bingoGanhouAvisado) {
+    bingoGanhouAvisado = true;
+    toast("BINGO! Vocês fecharam uma linha 🎉");
+  }
+}
+
+async function shareBingo() {
+  toast("Gerando…");
+  const coupleName = state.couple?.title || coupleMembers.map((m) => m.name || m.nickname).filter(Boolean).join(" & ") || "Nós dois";
+  const marcados = bingoCard.cells.filter((c) => c.on).map((c) => c.t).slice(0, 3).join(", ");
+  try {
+    const blob = await gerarCardMeuDia(
+      { title: "🎬 Bingo do episódio" },
+      { casal: true, header: "🎉 Fechamos o bingo!", coupleName, frase: marcados ? `Apareceu: ${marcados}…` : "Bingo dorameiro fechado!" },
+    );
+    await compartilharImagem(blob, `Fechamos o bingo do episódio! 🎬💕 ${inviteLink()}`);
+  } catch {
+    toast("Não consegui gerar o card.");
+  }
+}
+
 function coupleDiversaoSection() {
   return `
     <div class="section-title"><h2>Diversão do casal</h2></div>
@@ -2973,9 +3049,9 @@ function coupleDiversaoSection() {
         <small>Para quando vocês querem fazer algo juntos e ninguém decide.</small>
       </button>
       <div class="couple-dash-card">
-        <span class="muted">Conquistas</span>
-        <strong>Certificados</strong>
-        <small>Marcos desbloqueados por episódios, memórias e cartinhas.</small>
+        <span class="muted">Joguinho</span>
+        <strong>🎬 Bingo do episódio</strong>
+        <small>Marquem os clichês que aparecerem. Fechou linha, deu bingo!</small>
       </div>
       <div class="couple-dash-card">
         <span class="muted">Mascote</span>
@@ -2983,6 +3059,7 @@ function coupleDiversaoSection() {
         <small>Um cachorrinho para cuidar com os momentos de vocês.</small>
       </div>
     </section>
+    ${bingoTemplate()}
     ${coupleCertificadosSection()}
     ${couplePetSection()}`;
 }
@@ -4263,6 +4340,11 @@ function bindShell() {
   document.querySelectorAll("[data-diary-kind]").forEach((button) => {
     listen(button, "click", () => { coupleDiaryKind = button.dataset.diaryKind; render(); });
   });
+  document.querySelectorAll("[data-bingo-cell]").forEach((button) => {
+    listen(button, "click", () => toggleBingoCell(Number(button.dataset.bingoCell)));
+  });
+  listen(document.querySelector("[data-bingo-novo]"), "click", () => { gerarBingoCard(bingoCard?.size || 3); render(); });
+  listen(document.querySelector("[data-bingo-share]"), "click", shareBingo);
   listen(document.querySelector("#couple-add-cat"), "change", (e) => { coupleAddCatSel = e.target.value; });
   listen(document.querySelector("#couple-search-form"), "submit", runCoupleSearch);
   document.querySelectorAll("[data-couple-add-tmdb]").forEach((button) => {

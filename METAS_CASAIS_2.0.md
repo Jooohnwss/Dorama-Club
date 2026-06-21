@@ -270,7 +270,7 @@ Regra:
 3. Reestruturar Assistindo em: ativos, fila, finalizados. **Status: implementado — 3 blocos (Assistindo juntos com +1 ep/memoria/finalizamos; Queremos ver com comecar a ver + sortear proximo; Finalizados com certificado + favoritar). Prioridade eu/ela/os dois fica pra depois (precisa coluna nova).**
 4. Refazer Diario como album por tipo de pagina. **Status: implementado — tipos Episodio/Date/Cartinha/Surto/Momento/Marco; o formulario muda por tipo; cada entrada vira card com emoji/badge. Migracao 17 (coluna kind). Foto da memoria fica pra depois (precisa storage).**
 5. Refazer Sobre nos como ficha viva + perguntas. **Status: implementado — cards agrupados (Favoritos/Rituais/Coisas nossas) que se tocam pra responder (estilo Daylio/Day One), barra de progresso e uma "pergunta em destaque" rotativa (estilo Happy Couple/DailyBean). Sem migracao (reusa couple_about). "Cada um responde e revela" (Happy Couple real) fica pra depois — precisa guardar resposta por pessoa.**
-6. Melhorar Diversao com jogos e certificados.
+6. Melhorar Diversao com jogos e certificados. **Status: Bingo do episodio implementado (cartela de cliches, marca celulas, fecha linha = BINGO + compartilhar). Local (sem migracao). Outros jogos (quiz, previsoes) ficam pra depois.**
 7. Polir mobile.
 
 ## Definicao De Pronto

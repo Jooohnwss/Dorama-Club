@@ -1267,6 +1267,49 @@ textarea:focus {
   background: color-mix(in srgb, var(--cor-primaria) 22%, transparent);
 }
 
+/* Bingo do episódio */
+.bingo-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.bingo-grid.size-3 { grid-template-columns: repeat(3, 1fr); }
+.bingo-grid.size-4 { grid-template-columns: repeat(4, 1fr); }
+.bingo-cell {
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+  color: var(--cor-texto);
+  font-weight: 750;
+  font-size: 0.74rem;
+  line-height: 1.15;
+  text-align: center;
+}
+.bingo-cell.on {
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+  border-color: transparent;
+  transform: scale(0.97);
+}
+.bingo-win {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  font-weight: 850;
+  color: var(--cor-texto);
+  background: color-mix(in srgb, var(--cor-primaria) 16%, var(--cor-superficie));
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 40%, transparent);
+}
+.bingo-win .btn { margin-left: auto; }
+
 /* Faixa de abas das seções do casal — só no celular (ver media query). */
 .couple-tabs {
   display: none;

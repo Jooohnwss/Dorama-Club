@@ -69,7 +69,7 @@ Roleta de date · tema do casal por dorama (compartilhado) · diário do casal c
 - [ ] 🟢 *Futuro:* passeio ligar de verdade na roleta de date; mais acessórios/skins.
 
 ## 🎮 Joguinhos
-- [ ] 🗄️ **Bingo do episódio** (começar por esse): cartela de clichês (quase beijo, trauma de infância, CEO frio amolece, alguém chora na chuva…), marca durante/depois, fechou bingo → certificado.
+- [x] ✅ **Bingo do episódio**: cartela 3×3 de clichês, marca células, fecha linha (↔↕⤢) = BINGO + compartilhar card. Local (localStorage), sem migração. *(commit Bingo)*
 - [ ] 🟢 **Quiz do casal**: "Quem escolheu esse dorama?", "Qual nossa frase interna?", "Quem chorou mais?" (usa dados do diário).
 - [ ] 🟢 **Quiz de doramas** (cultura dorameira geral).
 - [ ] 🟢 **"Quem disse isso?"**: mostra frase interna salva e adivinha se foi você, ela ou personagem.
