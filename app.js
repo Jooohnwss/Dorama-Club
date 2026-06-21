@@ -33,6 +33,40 @@ const POSTER_PLACEHOLDER =
     `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='180'><rect width='120' height='180' fill='%23ffe2ef'/><text x='60' y='95' font-size='40' text-anchor='middle' fill='%23df4f94'>DC</text></svg>`,
   );
 
+const AVATAR_PLACEHOLDER =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect width='96' height='96' fill='%23ffe2ef'/><circle cx='48' cy='38' r='18' fill='%23df4f94'/><path d='M16 86c0-18 14-28 32-28s32 10 32 28' fill='%23df4f94'/></svg>`,
+  );
+
+function avatarUrl(profile) {
+  return profile?.photo || AVATAR_PLACEHOLDER;
+}
+
+// Lê uma imagem do aparelho e devolve um data URL JPEG redimensionado (leve).
+function resizeImage(file, max = 256) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 const statuses = [
   { key: "watching", label: "Assistindo" },
   { key: "wishlist", label: "Quero assistir" },
@@ -276,6 +310,7 @@ function render() {
     `;
     if (setup) {
       listen(document.querySelector("#profile-form"), "submit", saveProfile);
+      bindPhotoPicker();
     } else {
       bindWelcome();
     }
@@ -528,7 +563,10 @@ function homeTemplate() {
 
   return `
     <section class="hero">
-      <p class="kicker">Oi, ${esc(profile.name)} ${acharTema(temaAtual()).marca.emoji}</p>
+      <div class="hero-top">
+        <img class="hero-avatar" src="${esc(avatarUrl(profile))}" alt="" />
+        <p class="kicker">Oi, ${esc(profile.name)} ${acharTema(temaAtual()).marca.emoji}</p>
+      </div>
       <h2>Qual vai ser o surto de hoje?</h2>
       <div class="actions">
         <button class="btn secondary" data-view="add">${icon("add")} Adicionar dorama</button>
@@ -665,8 +703,13 @@ function placeFormTemplate(drama) {
         <div class="field">
           <label for="reason">Motivo</label>
           <select id="reason" name="reason">
-            ${["Indicação de doramiga", "Vi no TikTok", "Gosto do ator/atriz", "Parece sofrer gostoso", "Romance fofo", "Está todo mundo falando", "Quero ver depois", "Quero ver com as doramigas"].map((item) => `<option>${item}</option>`).join("")}
+            ${["Indicação de doramiga", "Vi no TikTok", "Gosto do ator/atriz", "Parece sofrer gostoso", "Romance fofo", "Está todo mundo falando", "Quero ver depois", "Quero ver com as doramigas", "Escolhido a dedo"].map((item) => `<option>${item}</option>`).join("")}
+            <option value="__outro">Outro (escrever)…</option>
           </select>
+        </div>
+        <div class="field" id="reason-custom-field" hidden>
+          <label for="reasonCustom">Qual o seu motivo?</label>
+          <input id="reasonCustom" name="reasonCustom" placeholder="Ex.: amo a trilha sonora" autocomplete="off" />
         </div>
         <div class="field">
           <label for="priority">Prioridade</label>
@@ -774,8 +817,12 @@ function profileTemplate() {
   const episodes = state.dramas.reduce((sum, drama) => sum + Number(drama.currentEpisode || 0), 0);
 
   return `
-    <div class="section-title">
-      <h2>Perfil da usuária</h2>
+    <div class="profile-head">
+      <img class="avatar lg" src="${esc(avatarUrl(profile))}" alt="Foto de perfil" />
+      <div>
+        <h2 style="margin:0">${esc(profile.name || "Perfil")}</h2>
+        <p class="muted" style="margin:4px 0 0">${esc(profile.nickname || profile.type || "")}</p>
+      </div>
     </div>
     <section class="form-card">
       <form id="profile-form" class="form-grid">
@@ -906,9 +953,16 @@ function profileFields(profile = {}) {
       <label for="nickname">Apelido</label>
       <input id="nickname" name="nickname" value="${profile.nickname || ""}" placeholder="Dorameira Sofredora" />
     </div>
-    <div class="field">
-      <label for="photo">Foto de perfil</label>
-      <input id="photo" name="photo" value="${profile.photo || ""}" placeholder="URL da foto" />
+    <div class="field full">
+      <label>Foto de perfil</label>
+      <div class="avatar-edit">
+        <img class="avatar" id="photo-preview" src="${esc(profile.photo || AVATAR_PLACEHOLDER)}" alt="Foto de perfil" />
+        <div>
+          <input type="file" id="photo-file" accept="image/*" />
+          <input type="hidden" name="photo" id="photo-input" value="${esc(profile.photo || "")}" />
+          <p class="muted" style="font-size:.76rem;margin:6px 0 0">Escolha uma foto do aparelho.</p>
+        </div>
+      </div>
     </div>
     <div class="field">
       <label for="since">Dorameira desde</label>
@@ -1096,6 +1150,7 @@ function modalTemplate() {
             <div class="actions field full">
               <button class="btn" type="submit">Salvar detalhes</button>
               <button class="btn secondary" type="button" data-whatsapp="${drama.id}">Compartilhar no WhatsApp</button>
+              <button class="btn danger" type="button" data-remove="${drama.id}">${icon("trash")} Remover</button>
             </div>
           </form>
         </div>
@@ -1174,6 +1229,34 @@ async function handleLogout() {
   render();
 }
 
+function bindPhotoPicker() {
+  const file = document.querySelector("#photo-file");
+  if (!file) return;
+  listen(file, "change", async (event) => {
+    const f = event.target.files?.[0];
+    if (!f) return;
+    try {
+      const dataUrl = await resizeImage(f, 256);
+      const input = document.querySelector("#photo-input");
+      const preview = document.querySelector("#photo-preview");
+      if (input) input.value = dataUrl;
+      if (preview) preview.src = dataUrl;
+    } catch {
+      toast("Não consegui carregar essa imagem.");
+    }
+  });
+}
+
+function removeDrama(id) {
+  const drama = state.dramas.find((item) => item.id === id);
+  if (!drama) return;
+  if (!window.confirm(`Remover “${drama.title}” das suas listas?`)) return;
+  if (cloudOn()) deleteDramaRemote(id).catch(() => {});
+  modal = null;
+  setState({ dramas: state.dramas.filter((item) => item.id !== id) });
+  toast("Dorama removido.");
+}
+
 function bindShell() {
   document.querySelectorAll("[data-view]").forEach((button) => {
     listen(button, "click", () => setState({ view: button.dataset.view }));
@@ -1231,6 +1314,18 @@ function bindShell() {
   listen(document.querySelector("#profile-form"), "submit", saveProfile);
   listen(document.querySelector("#create-club-form"), "submit", handleCreateClub);
   listen(document.querySelector("#join-club-form"), "submit", handleJoinClub);
+  bindPhotoPicker();
+
+  // Motivo "Outro": mostra o campo de texto quando escolhido.
+  const reasonSel = document.querySelector("#add-form #reason");
+  if (reasonSel) {
+    const sync = () => {
+      const campo = document.querySelector("#reason-custom-field");
+      if (campo) campo.hidden = reasonSel.value !== "__outro";
+    };
+    listen(reasonSel, "change", sync);
+    sync();
+  }
 
   // Carrega dados sob demanda ao abrir as telas.
   if (state.view === "admin" && isAdmin() && !admin.loaded && !admin.loading) loadAdmin();
@@ -1279,6 +1374,8 @@ function bindModal() {
   listen(document.querySelector("#profile-form"), "submit", saveProfile);
   listen(document.querySelector("#drama-form"), "submit", saveDramaDetails);
   listen(document.querySelector("[data-whatsapp]"), "click", shareWhatsApp);
+  listen(document.querySelector("[data-remove]"), "click", () => removeDrama(modal.id));
+  bindPhotoPicker();
 
   // Mostra/esconde os campos que dependem do status (motivo da pausa/drop, semáforo)
   // sem re-renderizar, preservando o que já foi digitado.
@@ -1317,12 +1414,13 @@ function addDrama(event) {
     return;
   }
   const data = Object.fromEntries(new FormData(event.currentTarget));
+  const reason = data.reason === "__outro" ? String(data.reasonCustom || "").trim() || "Escolhido a dedo" : data.reason;
   const drama = normalizeDrama({
     ...search.selected,
     id: createId(),
     status: data.status,
     currentEpisode: Number(data.currentEpisode || 0),
-    reason: data.reason,
+    reason,
     priority: data.priority,
     mood: data.mood,
   });

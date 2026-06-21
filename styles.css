@@ -278,6 +278,66 @@ button {
   color: var(--cor-texto);
 }
 
+.btn.danger {
+  background: transparent;
+  color: #e0566b;
+  border: 1px solid color-mix(in srgb, #e0566b 45%, transparent);
+}
+
+.btn.danger:hover {
+  background: color-mix(in srgb, #e0566b 14%, transparent);
+  filter: none;
+}
+
+.avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--cor-borda);
+  background: var(--cor-superficie-2);
+}
+
+.avatar.lg {
+  width: 84px;
+  height: 84px;
+}
+
+.avatar-edit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar-edit input[type="file"] {
+  border: 1px dashed var(--cor-borda);
+  background: var(--cor-superficie-2);
+  padding: 9px;
+  border-radius: var(--raio-sm);
+}
+
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 6px 0 16px;
+}
+
+.hero-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.hero-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
