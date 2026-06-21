@@ -491,15 +491,18 @@ button.card:hover {
 
 .live-card em {
   align-self: flex-start;
-  background: color-mix(in srgb, var(--cor-primaria) 10%, white);
-  border: 1px solid var(--cor-borda);
-  border-radius: 999px;
-  color: var(--cor-texto);
+  background: transparent;
+  border: 0;
+  color: var(--cor-primaria);
   font-size: 0.76rem;
   font-style: normal;
   font-weight: 800;
   margin-top: 6px;
-  padding: 4px 10px;
+  padding: 0;
+}
+
+.live-card em::after {
+  content: " ->";
 }
 
 .card .card-ico {
