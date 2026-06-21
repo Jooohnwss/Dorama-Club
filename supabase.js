@@ -265,6 +265,59 @@ export async function deleteCasal(id) {
   if (error) throw error;
 }
 
+// ---------- SOCIAL DO CLUBE ----------
+const mesAtual = () => new Date().toISOString().slice(0, 7); // YYYY-MM
+
+export async function logActivity(userId, clubId, text) {
+  const { error } = await supabase.from("activities").insert({ club_id: clubId, user_id: userId, text });
+  if (error) throw error;
+}
+
+export async function clubActivities(clubId) {
+  const { data, error } = await supabase.rpc("club_activities", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function clubDramaProgress(clubId, tmdbId) {
+  const { data, error } = await supabase.rpc("club_drama_progress", { p_club: clubId, p_tmdb: tmdbId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function pickMonth(userId, clubId, drama) {
+  const { error } = await supabase.from("club_picks").upsert(
+    {
+      club_id: clubId,
+      user_id: userId,
+      month: mesAtual(),
+      tmdb_id: drama.tmdbId ?? null,
+      title: drama.title,
+      cover: drama.cover || null,
+    },
+    { onConflict: "club_id,user_id,month" },
+  );
+  if (error) throw error;
+}
+
+export async function clubPicksTally(clubId) {
+  const { data, error } = await supabase.rpc("club_picks_tally", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function clubRanking(clubId) {
+  const { data, error } = await supabase.rpc("club_ranking", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function clubSharedSurtos(clubId) {
+  const { data, error } = await supabase.rpc("club_shared_surtos", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
 // ---------- ADMIN ----------
 export const ADMIN_EMAILS = ["jonatas.w.silva.w@gmail.com", "abikeila_2001@outlook.com"];
 

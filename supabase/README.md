@@ -16,6 +16,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 05 | `05 - admin-excluir-usuario.sql` | Função `admin_delete_user` (admin exclui qualquer usuária + dados em cascata) | Admin |
 | 06 | `06 - feed-do-clube.sql` | Função `club_feed` (mural do clube com autor) — comentários com trava de spoiler | B |
 | 07 | `07 - criar-diario-de-surtos-e-casais.sql` | Tabelas `surtos` (diário por episódio) e `casais` (que eu shippo) + RLS | Pessoal |
+| 08 | `08 - social-do-clube.sql` | Feed automático, "posso comentar com quem", dorama do mês (`club_picks`), ranking e diário compartilhado | B |
 
 ## Convenção de nome
 

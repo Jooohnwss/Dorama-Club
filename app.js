@@ -26,6 +26,13 @@ import {
   loadCasais,
   addCasal,
   deleteCasal,
+  logActivity,
+  clubActivities,
+  clubDramaProgress,
+  pickMonth,
+  clubPicksTally,
+  clubRanking,
+  clubSharedSurtos,
   isAdminEmail,
   adminOverview,
   adminUsers,
@@ -174,6 +181,10 @@ let clubMembers = [];
 let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop)
 let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
+// Social do clube (feed automático, dorama do mês, ranking, diário compartilhado).
+let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [] };
+// "Posso comentar com quem" do dorama aberto no modal.
+let detailProgress = null;
 // "Onde assistir" do dorama aberto no modal: null = carregando, [] = nada.
 let detailProviders = null;
 // Diário de surtos do dorama aberto no modal: null = carregando, [] = vazio.
@@ -815,10 +826,77 @@ function clubTemplate() {
       <button class="card" data-share-club><strong>Chamar doramiga no WhatsApp</strong><p class="muted">Envia o código ${esc(state.club.code)}</p></button>
       <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">Você deixa de ver este clube</p></button>
     </section>
+    <div class="section-title"><h2>🎬 Dorama do mês</h2></div>
+    ${doramaDoMesTemplate()}
+    <div class="section-title"><h2>📰 Feed</h2></div>
+    ${atividadesTemplate()}
+    <div class="section-title"><h2>🏅 Ranking do clube</h2></div>
+    ${rankingClubeTemplate()}
     <div class="section-title"><h2>Mural das doramigas</h2></div>
     ${commentFormTemplate()}
     ${clubFeedTemplate()}
+    <div class="section-title"><h2>📔 Diário compartilhado</h2></div>
+    ${diarioCompartilhadoTemplate()}
   `;
+}
+
+function doramaDoMesTemplate() {
+  const meusDramas = state.dramas.filter((d) => d.tmdbId);
+  const votar = `
+    <form id="pick-form" class="search-bar" style="margin-bottom:12px">
+      <select name="dramaId" required>
+        <option value="">Vote no dorama do mês…</option>
+        ${meusDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("")}
+      </select>
+      <button class="btn" type="submit">Votar</button>
+    </form>`;
+  if (clubSocial.for !== state.club.id) return votar + `<div class="empty">Carregando votação…</div>`;
+  if (!clubSocial.picks.length) return votar + `<div class="empty">Ninguém votou neste mês ainda. Comece a votação! 🗳️</div>`;
+  const max = clubSocial.picks[0].votos;
+  return (
+    votar +
+    `<section class="grid cards">${clubSocial.picks
+      .map(
+        (p, i) =>
+          `<div class="card ${i === 0 ? "" : ""}"><span class="muted">${i === 0 ? "👑 Líder" : `${i + 1}º`}</span><strong>${esc(p.title)}</strong><span class="muted">${p.votos} ${p.votos === 1 ? "voto" : "votos"}${p.votos === max && i === 0 ? " · dorama do mês" : ""}</span></div>`,
+      )
+      .join("")}</section>`
+  );
+}
+
+function atividadesTemplate() {
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando o feed…</div>`;
+  if (!clubSocial.activities.length) return `<div class="empty">Sem novidades ainda. Adicione ou termine um dorama pra movimentar o clube! ✨</div>`;
+  return `<section class="grid">${clubSocial.activities
+    .map((a) => `<div class="card"><strong style="font-weight:600">${esc(a.text)}</strong><span class="muted">${timeAgo(a.created_at)}</span></div>`)
+    .join("")}</section>`;
+}
+
+function rankingClubeTemplate() {
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando ranking…</div>`;
+  if (!clubSocial.ranking.length) return `<div class="empty">Sem dados ainda.</div>`;
+  const medalha = ["🥇", "🥈", "🥉"];
+  return `<section class="grid cards">${clubSocial.ranking
+    .map(
+      (r, i) =>
+        `<div class="card"><strong>${medalha[i] || `${i + 1}º`} ${esc(r.name)}</strong><div class="chips"><span class="chip">${r.episodes} episódios</span><span class="chip">${r.finalizados} finalizados</span></div></div>`,
+    )
+    .join("")}</section>`;
+}
+
+function diarioCompartilhadoTemplate() {
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando…</div>`;
+  if (!clubSocial.shared.length) return `<div class="empty">Nenhum surto compartilhado ainda. No diário de um dorama, marque "compartilhar com doramigas". 💜</div>`;
+  return `<section class="grid">${clubSocial.shared
+    .map((s) => {
+      const item = { spoiler_episode: s.episode, tmdb_id: s.tmdb_id, user_id: s.user_id };
+      const liberado = podeVerComentario(item);
+      const corpo = liberado
+        ? `<p>${esc(s.body)}</p>`
+        : `<p class="muted spoiler-lock">🔒 Spoiler! Chegue no ep. ${s.episode}${s.drama_title ? ` de ${esc(s.drama_title)}` : ""} pra ver.</p>`;
+      return `<div class="card comment-card"><div class="comment-head"><strong>${esc(s.author)}</strong><span class="muted">${timeAgo(s.created_at)}</span></div>${s.drama_title ? `<span class="chip">${esc(s.drama_title)} · ep. ${s.episode}</span>` : ""}${corpo}</div>`;
+    })
+    .join("")}</section>`;
 }
 
 function commentFormTemplate() {
@@ -1129,8 +1207,25 @@ async function openDetail(id) {
   modal = { type: "detail", id };
   detailProviders = null;
   detailSurtos = null;
+  detailProgress = null;
   render();
   const drama = state.dramas.find((item) => item.id === id);
+
+  // Posso comentar com quem (progresso das doramigas neste dorama).
+  if (cloudOn() && state.club && drama?.tmdbId) {
+    clubDramaProgress(state.club.id, drama.tmdbId)
+      .then((lista) => {
+        if (modal?.type === "detail" && modal.id === id) {
+          detailProgress = lista;
+          render();
+        }
+      })
+      .catch(() => {
+        detailProgress = [];
+      });
+  } else {
+    detailProgress = [];
+  }
 
   // Diário de surtos (do banco).
   if (cloudOn()) {
@@ -1315,9 +1410,34 @@ function modalTemplate() {
             </div>
           </form>
         </div>
+        ${podeComentarTemplate(drama)}
         ${diaryTemplate(drama)}
       </section>
     </div>
+  `;
+}
+
+function podeComentarTemplate(drama) {
+  if (!state.club || !drama.tmdbId) return "";
+  if (detailProgress === null) return `<div class="section-title" style="margin-top:10px"><h2>💬 Posso comentar com quem?</h2></div><p class="muted">Vendo o progresso das doramigas…</p>`;
+  const outras = detailProgress.filter((m) => m.user_id !== authUser?.id);
+  if (!outras.length) return "";
+  const meu = Number(drama.currentEpisode || 0);
+  const livres = [];
+  const cuidado = [];
+  outras.forEach((m) => {
+    const ep = Number(m.current_episode || 0);
+    const label = m.status === "finished" ? `${esc(m.name)} — finalizou` : `${esc(m.name)} — ep. ${ep}`;
+    // Pode falar livre se ela está no mesmo ponto ou à frente do seu episódio.
+    if (m.status === "finished" || ep >= meu) livres.push(label);
+    else cuidado.push(label);
+  });
+  return `
+    <div class="section-title" style="margin-top:10px"><h2>💬 Posso comentar com quem?</h2></div>
+    <section class="grid cards">
+      <div class="card"><span class="muted">Pode falar livre (no seu ponto ou à frente)</span>${livres.length ? livres.map((l) => `<strong style="font-weight:600">${l}</strong>`).join("") : `<strong style="font-weight:600">Ninguém ainda</strong>`}</div>
+      <div class="card"><span class="muted">Cuidado com spoiler (estão atrás)</span>${cuidado.length ? cuidado.map((l) => `<strong style="font-weight:600">${l}</strong>`).join("") : `<strong style="font-weight:600">Ninguém atrás 🎉</strong>`}</div>
+    </section>
   `;
 }
 
@@ -1423,6 +1543,7 @@ async function handleLogout() {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [] };
   casais = [];
   casaisFor = null;
   admin = { loaded: false, loading: false, error: "", overview: null, users: [], clubs: [], comments: [] };
@@ -1592,6 +1713,11 @@ function bindShell() {
   document.querySelectorAll("[data-del-comment]").forEach((button) => {
     listen(button, "click", () => handleDeleteComment(button.dataset.delComment));
   });
+  listen(document.querySelector("#pick-form"), "submit", (e) => {
+    e.preventDefault();
+    const dramaId = new FormData(e.currentTarget).get("dramaId");
+    if (dramaId) handlePickMonth(dramaId);
+  });
   listen(document.querySelector("#casal-form"), "submit", handleAddCasal);
   document.querySelectorAll("[data-del-casal]").forEach((button) => {
     listen(button, "click", () => handleDeleteCasal(button.dataset.delCasal));
@@ -1614,6 +1740,7 @@ function bindShell() {
   if (state.view === "discover" && !discover.loaded && !discover.loading) loadDiscover();
   if (state.view === "club" && state.club && clubMembersFor !== state.club.id) loadClubMembers();
   if (state.view === "club" && state.club && clubFeedFor !== state.club.id) loadClubFeed();
+  if (state.view === "club" && state.club && clubSocial.for !== state.club.id) loadClubSocial();
   if (state.view === "profile" && casaisFor !== (authUser?.id || "_")) loadCasaisData();
 }
 
@@ -1715,6 +1842,7 @@ function addDrama(event) {
 
   search = { query: "", loading: false, results: [], selected: null, error: "" };
   syncDrama(drama);
+  registrarAtividade(`${state.profile?.name || "Alguém"} ${drama.status === "watching" ? "começou" : "adicionou"} ${drama.title}${drama.status === "watching" ? "" : ` em ${statusLabel(drama.status)}`}.`);
   setState({ dramas: [drama, ...state.dramas], view: "lists", activeList: data.status });
   toast(`${drama.title} entrou em ${statusLabel(data.status)}.`);
 }
@@ -1766,6 +1894,7 @@ function incrementEpisode(id) {
   saveState();
   if (updated) syncDrama(updated);
   if (justFinished) {
+    registrarAtividade(`${state.profile?.name || "Alguém"} terminou ${updated.title}! 🎉`);
     // Spec seção 7: ao terminar, abrir avaliação (nota, choro, surto, raiva, recomenda).
     modal = { type: "detail", id };
     render();
@@ -1827,6 +1956,42 @@ async function loadClubFeed() {
     clubFeedItems = [];
   }
   render();
+}
+
+async function loadClubSocial() {
+  if (!state.club) return;
+  clubSocial = { ...clubSocial, for: state.club.id };
+  try {
+    const [activities, picks, ranking, shared] = await Promise.all([
+      clubActivities(state.club.id),
+      clubPicksTally(state.club.id),
+      clubRanking(state.club.id),
+      clubSharedSurtos(state.club.id),
+    ]);
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared };
+  } catch {
+    clubSocial = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [] };
+  }
+  render();
+}
+
+// Registra uma atividade no feed do clube (silencioso; só se logado e num clube).
+function registrarAtividade(text) {
+  if (!cloudOn() || !state.club) return;
+  logActivity(authUser.id, state.club.id, text).catch(() => {});
+}
+
+async function handlePickMonth(dramaId) {
+  const drama = state.dramas.find((d) => d.id === dramaId);
+  if (!drama || !state.club) return;
+  try {
+    await pickMonth(authUser.id, state.club.id, drama);
+    clubSocial.picks = await clubPicksTally(state.club.id);
+    render();
+    toast(`Você votou em ${drama.title} 🗳️`);
+  } catch {
+    toast("Não consegui registrar seu voto.");
+  }
 }
 
 async function handlePostComment(event) {
@@ -1902,8 +2067,10 @@ async function handleLeaveClub() {
   try {
     await leaveClub(state.club.id);
     clubMembers = [];
+    clubMembersFor = null;
     clubFeedItems = [];
     clubFeedFor = null;
+    clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [] };
     setState({ club: null });
     toast("Você saiu do clube.");
   } catch {
