@@ -20,6 +20,12 @@ import {
   clubFeed,
   postComment,
   deleteOwnComment,
+  loadSurtos,
+  addSurto,
+  deleteSurto,
+  loadCasais,
+  addCasal,
+  deleteCasal,
   isAdminEmail,
   adminOverview,
   adminUsers,
@@ -170,6 +176,19 @@ let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 // "Onde assistir" do dorama aberto no modal: null = carregando, [] = nada.
 let detailProviders = null;
+// Diário de surtos do dorama aberto no modal: null = carregando, [] = vazio.
+let detailSurtos = null;
+// Casais (aba Perfil), carregados sob demanda.
+let casais = [];
+let casaisFor = null;
+const casalCategorias = [
+  "Casal favorito",
+  "Casal que merecia final melhor",
+  "Casal sem química",
+  "Casal que me destruiu",
+  "Casal que carregou o dorama",
+  "Casal que eu nunca superei",
+];
 // Aba Descobrir (carregada sob demanda).
 let discover = { loaded: false, loading: false, error: "", semana: [], alta: [], top: [], novos: [] };
 // Dados da área de administradores (carregados sob demanda).
@@ -932,11 +951,52 @@ function profileTemplate() {
     </section>
     <div class="section-title"><h2>💗 Ranking emocional</h2></div>
     ${rankingEmocionalTemplate()}
+    <div class="section-title"><h2>💞 Casais que eu shippo</h2></div>
+    ${casaisTemplate()}
     <div class="section-title">
       <h2>${icon("paint")} Tema do app</h2>
     </div>
     ${temasTemplate()}
   `;
+}
+
+function casaisTemplate() {
+  const dramasComTitulo = state.dramas.map((d) => d.title);
+  const form = `
+    <section class="form-card">
+      <form id="casal-form" class="form-grid">
+        <div class="field">
+          <label for="casalNames">O casal</label>
+          <input id="casalNames" name="names" placeholder="Ex.: protagonistas de Pretendente Surpresa" required />
+        </div>
+        <div class="field">
+          <label for="casalCategory">Categoria</label>
+          <select id="casalCategory" name="category">
+            ${casalCategorias.map((c) => `<option>${esc(c)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field full">
+          <label for="casalDrama">Dorama (opcional)</label>
+          <input id="casalDrama" name="dramaTitle" list="casal-dramas" placeholder="De qual dorama?" />
+          <datalist id="casal-dramas">${dramasComTitulo.map((t) => `<option value="${esc(t)}"></option>`).join("")}</datalist>
+        </div>
+        <div class="actions field full"><button class="btn secondary" type="submit">Adicionar casal</button></div>
+      </form>
+    </section>
+  `;
+  let lista;
+  if (casaisFor !== (authUser?.id || "_")) {
+    lista = `<div class="empty">Carregando seus casais…</div>`;
+  } else if (!casais.length) {
+    lista = `<div class="empty">Você ainda não shippa ninguém por aqui. 💔</div>`;
+  } else {
+    lista = `<section class="grid cards">${casais
+      .map(
+        (c) => `<div class="card"><span class="chip">${esc(c.category || "Casal")}</span><strong style="margin-top:6px">${esc(c.names)}</strong>${c.drama_title ? `<span class="muted">${esc(c.drama_title)}</span>` : ""}<div class="mini-actions"><button data-del-casal="${c.id}">${icon("trash")} Tirar</button></div></div>`,
+      )
+      .join("")}</section>`;
+  }
+  return form + lista;
 }
 
 function funnyStats() {
@@ -1068,11 +1128,29 @@ function dramaGrid(dramas) {
 async function openDetail(id) {
   modal = { type: "detail", id };
   detailProviders = null;
+  detailSurtos = null;
   render();
   const drama = state.dramas.find((item) => item.id === id);
+
+  // Diário de surtos (do banco).
+  if (cloudOn()) {
+    loadSurtos(id)
+      .then((lista) => {
+        if (modal?.type === "detail" && modal.id === id) {
+          detailSurtos = lista;
+          render();
+        }
+      })
+      .catch(() => {
+        detailSurtos = [];
+      });
+  } else {
+    detailSurtos = [];
+  }
+
+  // Onde assistir (TMDB).
   if (drama?.tmdbId && tmdbReady()) {
     const lista = await getWatchProviders(drama.tmdbId);
-    // Só atualiza se o modal ainda é o mesmo dorama.
     if (modal?.type === "detail" && modal.id === id) {
       detailProviders = lista;
       render();
@@ -1237,9 +1315,44 @@ function modalTemplate() {
             </div>
           </form>
         </div>
+        ${diaryTemplate(drama)}
       </section>
     </div>
   `;
+}
+
+function diaryTemplate(drama) {
+  return `
+    <div class="section-title" style="margin-top:10px"><h2>📔 Diário de surtos</h2></div>
+    <form id="surto-form" class="form-grid" data-drama="${drama.id}">
+      <div class="field">
+        <label for="surtoEp">Episódio</label>
+        <input id="surtoEp" name="episode" type="number" min="0" value="${drama.currentEpisode || 0}" />
+      </div>
+      <label class="field" style="align-self:end"><input type="checkbox" name="shared" /> Compartilhar com doramigas</label>
+      <div class="field full">
+        <label for="surtoBody">O que rolou nesse episódio?</label>
+        <textarea id="surtoBody" name="body" placeholder="Eu sabia que ele ia fazer isso, mas mesmo assim fiquei chocada…"></textarea>
+      </div>
+      <div class="actions field full"><button class="btn secondary" type="submit">Registrar surto</button></div>
+    </form>
+    ${surtosListTemplate()}
+  `;
+}
+
+function surtosListTemplate() {
+  if (detailSurtos === null) return `<p class="muted">Carregando seu diário…</p>`;
+  if (!detailSurtos.length) return `<div class="empty">Nenhum surto registrado ainda neste dorama.</div>`;
+  return `<section class="grid">${detailSurtos
+    .map(
+      (s) => `
+    <div class="card comment-card">
+      <div class="comment-head"><strong>Episódio ${s.episode || "?"}</strong><span class="muted">${timeAgo(s.created_at)}${s.shared ? " · compartilhado" : ""}</span></div>
+      <p>${esc(s.body)}</p>
+      <div class="mini-actions"><button data-del-surto="${s.id}">${icon("trash")} Apagar</button></div>
+    </div>`,
+    )
+    .join("")}</section>`;
 }
 
 function bindWelcome() {
@@ -1307,6 +1420,11 @@ async function handleLogout() {
   state.club = null;
   state.view = "home";
   clubMembers = [];
+  clubMembersFor = null;
+  clubFeedItems = [];
+  clubFeedFor = null;
+  casais = [];
+  casaisFor = null;
   admin = { loaded: false, loading: false, error: "", overview: null, users: [], clubs: [], comments: [] };
   saveState();
   render();
@@ -1328,6 +1446,75 @@ function bindPhotoPicker() {
       toast("Não consegui carregar essa imagem.");
     }
   });
+}
+
+async function loadCasaisData() {
+  if (!cloudOn()) {
+    casaisFor = authUser?.id || "_";
+    casais = [];
+    render();
+    return;
+  }
+  casaisFor = authUser.id;
+  try {
+    casais = await loadCasais(authUser.id);
+  } catch {
+    casais = [];
+  }
+  render();
+}
+
+async function handleAddCasal(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const names = String(data.names || "").trim();
+  if (!names) return;
+  try {
+    await addCasal(authUser.id, { names, category: data.category, dramaTitle: data.dramaTitle });
+    casais = await loadCasais(authUser.id);
+    render();
+    toast("Casal shippado! 💞");
+  } catch {
+    toast("Não consegui salvar o casal.");
+  }
+}
+
+async function handleDeleteCasal(id) {
+  try {
+    await deleteCasal(id);
+    casais = casais.filter((c) => c.id !== id);
+    render();
+    toast("Casal removido.");
+  } catch {
+    toast("Não consegui remover.");
+  }
+}
+
+async function handleAddSurto(event) {
+  event.preventDefault();
+  const dramaId = event.currentTarget.dataset.drama;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const body = String(data.body || "").trim();
+  if (!body) return;
+  try {
+    await addSurto(authUser.id, { dramaId, episode: data.episode, body, shared: Boolean(data.shared) });
+    detailSurtos = await loadSurtos(dramaId);
+    render();
+    toast("Surto registrado! 😭");
+  } catch {
+    toast("Não consegui salvar o surto.");
+  }
+}
+
+async function handleDeleteSurto(id) {
+  try {
+    await deleteSurto(id);
+    detailSurtos = (detailSurtos || []).filter((s) => s.id !== id);
+    render();
+    toast("Surto apagado.");
+  } catch {
+    toast("Não consegui apagar.");
+  }
 }
 
 function removeDrama(id) {
@@ -1405,6 +1592,10 @@ function bindShell() {
   document.querySelectorAll("[data-del-comment]").forEach((button) => {
     listen(button, "click", () => handleDeleteComment(button.dataset.delComment));
   });
+  listen(document.querySelector("#casal-form"), "submit", handleAddCasal);
+  document.querySelectorAll("[data-del-casal]").forEach((button) => {
+    listen(button, "click", () => handleDeleteCasal(button.dataset.delCasal));
+  });
   bindPhotoPicker();
 
   // Motivo "Outro": mostra o campo de texto quando escolhido.
@@ -1423,6 +1614,7 @@ function bindShell() {
   if (state.view === "discover" && !discover.loaded && !discover.loading) loadDiscover();
   if (state.view === "club" && state.club && clubMembersFor !== state.club.id) loadClubMembers();
   if (state.view === "club" && state.club && clubFeedFor !== state.club.id) loadClubFeed();
+  if (state.view === "profile" && casaisFor !== (authUser?.id || "_")) loadCasaisData();
 }
 
 async function runSearch(event) {
@@ -1467,6 +1659,10 @@ function bindModal() {
   listen(document.querySelector("#drama-form"), "submit", saveDramaDetails);
   listen(document.querySelector("[data-whatsapp]"), "click", shareWhatsApp);
   listen(document.querySelector("[data-remove]"), "click", () => removeDrama(modal.id));
+  listen(document.querySelector("#surto-form"), "submit", handleAddSurto);
+  document.querySelectorAll("[data-del-surto]").forEach((button) => {
+    listen(button, "click", () => handleDeleteSurto(button.dataset.delSurto));
+  });
   bindPhotoPicker();
 
   // Mostra/esconde os campos que dependem do status (motivo da pausa/drop, semáforo)

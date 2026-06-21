@@ -212,6 +212,59 @@ export async function deleteOwnComment(id) {
   if (error) throw error;
 }
 
+// ---------- DIÁRIO DE SURTOS ----------
+export async function loadSurtos(dramaId) {
+  const { data, error } = await supabase
+    .from("surtos")
+    .select("*")
+    .eq("drama_id", dramaId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addSurto(userId, surto) {
+  const { error } = await supabase.from("surtos").insert({
+    user_id: userId,
+    drama_id: surto.dramaId,
+    episode: Number(surto.episode) || 0,
+    body: surto.body,
+    shared: Boolean(surto.shared),
+  });
+  if (error) throw error;
+}
+
+export async function deleteSurto(id) {
+  const { error } = await supabase.from("surtos").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------- CASAIS QUE EU SHIPPO ----------
+export async function loadCasais(userId) {
+  const { data, error } = await supabase
+    .from("casais")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCasal(userId, casal) {
+  const { error } = await supabase.from("casais").insert({
+    user_id: userId,
+    names: casal.names,
+    category: casal.category || null,
+    drama_title: casal.dramaTitle || null,
+  });
+  if (error) throw error;
+}
+
+export async function deleteCasal(id) {
+  const { error } = await supabase.from("casais").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ---------- ADMIN ----------
 export const ADMIN_EMAILS = ["jonatas.w.silva.w@gmail.com", "abikeila_2001@outlook.com"];
 
