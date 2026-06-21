@@ -877,98 +877,21 @@ function adminTemplate() {
   `;
 }
 
-function homeLiveCards() {
-  const watching = byStatus("watching");
-  const wishlist = byStatus("wishlist");
-  const paused = byStatus("paused");
-  const finished = byStatus("finished");
-  const comfort = byStatus("comfort");
-  const cards = [];
-
-  if (clubHasNews && state.club) {
-    cards.push({
-      title: "Tem novidade das doramigas",
-      text: `${state.club.name} tem comentario novo.`,
-      attrs: `data-view="club"`,
-      cta: "Ver",
-    });
-  } else if (state.club) {
-    cards.push({
-      title: "Clube ativo",
-      text: `Passe no mural de ${state.club.name}.`,
-      attrs: `data-view="club"`,
-      cta: "Abrir",
-    });
-  }
-
-  if (paused.length) {
-    const drama = paused[0];
-    cards.push({
-      title: "Pausado na geladeira",
-      text: `${drama.title} ficou pausado. Volta ou dropa?`,
-      attrs: `data-detail="${drama.id}"`,
-      cta: "Decidir",
-    });
-  }
-
-  if (wishlist.length) {
-    cards.push({
-      title: "Fila de espera",
-      text: `${wishlist.length} ${wishlist.length === 1 ? "dorama esta" : "doramas estao"} na watchlist.`,
-      attrs: "data-random",
-      cta: "Sortear",
-    });
-  }
-
-  if (comfort.length) {
-    cards.push({
-      title: "Modo conforto",
-      text: `${comfort[0].title} esta salvo pra dias de cobertor.`,
-      attrs: `data-detail="${comfort[0].id}"`,
-      cta: "Abrir",
-    });
-  }
-
-  if (finished.length) {
-    const dramas10 = finished.filter((d) => Number(d.personalRating) >= 10);
-    const destaque = dramas10[0] || finished[0];
-    cards.push({
-      title: dramas10.length ? "Obra-prima detectada" : "Historico de surtos",
-      text: dramas10.length
-        ? `${destaque.title} levou 10/10. Esse aqui merece panfleto.`
-        : `Voce ja finalizou ${finished.length} ${finished.length === 1 ? "dorama" : "doramas"}.`,
-      attrs: `data-detail="${destaque.id}"`,
-      cta: "Rever",
-    });
-  }
-
-  if (cards.length < 3 && watching.length > 1) {
-    cards.push({
-      title: "Maratona aberta",
-      text: `${watching.length} doramas em andamento agora.`,
-      attrs: `data-list="watching"`,
-      cta: "Ver lista",
-    });
-  }
-
-  if (!cards.length) {
-    cards.push({
-      title: "Comecar a watchlist",
-      text: "Adicione o primeiro dorama e a home vira seu painel de surtos.",
-      attrs: `data-view="add"`,
-      cta: "Adicionar dorama",
-    });
-  }
-
-  return cards.slice(0, 3);
-}
-
 function homeHeroData() {
   const watching = byStatus("watching");
   const atual = watching
     .slice()
     .sort((a, b) => Number(b.currentEpisode || 0) - Number(a.currentEpisode || 0))[0];
   if (!atual) {
+    if (!state.dramas.length) {
+      return {
+        title: "Vamos começar sua watchlist?",
+        subtitle: "Adicione um dorama e o app já monta seu cantinho.",
+        primary: { label: "Adicionar dorama", attrs: `data-view="add"`, iconName: "add" },
+        secondary: { label: "Descobrir", attrs: `data-view="discover"`, iconName: "compass" },
+        extra: "",
+      };
+    }
     return {
       title: state.dramas.length ? "Qual vai ser o surto de hoje?" : "Vamos começar sua watchlist?",
       subtitle: state.dramas.length ? "Escolha um humor, sorteie algo ou adicione o próximo dorama." : "Adicione um dorama e o app já monta seu cantinho.",
@@ -1001,26 +924,53 @@ function homeTemplate() {
   ];
 
   const statusIcons = { watching: "play", wishlist: "add", finished: "heart", paused: "detail", dropped: "trash", favorites: "heart", comfort: "heart" };
-  const liveCards = homeLiveCards();
   const hero = homeHeroData();
+  const watching = byStatus("watching");
+  const decideCard = state.dramas.length
+    ? { title: "Decidir agora", text: "Sortear o próximo dorama da vez.", attrs: "data-random", iconName: "dice", cta: "Sortear" }
+    : { title: "Descobrir doramas", text: "Ver sugestões populares para começar a lista.", attrs: `data-view="discover"`, iconName: "compass", cta: "Explorar" };
+  const dashboardMeta = [
+    `${watching.length} ${watching.length === 1 ? "em andamento" : "em andamento"}`,
+    `${byStatus("finished").length} finalizados`,
+    state.club ? state.club.name : "sem clube ainda",
+  ];
 
   return `
-    <section class="hero">
-      <div class="hero-main">
-        <div class="hero-top">
+    <section class="dashboard">
+      <div class="dashboard-head">
+        <div class="dashboard-greeting">
           <img class="hero-avatar" src="${esc(avatarUrl(profile))}" alt="" />
-          <p class="kicker">Oi, ${esc(profile.name)} ${temaCorrente().marca?.emoji || "💜"}</p>
+          <div>
+            <p class="kicker">Oi, ${esc(profile.name)} ${temaCorrente().marca?.emoji || "💜"}</p>
+            <div class="dashboard-meta">${dashboardMeta.map((item) => `<span>${esc(item)}</span>`).join("")}</div>
+          </div>
         </div>
-        <div class="hero-copy">
-          <h2>${esc(hero.title)}</h2>
-          <p class="hero-subtitle">${esc(hero.subtitle)}</p>
+        <button class="btn secondary dashboard-add" data-view="add">${icon("add")} Adicionar</button>
+      </div>
+      <section class="dashboard-grid">
+        <button class="dashboard-card featured" ${hero.primary.attrs}>
+          <span>${esc(hero.title)}</span>
+          <strong>${esc(hero.subtitle)}</strong>
+          <em>${icon(hero.primary.iconName)} ${esc(hero.primary.label)}</em>
+        </button>
+        <button class="dashboard-card" ${decideCard.attrs}>
+          <span>${esc(decideCard.title)}</span>
+          <strong>${esc(decideCard.text)}</strong>
+          <em>${icon(decideCard.iconName)} ${esc(decideCard.cta)}</em>
+        </button>
+        <div class="dashboard-card mood-card">
+          <span>Humor de hoje</span>
+          <strong>Escolha um clima. Se tiver clube, suas doramigas veem no feed.</strong>
+          <div class="mood-row compact">
+            ${moods.slice(0, 5).map((mood) => `<button data-mood="${esc(mood.tag)}">${mood.emoji} ${esc(mood.label)}</button>`).join("")}
+          </div>
         </div>
-      </div>
-      <div class="actions hero-actions">
-        <button class="btn" ${hero.primary.attrs}>${icon(hero.primary.iconName)} ${esc(hero.primary.label)}</button>
-        <button class="btn secondary" ${hero.secondary.attrs}>${icon(hero.secondary.iconName)} ${esc(hero.secondary.label)}</button>
-        ${hero.extra}
-      </div>
+        <button class="dashboard-card" data-view="club">
+          <span>Doramigas</span>
+          <strong>${state.club ? esc(state.club.name) : "Crie ou entre em um clube."}</strong>
+          <em>${icon("club")} Abrir clube</em>
+        </button>
+      </section>
     </section>
     ${state.dramas.length === 0
       ? `<section class="form-card" style="margin-top:14px">
@@ -1032,22 +982,6 @@ function homeTemplate() {
     <section class="grid stats">
       ${stats.map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
     </section>
-    <div class="section-title">
-      <h2>Agora no seu Dorama Club</h2>
-    </div>
-    <section class="live-cards">
-      ${liveCards
-        .map(
-          (card) => `<button class="live-card" ${card.attrs}><span>${esc(card.title)}</span><strong>${esc(card.text)}</strong><em>${esc(card.cta)}</em></button>`,
-        )
-        .join("")}
-    </section>
-    <div class="section-title">
-      <h2>Meu humor hoje</h2>
-    </div>
-    <div class="mood-row">
-      ${moods.map((mood) => `<button data-mood="${esc(mood.tag)}">${mood.emoji} ${esc(mood.label)}</button>`).join("")}
-    </div>
     <div class="section-title">
       <h2>Atalhos</h2>
     </div>
@@ -1088,6 +1022,8 @@ const moodGenres = {
 };
 
 function sugerirPorHumor(tag) {
+  const mood = moods.find((item) => item.tag === tag);
+  if (mood && state.club) registrarAtividade(`${state.profile?.name || "Alguém"} está no clima: ${mood.emoji} ${mood.label}`);
   const generos = moodGenres[tag] || [];
   const combina = (drama) => (drama.genres || []).some((g) => generos.includes(g));
   // Prioriza o que ela ainda não viu (quero assistir), depois qualquer um.
@@ -1100,7 +1036,7 @@ function sugerirPorHumor(tag) {
     return;
   }
   const escolha = pool[Math.floor(Math.random() * pool.length)];
-  toast(`Hoje combina com: ${escolha.title} 💜`);
+  toast(`Hoje combina com: ${escolha.title}${state.club ? " - apareceu no feed do clube." : " 💜"}`);
 }
 
 function addTemplate() {
