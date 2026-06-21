@@ -42,6 +42,10 @@ import {
   clubListAdd,
   clubListVote,
   clubListRemove,
+  loadFavoritos,
+  addFavorito,
+  deleteFavorito,
+  clubCompatibility,
   isAdminEmail,
   adminOverview,
   adminUsers,
@@ -191,7 +195,17 @@ let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop
 let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 // Social do clube (feed automático, dorama do mês, ranking, diário compartilhado).
-let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [] };
+let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
+// Favoritos especiais (aba Perfil).
+let favoritos = [];
+let favoritosFor = null;
+const favoritoCategorias = [
+  "Personagem favorito",
+  "Vilão favorito",
+  "Personagem que eu odeio",
+  "Cena inesquecível",
+  "Trilha sonora favorita",
+];
 // "Posso comentar com quem" do dorama aberto no modal.
 let detailProgress = null;
 
@@ -1032,6 +1046,8 @@ function clubTemplate() {
     ${atividadesTemplate()}
     <div class="section-title"><h2>🏅 Ranking do clube</h2></div>
     ${rankingClubeTemplate()}
+    <div class="section-title"><h2>💞 Doramigas compatíveis</h2></div>
+    ${compatibilidadeTemplate()}
     <div class="section-title"><h2>Mural das doramigas</h2></div>
     ${commentFormTemplate()}
     ${clubFeedTemplate()}
@@ -1163,12 +1179,33 @@ function atividadesTemplate() {
 
 function rankingClubeTemplate() {
   if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando ranking…</div>`;
-  if (!clubSocial.ranking.length) return `<div class="empty">Sem dados ainda.</div>`;
+  const r = clubSocial.ranking;
+  if (!r.length) return `<div class="empty">Sem dados ainda.</div>`;
+
+  const lider = (campo) => r.reduce((a, b) => (Number(b[campo]) > Number(a[campo]) ? b : a));
+  const destaques = [
+    ["🏃‍♀️ Maratonista", lider("episodes"), "episodes", "eps"],
+    ["😭 Maior sofredora", lider("choro"), "choro", "de choro"],
+    ["✂️ Rainha do drop", lider("drops"), "drops", "drops"],
+    ["💞 Fiscal de casal", lider("casais"), "casais", "casais"],
+  ].filter(([, m, campo]) => Number(m[campo]) > 0);
+
   const medalha = ["🥇", "🥈", "🥉"];
-  return `<section class="grid cards">${clubSocial.ranking
+  return `
+    <section class="grid cards">
+      ${destaques.map(([titulo, m, campo, sufixo]) => `<div class="card"><span class="muted">${titulo}</span><strong>${esc(m.name)}</strong><span class="muted">${m[campo]} ${sufixo}</span></div>`).join("")}
+    </section>
+    <section class="grid cards" style="margin-top:12px">
+      ${r.map((row, i) => `<div class="card"><strong>${medalha[i] || `${i + 1}º`} ${esc(row.name)}</strong><div class="chips"><span class="chip">${row.episodes} eps</span><span class="chip">${row.finalizados} fim</span></div></div>`).join("")}
+    </section>`;
+}
+
+function compatibilidadeTemplate() {
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando…</div>`;
+  if (!clubSocial.compat.length) return `<div class="empty">Quando as doramigas adicionarem doramas, a compatibilidade aparece aqui. 💞</div>`;
+  return `<section class="grid cards">${clubSocial.compat
     .map(
-      (r, i) =>
-        `<div class="card"><strong>${medalha[i] || `${i + 1}º`} ${esc(r.name)}</strong><div class="chips"><span class="chip">${r.episodes} episódios</span><span class="chip">${r.finalizados} finalizados</span></div></div>`,
+      (c) => `<div class="card"><strong>${esc(c.name)}</strong><div class="compat-bar"><span style="width:${Math.min(100, Number(c.pct))}%"></span></div><span class="muted">${c.pct}% de match · ${c.comuns} em comum</span></div>`,
     )
     .join("")}</section>`;
 }
@@ -1332,6 +1369,8 @@ function profileTemplate() {
     ${linhaDoTempoTemplate()}
     <div class="section-title"><h2>💞 Casais que eu shippo</h2></div>
     ${casaisTemplate()}
+    <div class="section-title"><h2>⭐ Favoritos especiais</h2></div>
+    ${favoritosTemplate()}
     <div class="section-title">
       <h2>${icon("paint")} Tema do app</h2>
     </div>
@@ -1378,17 +1417,102 @@ function casaisTemplate() {
   return form + lista;
 }
 
+function favoritosTemplate() {
+  const dramasComTitulo = state.dramas.map((d) => d.title);
+  const form = `
+    <section class="form-card">
+      <form id="favorito-form" class="form-grid">
+        <div class="field">
+          <label for="favCategory">Categoria</label>
+          <select id="favCategory" name="category">
+            ${favoritoCategorias.map((c) => `<option>${esc(c)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label for="favValue">Qual?</label>
+          <input id="favValue" name="value" placeholder="Ex.: o vilão de Vincenzo" required />
+        </div>
+        <div class="field full">
+          <label for="favDrama">Dorama (opcional)</label>
+          <input id="favDrama" name="dramaTitle" list="fav-dramas" placeholder="De qual dorama?" />
+          <datalist id="fav-dramas">${dramasComTitulo.map((t) => `<option value="${esc(t)}"></option>`).join("")}</datalist>
+        </div>
+        <div class="actions field full"><button class="btn secondary" type="submit">Adicionar favorito</button></div>
+      </form>
+    </section>
+  `;
+  let lista;
+  if (favoritosFor !== (authUser?.id || "_")) {
+    lista = `<div class="empty">Carregando…</div>`;
+  } else if (!favoritos.length) {
+    lista = `<div class="empty">Adicione seus personagens, vilões, cenas e trilhas favoritas. ⭐</div>`;
+  } else {
+    lista = `<section class="grid cards">${favoritos
+      .map(
+        (f) => `<div class="card"><span class="chip">${esc(f.category)}</span><strong style="margin-top:6px">${esc(f.value)}</strong>${f.drama_title ? `<span class="muted">${esc(f.drama_title)}</span>` : ""}<div class="mini-actions"><button data-del-favorito="${f.id}">${icon("trash")} Tirar</button></div></div>`,
+      )
+      .join("")}</section>`;
+  }
+  return form + lista;
+}
+
+async function loadFavoritosData() {
+  if (!cloudOn()) {
+    favoritosFor = authUser?.id || "_";
+    favoritos = [];
+    render();
+    return;
+  }
+  favoritosFor = authUser.id;
+  try {
+    favoritos = await loadFavoritos(authUser.id);
+  } catch {
+    favoritos = [];
+  }
+  render();
+}
+
+async function handleAddFavorito(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const value = String(data.value || "").trim();
+  if (!value) return;
+  try {
+    await addFavorito(authUser.id, { category: data.category, value, dramaTitle: data.dramaTitle });
+    favoritos = await loadFavoritos(authUser.id);
+    render();
+    toast("Favorito salvo! ⭐");
+  } catch {
+    toast("Não consegui salvar.");
+  }
+}
+
+async function handleDeleteFavorito(id) {
+  try {
+    await deleteFavorito(id);
+    favoritos = favoritos.filter((f) => f.id !== id);
+    render();
+    toast("Removido.");
+  } catch {
+    toast("Não consegui remover.");
+  }
+}
+
 function funnyStats() {
   const episodes = state.dramas.reduce((sum, d) => sum + Number(d.currentEpisode || 0), 0);
   const choros = state.dramas.filter((d) => Number(d.cry) > 0).length;
   const drops = byStatus("dropped").length;
   const since = state.profile?.since;
+  const horas = Math.round(episodes * 1.05);
+  const comecados = state.dramas.filter((d) => d.status !== "wishlist").length;
+  const taxaDrop = comecados ? Math.round((drops / comecados) * 100) : 0;
   const linhas = [
-    `Você já assistiu <strong>${episodes}</strong> episódios.`,
+    `Você já assistiu <strong>${episodes}</strong> episódios — umas <strong>${horas}h</strong> de tela. ⏰`,
     `Você chorou oficialmente em <strong>${choros}</strong> ${choros === 1 ? "dorama" : "doramas"}.`,
     `Seu gênero mais assistido é <strong>${favoriteGenre()}</strong>.`,
   ];
-  if (drops) linhas.push(`Você dropou <strong>${drops}</strong> ${drops === 1 ? "dorama" : "doramas"} sem dó.`);
+  if (comecados) linhas.push(`Você dropa <strong>${taxaDrop}%</strong> dos doramas que começa.`);
+  if (drops) linhas.push(`Foram <strong>${drops}</strong> ${drops === 1 ? "dorama dropado" : "doramas dropados"} sem dó.`);
   if (since) linhas.push(`Sua vida dorameira começou em <strong>${esc(since)}</strong>.`);
   return linhas;
 }
@@ -1647,7 +1771,52 @@ function dramaCard(drama) {
   `;
 }
 
+const sorteadorFiltros = [
+  ["✨ Qualquer um", ""],
+  ["🥰 Romance fofo", "fofo"],
+  ["😭 Quero sofrer", "sofrer"],
+  ["😂 Quero rir", "rir"],
+  ["🔪 Vingança", "vinganca"],
+  ["🌸 Algo leve", "leve"],
+  ["💧 Quero chorar", "chorar"],
+  ["😡 Passar raiva", "raiva"],
+];
+
+function openSortear() {
+  modal = { type: "sortear", result: null };
+  render();
+}
+
+function sortearComFiltro(tag) {
+  let pool = byStatus("wishlist");
+  if (tag) {
+    const generos = moodGenres[tag] || [];
+    const filtrado = pool.filter((d) => (d.genres || []).some((g) => generos.includes(g)));
+    if (filtrado.length) pool = filtrado;
+  }
+  modal.result = pool.length ? pool[Math.floor(Math.random() * pool.length)] : { empty: true };
+  render();
+}
+
+function sortearModalTemplate() {
+  const r = modal.result;
+  const resultado = !r
+    ? ""
+    : r.empty
+      ? `<div class="empty" style="margin-top:14px">Nada na watchlist com esse clima. Adicione doramas em "Quero assistir"!</div>`
+      : `<div class="card" style="margin-top:14px;text-align:center"><span class="muted">Seu próximo surto será</span><strong style="font-size:1.4rem;display:block;margin:6px 0">${esc(r.title)}</strong><div class="chips" style="justify-content:center">${(r.genres || []).slice(0, 3).map((g) => `<span class="chip">${esc(g)}</span>`).join("")}</div></div>`;
+  return `
+    <div class="modal">
+      <section class="modal-card">
+        <div class="modal-head"><div><h2>🎲 Sortear próximo</h2><p class="muted">O que seu coração aguenta hoje?</p></div><button class="close" data-close>×</button></div>
+        <div class="mood-row">${sorteadorFiltros.map(([label, tag]) => `<button data-sortear="${tag}">${esc(label)}</button>`).join("")}</div>
+        ${resultado}
+      </section>
+    </div>`;
+}
+
 function modalTemplate() {
+  if (modal.type === "sortear") return sortearModalTemplate();
   if (modal.type === "profile") {
     return `
       <div class="modal">
@@ -1891,9 +2060,11 @@ async function handleLogout() {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [] };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
   casais = [];
   casaisFor = null;
+  favoritos = [];
+  favoritosFor = null;
   admin = { loaded: false, loading: false, error: "", overview: null, users: [], clubs: [], comments: [] };
   saveState();
   render();
@@ -2053,7 +2224,7 @@ function bindShell() {
     });
   });
 
-  listen(document.querySelector("[data-random]"), "click", randomDrama);
+  listen(document.querySelector("[data-random]"), "click", openSortear);
   listen(document.querySelector("[data-copy-code]"), "click", copyClubCode);
   listen(document.querySelector("[data-logout]"), "click", handleLogout);
   listen(document.querySelector("[data-share-club]"), "click", shareClub);
@@ -2102,6 +2273,10 @@ function bindShell() {
   document.querySelectorAll("[data-del-casal]").forEach((button) => {
     listen(button, "click", () => handleDeleteCasal(button.dataset.delCasal));
   });
+  listen(document.querySelector("#favorito-form"), "submit", handleAddFavorito);
+  document.querySelectorAll("[data-del-favorito]").forEach((button) => {
+    listen(button, "click", () => handleDeleteFavorito(button.dataset.delFavorito));
+  });
   bindPhotoPicker();
 
   // Motivo "Outro": mostra o campo de texto quando escolhido.
@@ -2122,6 +2297,7 @@ function bindShell() {
   if (state.view === "club" && state.club && clubFeedFor !== state.club.id) loadClubFeed();
   if (state.view === "club" && state.club && clubSocial.for !== state.club.id) loadClubSocial();
   if (state.view === "profile" && casaisFor !== (authUser?.id || "_")) loadCasaisData();
+  if (state.view === "profile" && favoritosFor !== (authUser?.id || "_")) loadFavoritosData();
 }
 
 async function runSearch(event) {
@@ -2165,7 +2341,10 @@ function bindModal() {
   listen(document.querySelector("#profile-form"), "submit", saveProfile);
   listen(document.querySelector("#drama-form"), "submit", saveDramaDetails);
   listen(document.querySelector("[data-whatsapp]"), "click", shareWhatsApp);
-  listen(document.querySelector("[data-remove]"), "click", () => removeDrama(modal.id));
+  document.querySelectorAll("[data-sortear]").forEach((button) => {
+    listen(button, "click", () => sortearComFiltro(button.dataset.sortear));
+  });
+  listen(document.querySelector("[data-remove]"), "click", () => modal.id && removeDrama(modal.id));
   listen(document.querySelector("#surto-form"), "submit", handleAddSurto);
   document.querySelectorAll("[data-del-surto]").forEach((button) => {
     listen(button, "click", () => handleDeleteSurto(button.dataset.delSurto));
@@ -2348,9 +2527,9 @@ async function loadClubFeed() {
 async function loadClubSocial() {
   if (!state.club) return;
   clubSocial = { ...clubSocial, for: state.club.id };
-  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [] };
+  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
   try {
-    const [activities, picks, ranking, shared, reactions, commonDramas, list] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -2358,8 +2537,9 @@ async function loadClubSocial() {
       clubReactions(state.club.id),
       clubDramas(state.club.id),
       clubListFeed(state.club.id),
+      clubCompatibility(state.club.id),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat };
   } catch {
     clubSocial = empty;
   }
@@ -2506,7 +2686,7 @@ async function handleLeaveClub() {
     clubMembersFor = null;
     clubFeedItems = [];
     clubFeedFor = null;
-    clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [] };
+    clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
     setState({ club: null });
     toast("Você saiu do clube.");
   } catch {

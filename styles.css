@@ -809,6 +809,21 @@ textarea:focus {
   background: color-mix(in srgb, var(--cor-primaria) 14%, transparent);
 }
 
+.compat-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--cor-superficie-2);
+  overflow: hidden;
+  margin: 8px 0 4px;
+}
+
+.compat-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--cor-primaria), var(--cor-secundaria));
+}
+
 .timeline {
   display: grid;
   gap: 0;

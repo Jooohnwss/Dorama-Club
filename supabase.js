@@ -383,6 +383,35 @@ export async function clubListRemove(listId) {
   if (error) throw error;
 }
 
+// ---------- Favoritos especiais ----------
+export async function loadFavoritos(userId) {
+  const { data, error } = await supabase.from("favoritos").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addFavorito(userId, fav) {
+  const { error } = await supabase.from("favoritos").insert({
+    user_id: userId,
+    category: fav.category,
+    value: fav.value,
+    drama_title: fav.dramaTitle || null,
+  });
+  if (error) throw error;
+}
+
+export async function deleteFavorito(id) {
+  const { error } = await supabase.from("favoritos").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------- Compatibilidade ----------
+export async function clubCompatibility(clubId) {
+  const { data, error } = await supabase.rpc("club_compatibility", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
 // ---------- ADMIN ----------
 export const ADMIN_EMAILS = ["jonatas.w.silva.w@gmail.com", "abikeila_2001@outlook.com"];
 
