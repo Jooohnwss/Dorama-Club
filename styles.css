@@ -19,6 +19,7 @@
   --bg-cena: none;
   --raio: 18px;
   --raio-sm: 12px;
+  --cor-sombra: rgba(0, 0, 0, 0.22);
   --sombra: 0 18px 50px rgba(0, 0, 0, 0.18);
 
   color-scheme: light dark;
