@@ -1223,6 +1223,11 @@ textarea:focus {
   white-space: pre-wrap;
 }
 
+/* Faixa de abas das seções do casal — só no celular (ver media query). */
+.couple-tabs {
+  display: none;
+}
+
 /* ---------- Alternador Pessoal ↔ Nós dois (na sidebar, estilo app financeiro) ---------- */
 .space-switch {
   display: flex;
@@ -2389,14 +2394,39 @@ textarea:focus {
     text-align: center;
   }
 
-  /* Muitas seções no casal: barra inferior rola na horizontal (não espreme). */
+  /* No celular as seções do casal viram uma faixa de abas no topo (mais
+     confiável que espremer 8 itens na barra inferior). A barra de baixo do
+     casal fica só com "Voltar pro app". */
   .couple-sidebar .nav {
-    grid-auto-columns: 60px;
+    display: none;
+  }
+
+  .couple-tabs {
+    display: flex;
+    gap: 8px;
     overflow-x: auto;
     scrollbar-width: none;
+    margin: 0 -14px 16px;
+    padding: 0 14px 4px;
   }
-  .couple-sidebar .nav::-webkit-scrollbar {
+  .couple-tabs::-webkit-scrollbar {
     display: none;
+  }
+  .couple-tabs button {
+    flex: 0 0 auto;
+    padding: 8px 15px;
+    border-radius: 999px;
+    background: var(--cor-superficie-2);
+    border: 1px solid var(--cor-borda);
+    color: var(--cor-texto-suave);
+    font-weight: 800;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+  .couple-tabs button.active {
+    background: var(--cor-primaria);
+    color: var(--cor-primaria-texto);
+    border-color: transparent;
   }
 
   /* No celular a sidebar vira barra inferior: o alternador não cabe lá.

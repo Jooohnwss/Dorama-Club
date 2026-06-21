@@ -2707,19 +2707,31 @@ function coupleTemaSection() {
 }
 
 // Roteador das seções do ambiente do casal.
+// Faixa de abas das seções do casal — visível só no celular (no PC é a sidebar).
+function coupleSectionTabs() {
+  const secoes = [
+    ["inicio", "Início"], ["assistindo", "Assistindo"], ["diario", "Diário"],
+    ["sobre", "Sobre nós"], ["cartinhas", "Cartinhas"], ["pet", "Pet"],
+    ["certificados", "Certificados"], ["tema", "Tema"],
+  ];
+  return `<div class="couple-tabs">${secoes.map(([k, l]) => `<button class="${coupleSection === k ? "active" : ""}" data-couple-section="${k}">${esc(l)}</button>`).join("")}</div>`;
+}
+
 function coupleSpaceView() {
   if (!state.couple) return `<div class="section-title"><h2>Nós dois</h2></div><div class="empty">Crie o espaço do casal no seu <strong>Perfil</strong> pra abrir o cantinho de vocês. 💕</div>`;
   if (coupleFor !== state.couple.id) return `<div class="section-title"><h2>Nós dois</h2></div><div class="empty">Carregando o cantinho de vocês…</div>`;
+  let conteudo;
   switch (coupleSection) {
-    case "assistindo": return coupleDramasTemplate();
-    case "diario": return coupleDiaryTemplate();
-    case "sobre": return coupleAboutTemplate();
-    case "cartinhas": return coupleLettersTemplate();
-    case "pet": return couplePetSection();
-    case "certificados": return coupleCertificadosSection();
-    case "tema": return coupleTemaSection();
-    default: return coupleInicioSection();
+    case "assistindo": conteudo = coupleDramasTemplate(); break;
+    case "diario": conteudo = coupleDiaryTemplate(); break;
+    case "sobre": conteudo = coupleAboutTemplate(); break;
+    case "cartinhas": conteudo = coupleLettersTemplate(); break;
+    case "pet": conteudo = couplePetSection(); break;
+    case "certificados": conteudo = coupleCertificadosSection(); break;
+    case "tema": conteudo = coupleTemaSection(); break;
+    default: conteudo = coupleInicioSection();
   }
+  return coupleSectionTabs() + conteudo;
 }
 
 function timeAgo(iso) {
