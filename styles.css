@@ -190,6 +190,9 @@ button {
 .main {
   padding: 26px;
   min-width: 0;
+  /* Blinda contra overflow horizontal de qualquer conteúdo (que deslocava a
+     barra inferior fixa no celular). Linhas roláveis têm seu próprio scroll. */
+  overflow-x: hidden;
 }
 
 .main-topbar {
@@ -761,17 +764,20 @@ textarea:focus {
 
 .list-toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 14px;
 }
 
 .list-toolbar input {
-  flex: 1;
+  flex: 1 1 180px;
+  min-width: 0; /* deixa o campo encolher no celular (senão estoura a largura) */
 }
 
 .list-toolbar select {
   flex: 0 0 auto;
   width: auto;
+  max-width: 100%;
 }
 
 /* ---------- Cards de dorama ---------- */
