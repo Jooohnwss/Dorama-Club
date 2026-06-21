@@ -270,6 +270,78 @@ let listSort = "recente"; // ordenação da Minhas listas
 let listView = "lista"; // "lista" | "grade"
 let addingClub = false; // mostrar formulários de criar/entrar mesmo já tendo clube
 
+// ---------- Tutorial / onboarding ----------
+const TUTORIAL_KEY = "dorama-club-tutorial-visto";
+let tutorial = null; // { step } quando aberto
+let tutorialChecked = false; // garante auto-abrir só 1x por sessão (e evita loop de render)
+
+// Passos do tutorial (slides curtos). emoji + título + corpo.
+const TUTORIAL_STEPS = [
+  { emoji: "💜", title: "Bem-vinda ao Dorama Club", body: "Seu cantinho pra organizar doramas, marcar seus surtos e dividir tudo com as doramigas. Vou te mostrar o básico em alguns toques — leva menos de um minuto." },
+  { emoji: "➕", title: "Adicionar doramas", body: "Toque em <strong>Descobrir</strong> ou use a busca pra achar um dorama. Ao adicionar, ele entra nas suas <strong>Listas</strong> (quero ver, assistindo, terminei…)." },
+  { emoji: "▶️", title: "Atualizar episódios", body: "Na sua lista, toque no número do episódio pra dizer onde parou. Dá pra somar de um em um ou colocar o número exato — sem ficar apertando o + mil vezes." },
+  { emoji: "😭", title: "Registrar surtos", body: "Abrindo um dorama você marca se <strong>chorou</strong>, <strong>surtou</strong> ou <strong>passou raiva</strong>, dá sua nota e guarda o momento favorito. Tudo vira sua linha do tempo dorameira." },
+  { emoji: "👯", title: "Doramigas e clube", body: "Na aba <strong>Doramigas</strong> você cria ou entra num clube pelo código, surta no mural (com trava de spoiler!), vê o dorama do mês e o quanto combinam." },
+  { emoji: "🌈", title: "Humor do dia", body: "Na <strong>Início</strong>, diz como tá se sentindo e o app sugere um dorama pra esse humor. Bom dia de chorar, dia de rir, dia de raiva — tem pra tudo." },
+  { emoji: "🎨", title: "Temas", body: "No <strong>Perfil</strong> você troca o tema do app. Dá até pra montar um tema com as cores do seu dorama favorito. O símbolo lá em cima muda de cor junto. 💅" },
+  { emoji: "💕", title: "Em breve: Nós dois", body: "Vem aí um cantinho só do casal — diário de doramas vistos juntos, memórias e dates. Fica de olho. 😉" },
+];
+
+function tutorialVisto() {
+  try { return localStorage.getItem(TUTORIAL_KEY) === "1"; } catch { return false; }
+}
+function marcarTutorialVisto() {
+  try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch { /* ignore */ }
+}
+function abrirTutorial(step = 0) {
+  tutorial = { step };
+  render();
+}
+function fecharTutorial(marcar) {
+  if (marcar) marcarTutorialVisto();
+  tutorial = null;
+  render();
+}
+function passoTutorial(delta) {
+  if (!tutorial) return;
+  const novo = tutorial.step + delta;
+  if (novo < 0) return;
+  if (novo >= TUTORIAL_STEPS.length) { fecharTutorial(true); return; }
+  tutorial = { step: novo };
+  render();
+}
+
+function tutorialTemplate() {
+  if (!tutorial) return "";
+  const i = Math.min(tutorial.step, TUTORIAL_STEPS.length - 1);
+  const s = TUTORIAL_STEPS[i];
+  const ultimo = i === TUTORIAL_STEPS.length - 1;
+  return `
+    <div class="modal tutorial-overlay">
+      <section class="tutorial-card">
+        <button class="tutorial-skip" type="button" data-tut-skip>Pular</button>
+        <div class="tutorial-emoji">${s.emoji}</div>
+        <h2>${s.title}</h2>
+        <p>${s.body}</p>
+        <div class="tutorial-dots">
+          ${TUTORIAL_STEPS.map((_, n) => `<span class="${n === i ? "on" : ""}"></span>`).join("")}
+        </div>
+        <div class="tutorial-actions">
+          ${i > 0 ? `<button class="btn ghost" type="button" data-tut-prev>Voltar</button>` : `<button class="btn ghost" type="button" data-tut-later>Ver depois</button>`}
+          <button class="btn" type="button" data-tut-next>${ultimo ? "Começar 💜" : "Próximo"}</button>
+        </div>
+      </section>
+    </div>`;
+}
+
+function bindTutorial() {
+  if (!tutorial) return;
+  listen(document.querySelector("[data-tut-skip]"), "click", () => fecharTutorial(true));
+  listen(document.querySelector("[data-tut-later]"), "click", () => fecharTutorial(false));
+  listen(document.querySelector("[data-tut-prev]"), "click", () => passoTutorial(-1));
+  listen(document.querySelector("[data-tut-next]"), "click", () => passoTutorial(1));
+}
+
 // Troca o clube ativo (recarrega membros/feed/social do novo).
 function trocarClubeAtivo(club) {
   state.club = club;
@@ -704,6 +776,12 @@ function render() {
     return;
   }
 
+  // Abre o tutorial automaticamente na primeira vez (só uma vez por sessão).
+  if (!tutorialChecked) {
+    tutorialChecked = true;
+    if (!tutorialVisto()) tutorial = { step: 0 };
+  }
+
   app().innerHTML = `
     <div class="app shell">
       ${sidebarTemplate()}
@@ -712,12 +790,14 @@ function render() {
       </main>
       ${modal ? modalTemplate() : ""}
       ${uiModalTemplate()}
+      ${tutorialTemplate()}
       <div id="toast-root"></div>
     </div>
   `;
   bindShell();
   if (modal) bindModal();
   bindUiModal();
+  bindTutorial();
 }
 
 function authTemplate() {
@@ -1974,6 +2054,13 @@ function profileTemplate() {
     ${casaisTemplate()}
     <div class="section-title"><h2>⭐ Favoritos especiais</h2></div>
     ${favoritosTemplate()}
+    <div class="section-title"><h2>❓ Como usar o app</h2></div>
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 10px">Reveja o passo a passo do Dorama Club quando quiser.</p>
+      <div class="actions" style="margin:0">
+        <button class="btn ghost" type="button" data-open-tutorial>Ver tutorial de novo</button>
+      </div>
+    </section>
     <div class="section-title"><h2>🔒 Segurança</h2></div>
     <section class="form-card">
       <form id="change-pass-form" class="form-grid">
@@ -3022,6 +3109,7 @@ function bindShell() {
     listen(button, "click", () => handleDeleteFavorito(button.dataset.delFavorito));
   });
   listen(document.querySelector("#change-pass-form"), "submit", handleChangePassword);
+  listen(document.querySelector("[data-open-tutorial]"), "click", () => abrirTutorial(0));
   bindPhotoPicker();
 
   // Motivo "Outro": mostra o campo de texto quando escolhido.
