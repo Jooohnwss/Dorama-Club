@@ -2080,7 +2080,12 @@ async function handleLeaveClub() {
 
 function shareClub() {
   if (!state.club) return;
-  const text = `Entra no meu ${state.club.name} no Dorama Club. Código: ${state.club.code}`;
+  const link = location.origin;
+  const text =
+    `Vem pro meu clube de doramas, o ${state.club.name}! 💜\n\n` +
+    `1) Abre o app: ${link}\n` +
+    `2) Cria sua conta\n` +
+    `3) Vai em Doramigas → Entrar com código e usa: ${state.club.code}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
 }
 
@@ -2174,9 +2179,10 @@ async function handleAdminDeleteUser(id, nome) {
 
 function shareWhatsApp(event) {
   const drama = state.dramas.find((item) => item.id === event.currentTarget.dataset.whatsapp);
-  const text = drama.status === "finished"
+  const frase = drama.status === "finished"
     ? `Finalizei ${drama.title} e dei ${drama.personalRating || "10"}/10. Sofri, surtei e recomendo.`
     : `Estou assistindo ${drama.title} no Dorama Club. Já estou no episódio ${drama.currentEpisode || 0}!`;
+  const text = `${frase}\n\nO app é esse: ${location.origin} 💜`;
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
 }
 
