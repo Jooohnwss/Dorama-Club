@@ -377,6 +377,15 @@ export async function saveCoupleTheme(coupleId, temaId, temaCustomJson) {
   if (error) throw error;
 }
 
+// Cartinha fixa do topo (e tela de "modo presente").
+export async function saveCouplePinnedLetter(coupleId, texto) {
+  const { error } = await supabase
+    .from("couples")
+    .update({ pinned_letter: texto || null })
+    .eq("id", coupleId);
+  if (error) throw error;
+}
+
 export async function loadCoupleDramas(coupleId) {
   const { data, error } = await supabase
     .from("couple_dramas")

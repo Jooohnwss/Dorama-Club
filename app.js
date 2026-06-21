@@ -65,6 +65,7 @@ import {
   leaveCouple,
   updateCoupleCapa,
   saveCoupleTheme,
+  saveCouplePinnedLetter,
   loadCoupleDramas,
   addCoupleDrama,
   updateCoupleDrama,
@@ -381,6 +382,39 @@ function bindTutorial() {
   listen(document.querySelector("[data-tut-later]"), "click", () => fecharTutorial(false));
   listen(document.querySelector("[data-tut-prev]"), "click", () => passoTutorial(-1));
   listen(document.querySelector("[data-tut-next]"), "click", () => passoTutorial(1));
+}
+
+// ---------- Modo presente (tela especial na 1ª visita da parceira) ----------
+const PRESENTE_KEY = "dorama-club-presente-visto";
+let presente = false;
+let presenteChecked = false;
+function presenteVisto() {
+  try { return localStorage.getItem(PRESENTE_KEY) === "1"; } catch { return false; }
+}
+function marcarPresenteVisto() {
+  try { localStorage.setItem(PRESENTE_KEY, "1"); } catch { /* ignore */ }
+}
+function presenteTemplate() {
+  if (!presente) return "";
+  const carta = (state.couple?.pinnedLetter || "").trim();
+  return `
+    <div class="modal presente-overlay">
+      <section class="presente-card">
+        <div class="presente-emoji">💝</div>
+        <span class="presente-sel">Um cantinho só nosso</span>
+        <h2>${esc(state.couple?.title || "Nós dois")}</h2>
+        <p>${carta ? esc(carta) : "Eu fiz esse cantinho pra gente guardar nossos doramas, surtos e memórias. 💕"}</p>
+        <button class="btn" type="button" data-presente-enter>Entrar no nosso cantinho 💕</button>
+      </section>
+    </div>`;
+}
+function bindPresente() {
+  if (!presente) return;
+  listen(document.querySelector("[data-presente-enter]"), "click", () => {
+    marcarPresenteVisto();
+    presente = false;
+    render();
+  });
 }
 
 // Troca o clube ativo (recarrega membros/feed/social do novo).
@@ -906,8 +940,14 @@ function render() {
     tutorialChecked = true;
     if (!tutorialVisto()) tutorial = { step: 0, kind: "geral" };
   }
-  // Tutorial do casal: só faz sentido pra quem JÁ tem casal e está no ambiente dele.
-  if (!tutorial && state.space === "couple" && state.couple && !tutorialCasalChecked) {
+  // Modo presente: tela especial na 1ª visita de QUEM NÃO criou o casal (a parceira).
+  if (!tutorial && !presente && state.space === "couple" && state.couple && !presenteChecked) {
+    presenteChecked = true;
+    const souParceira = authUser && state.couple.createdBy && authUser.id !== state.couple.createdBy;
+    if (souParceira && !presenteVisto()) presente = true;
+  }
+  // Tutorial do casal: só pra quem JÁ tem casal e está no ambiente dele (depois do presente).
+  if (!tutorial && !presente && state.space === "couple" && state.couple && !tutorialCasalChecked) {
     tutorialCasalChecked = true;
     if (!tutorialCasalVisto()) tutorial = { step: 0, kind: "casal" };
   }
@@ -922,6 +962,7 @@ function render() {
       ${modal ? modalTemplate() : ""}
       ${uiModalTemplate()}
       ${tutorialTemplate()}
+      ${presenteTemplate()}
       <div id="toast-root"></div>
     </div>
   `;
@@ -929,6 +970,7 @@ function render() {
   if (modal) bindModal();
   bindUiModal();
   bindTutorial();
+  bindPresente();
 }
 
 function authTemplate() {
@@ -1324,7 +1366,7 @@ async function gerarCardMeuDia(drama, opts = {}) {
   ctx.textAlign = "center";
   ctx.fillStyle = "#ffffff";
   ctx.font = '800 46px Inter, system-ui, sans-serif';
-  ctx.fillText(opts.certificado ? "🎓 Certificado de conclusão" : "💜 Dorama Club", W / 2, 100);
+  ctx.fillText(opts.casal ? "🎓 Finalizamos juntos" : opts.certificado ? "🎓 Certificado de conclusão" : "💜 Dorama Club", W / 2, 100);
 
   // pôster
   const pw = 470, ph = 705, px = (W - pw) / 2, py = 150;
@@ -1341,7 +1383,7 @@ async function gerarCardMeuDia(drama, opts = {}) {
   let y = py + ph + 80;
   ctx.fillStyle = "rgba(255,255,255,0.85)";
   ctx.font = '700 32px Inter, system-ui, sans-serif';
-  ctx.fillText(opts.certificado ? "Finalizei com sucesso" : drama ? "Continuo assistindo" : "Minha vida dorameira", W / 2, y);
+  ctx.fillText(opts.casal ? (opts.coupleName || "Nosso cantinho") : opts.certificado ? "Finalizei com sucesso" : drama ? "Continuo assistindo" : "Minha vida dorameira", W / 2, y);
 
   y += 64;
   ctx.fillStyle = "#ffffff";
@@ -1349,38 +1391,59 @@ async function gerarCardMeuDia(drama, opts = {}) {
   const linhas = drama ? wrapText(ctx, drama.title, W / 2, y, W - 140, 62) : 0;
   y += (linhas ? (linhas - 1) * 62 : 0) + 56;
 
-  if (drama && Number(drama.episodes)) {
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    ctx.font = '700 36px Inter, system-ui, sans-serif';
-    ctx.fillText(`Episódio ${drama.currentEpisode || 0} de ${drama.episodes}`, W / 2, y);
-    y += 30;
-    const bw = 560, bx = (W - bw) / 2;
-    const pct = Math.min(1, (Number(drama.currentEpisode || 0)) / Number(drama.episodes));
-    ctx.fillStyle = "rgba(255,255,255,0.25)";
-    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, y, bw, 14, 7); ctx.fill(); }
-    ctx.fillStyle = "#ffffff";
-    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, y, bw * pct, 14, 7); ctx.fill(); }
-    y += 56;
+  if (opts.casal) {
+    // Certificado do casal: episódios juntos + horas estimadas (se vierem).
+    if (drama && Number(drama.episodes)) {
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.font = '700 36px Inter, system-ui, sans-serif';
+      const linhaEps = opts.horas ? `${drama.episodes} episódios · ~${opts.horas}h juntos` : `${drama.episodes} episódios juntos`;
+      ctx.fillText(linhaEps, W / 2, y);
+      y += 56;
+    }
+    // Notas dele/dela (vindas do diário, quando existirem).
+    const notas = [];
+    if (opts.noteHim) notas.push(`Ele: ${opts.noteHim}`);
+    if (opts.noteHer) notas.push(`Ela: ${opts.noteHer}`);
+    if (notas.length) {
+      ctx.fillStyle = "#ffffff";
+      ctx.font = '800 36px Inter, system-ui, sans-serif';
+      notas.forEach((n) => { wrapText(ctx, n, W / 2, y, W - 140, 42); y += 52; });
+      y += 4;
+    }
+  } else {
+    if (drama && Number(drama.episodes)) {
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.font = '700 36px Inter, system-ui, sans-serif';
+      ctx.fillText(`Episódio ${drama.currentEpisode || 0} de ${drama.episodes}`, W / 2, y);
+      y += 30;
+      const bw = 560, bx = (W - bw) / 2;
+      const pct = Math.min(1, (Number(drama.currentEpisode || 0)) / Number(drama.episodes));
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, y, bw, 14, 7); ctx.fill(); }
+      ctx.fillStyle = "#ffffff";
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, y, bw * pct, 14, 7); ctx.fill(); }
+      y += 56;
+    }
+
+    // Nota / semáforo / choro deste dorama (quando tiver).
+    const extras = [];
+    if (drama?.personalRating) extras.push(`⭐ ${drama.personalRating}/10`);
+    if (drama?.semaforo) extras.push(semaforoEmoji(drama.semaforo));
+    if (Number(drama?.cry) > 0) extras.push(`😭 ${drama.cry}`);
+    if (Number(drama?.hype) > 0) extras.push(`🔥 ${drama.hype}`);
+    if (extras.length) {
+      ctx.fillStyle = "#ffffff";
+      ctx.font = '800 38px Inter, system-ui, sans-serif';
+      ctx.fillText(extras.join("    "), W / 2, y);
+      y += 56;
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.font = '700 34px Inter, system-ui, sans-serif';
+    ctx.fillText(`✅ ${byStatus("finished").length} finalizados   ⭐ ${byStatus("favorites").length} favoritos`, W / 2, y);
   }
 
-  // Nota / semáforo / choro deste dorama (quando tiver).
-  const extras = [];
-  if (drama?.personalRating) extras.push(`⭐ ${drama.personalRating}/10`);
-  if (drama?.semaforo) extras.push(semaforoEmoji(drama.semaforo));
-  if (Number(drama?.cry) > 0) extras.push(`😭 ${drama.cry}`);
-  if (Number(drama?.hype) > 0) extras.push(`🔥 ${drama.hype}`);
-  if (extras.length) {
-    ctx.fillStyle = "#ffffff";
-    ctx.font = '800 38px Inter, system-ui, sans-serif';
-    ctx.fillText(extras.join("    "), W / 2, y);
-    y += 56;
-  }
-
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.font = '700 34px Inter, system-ui, sans-serif';
-  ctx.fillText(`✅ ${byStatus("finished").length} finalizados   ⭐ ${byStatus("favorites").length} favoritos`, W / 2, y);
-
-  if (opts.certificado) {
+  if (opts.certificado || opts.casal) {
     ctx.fillStyle = "#ffffff";
     ctx.font = '800 34px Inter, system-ui, sans-serif';
     wrapText(ctx, opts.frase || "Mais um trauma concluído com sucesso. 🎓", W / 2, y + 16, W - 140, 42);
@@ -1388,7 +1451,7 @@ async function gerarCardMeuDia(drama, opts = {}) {
 
   ctx.fillStyle = "rgba(255,255,255,0.8)";
   ctx.font = '700 30px Inter, system-ui, sans-serif';
-  ctx.fillText(`— ${state.profile?.name || "dorameira"}`, W / 2, H - 60);
+  ctx.fillText(`— ${opts.casal ? (opts.coupleName || "Nós dois") : (state.profile?.name || "dorameira")}`, W / 2, H - 60);
 
   return await new Promise((res) => canvas.toBlob(res, "image/png", 0.92));
 }
@@ -2295,6 +2358,7 @@ function coupleDramasTemplate() {
               <div class="mini-actions">
                 <button data-couple-ep="${d.id}">Ep.</button>
                 <button data-couple-memory="${d.id}">Memória</button>
+                ${d.status === "watched" || d.status === "favorite" ? `<button data-couple-cert="${d.id}">🎓 Certificado</button>` : ""}
                 <button data-del-couple-drama="${d.id}">${icon("trash")} Tirar</button>
               </div>
             </div>
@@ -2383,13 +2447,32 @@ function coupleLettersTemplate() {
     <section class="grid cards">${letters}</section>`;
 }
 
-// Seção "Início" do casal: capa, stats, timeline, editar capa.
+// Cartinha fixa: carta sempre visível no topo do espaço do casal.
+function couplePinnedLetterTemplate() {
+  const carta = (state.couple?.pinnedLetter || "").trim();
+  if (!carta) return "";
+  return `
+    <section class="couple-pinned">
+      <span class="couple-pinned-tag">💌 Nossa cartinha</span>
+      <p>${esc(carta)}</p>
+    </section>`;
+}
+
+// Seção "Início" do casal: cartinha fixa, capa, stats, timeline, editar capa.
 function coupleInicioSection() {
   return `
+    ${couplePinnedLetterTemplate()}
     ${coupleHeroTemplate()}
     <section class="grid stats">${coupleStats().map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}</section>
     <div class="section-title"><h2>Linha do tempo de vocês</h2></div>
     ${coupleTimelineTemplate()}
+    <div class="section-title"><h2>💌 Cartinha fixa do topo</h2></div>
+    <section class="form-card">
+      <form id="couple-pinned-form" class="form-grid">
+        <div class="field full"><label>Uma carta que fica sempre visível pra vocês dois (e abre como presente na 1ª visita).</label><textarea name="pinned" placeholder="Pra quando a gente quiser lembrar de como é bom assistir junto…">${esc(state.couple.pinnedLetter || "")}</textarea></div>
+        <div class="actions field full"><button class="btn secondary" type="submit">Salvar cartinha</button></div>
+      </form>
+    </section>
     <div class="section-title"><h2>Capa do casal</h2></div>
     <section class="form-card">
       <form id="couple-capa-form" class="form-grid">
@@ -3574,6 +3657,7 @@ function bindShell() {
   listen(document.querySelector("#create-couple-form"), "submit", handleCreateCouple);
   listen(document.querySelector("#join-couple-form"), "submit", handleJoinCouple);
   listen(document.querySelector("#couple-capa-form"), "submit", handleCoupleCapa);
+  listen(document.querySelector("#couple-pinned-form"), "submit", handleCouplePinned);
   listen(document.querySelector("#couple-add-drama-form"), "submit", handleCoupleAddDrama);
   listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
   listen(document.querySelector("#couple-about-form"), "submit", handleCoupleAbout);
@@ -3606,6 +3690,9 @@ function bindShell() {
   });
   document.querySelectorAll("[data-del-couple-drama]").forEach((button) => {
     listen(button, "click", () => handleDeleteCoupleDrama(button.dataset.delCoupleDrama));
+  });
+  document.querySelectorAll("[data-couple-cert]").forEach((button) => {
+    listen(button, "click", () => compartilharCertificadoCasal(button.dataset.coupleCert));
   });
   document.querySelectorAll("[data-del-couple-diary]").forEach((button) => {
     listen(button, "click", () => handleDeleteCoupleDiary(button.dataset.delCoupleDiary));
@@ -4002,6 +4089,8 @@ function mapCoupleRow(couple) {
         specialDate: couple.special_date || "",
         tema: couple.tema || "",
         temaCustom: couple.tema_custom || "",
+        createdBy: couple.created_by || null,
+        pinnedLetter: couple.pinned_letter || "",
       }
     : null;
 }
@@ -4087,6 +4176,44 @@ async function handleCoupleCapa(event) {
     toast("Capa do casal salva.");
   } catch {
     toast("Não consegui salvar a capa.");
+  }
+}
+
+async function handleCouplePinned(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const texto = String(new FormData(event.currentTarget).get("pinned") || "").trim();
+  try {
+    await saveCouplePinnedLetter(state.couple.id, texto);
+    state.couple.pinnedLetter = texto;
+    saveState();
+    render();
+    toast("Cartinha fixa salva. 💌");
+  } catch {
+    toast("Não consegui salvar a cartinha.");
+  }
+}
+
+// Certificado de dorama finalizado juntos (card-imagem pra compartilhar).
+async function compartilharCertificadoCasal(id) {
+  const d = coupleDramas.find((x) => x.id === id);
+  if (!d) return;
+  toast("Gerando certificado…");
+  // Notas dele/dela: pega do diário desse dorama, se houver.
+  const mem = coupleDiary.find((e) => (d.tmdb_id && e.tmdb_id === d.tmdb_id) || (e.drama_title && e.drama_title === d.title));
+  const coupleName = state.couple?.title || coupleMembers.map((m) => m.name || m.nickname).filter(Boolean).join(" & ") || "Nós dois";
+  const dramaShape = { tmdbId: d.tmdb_id, cover: d.cover, title: d.title, episodes: d.episodes, currentEpisode: d.current_episode };
+  try {
+    const blob = await gerarCardMeuDia(dramaShape, {
+      casal: true,
+      coupleName,
+      noteHim: mem?.note_him || "",
+      noteHer: mem?.note_her || "",
+      frase: fraseFim(),
+    });
+    await compartilharImagem(blob, `Finalizamos ${d.title} juntos! 💕 ${inviteLink()}`);
+  } catch {
+    toast("Não consegui gerar o certificado.");
   }
 }
 

@@ -1064,6 +1064,72 @@ textarea:focus {
   padding: 22px;
 }
 
+/* ---------- Modo presente (tela especial da 1ª visita) ---------- */
+.presente-overlay {
+  z-index: 50;
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--cor-primaria) 45%, transparent), transparent 55%),
+    radial-gradient(circle at 70% 90%, color-mix(in srgb, var(--cor-secundaria) 45%, transparent), transparent 55%),
+    rgba(8, 6, 14, 0.86);
+}
+.presente-card {
+  width: min(440px, 100%);
+  padding: 36px 26px 26px;
+  text-align: center;
+  border-radius: 26px;
+  background: var(--cor-superficie);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+  animation: tut-pop 0.32s ease;
+}
+.presente-emoji {
+  font-size: 3rem;
+  margin-bottom: 6px;
+}
+.presente-sel {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cor-primaria);
+}
+.presente-card h2 {
+  margin: 6px 0 12px;
+  font-size: 1.7rem;
+}
+.presente-card p {
+  margin: 0 auto 22px;
+  max-width: 34ch;
+  color: var(--cor-texto-suave);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.presente-card .btn {
+  width: 100%;
+}
+
+/* Cartinha fixa no topo do casal */
+.couple-pinned {
+  margin: 0 0 16px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 30%, transparent);
+  background: color-mix(in srgb, var(--cor-primaria) 9%, var(--cor-superficie));
+}
+.couple-pinned-tag {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  color: var(--cor-primaria);
+}
+.couple-pinned p {
+  margin: 0;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 /* ---------- Portal "Nós dois" (entrar/voltar do ambiente do casal) ---------- */
 .couple-portal-btn {
   display: flex;

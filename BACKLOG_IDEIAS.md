@@ -24,8 +24,8 @@ Roleta de date · tema do casal por dorama (compartilhado) · diário do casal c
 ---
 
 ## 💝 Nós dois — emocional / presente
-- [ ] 🟢 **Modo presente (1ª visita dela)**: tela especial só na primeira vez — "Eu fiz esse cantinho pra gente guardar nossos doramas, surtos e memórias" + botão "Entrar no nosso cantinho". (guardar "viu" em localStorage/coluna)
-- [ ] 🗄️ **Cartinha fixa no topo**: uma carta do dono do espaço sempre visível no topo do casal (campo `pinned_letter` em `couples` ou flag em `couple_letters`).
+- [x] ✅ **Modo presente (1ª visita dela)** — overlay especial só na 1ª entrada de quem NÃO criou o casal (a parceira): mostra a cartinha fixa (ou um texto padrão) + botão "Entrar no nosso cantinho". Guardado em `dorama-club-presente-visto`. *(commit Prioridade 1)*
+- [x] ✅ **Cartinha fixa no topo** — `couples.pinned_letter` (migração 15); card no topo da seção Início + edição; também alimenta a tela de modo presente. *(commit Prioridade 1)*
 - [ ] 🗄️ **Álbum de memórias** (diário mais bonito): cards estilo álbum com capa do dorama, data, episódio, frase interna, "momento favorito". (front + talvez guardar `cover`/`tmdb_id` já existe no diário)
 - [ ] 🟢 **Nosso placar** (fofo): quem chorou mais, quem escolheu mais doramas, episódios juntos, nº de memórias, **lanche mais citado** — agregando o que já está no diário.
 - [ ] 🗄️ **Date da semana**: toda semana o app sugere dorama + lanche + missão + pergunta pra responder depois. (precisa guardar a sugestão/semana)
@@ -43,7 +43,7 @@ Roleta de date · tema do casal por dorama (compartilhado) · diário do casal c
 ## 🎓 Certificados (do casal)
 - [ ] 🎬 **Horas assistidas juntos**: buscar `episode_run_time` no TMDB (com fallback 1 ep = 60 min) e calcular eps×duração. Base pros certificados de maratona.
 - [ ] 🟢 **Certificado de Maratona** (por horas): 10h "Primeira maratona" · 25h "Casal Dorameiro Oficial" · 50h "Sobreviventes do Sofrimento" · 100h "Lenda dos Doramas".
-- [ ] 🟢 **Certificado de Dorama Finalizado Juntos**: quando um dorama do casal vira "Já vimos" → capa, título, episódios, horas estimadas, nota dele/dela, frase final, data.
+- [x] ✅ **Certificado de Dorama Finalizado Juntos** — botão 🎓 nos doramas "Já vimos/Favorito" gera card-imagem (capa, título, episódios, nome do casal, notas dele/dela vindas do diário, frase final). Reaproveita o canvas de card (`gerarCardMeuDia` com `opts.casal`). Falta só somar **horas** (depende do TMDB — Prioridade 2). *(commit Prioridade 1)*
 - [ ] 🟢 **Certificado de Casal Desbloqueado** (marcos): 1ª memória, 1º date, 1ª cartinha, 1º dorama finalizado, 10 eps juntos.
 - [ ] 🟢 **Certificado de Sofrimento**: muitos registros de "choramos/raiva/surto" no diário.
 - [ ] 🟢 **Certificado "Eu te avisei"**: ligado à frase interna / botão de personagem suspeito.
