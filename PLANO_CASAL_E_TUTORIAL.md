@@ -94,9 +94,12 @@ Decisão do usuário: o casal não é mais uma aba espremida — é um **ambient
 - [x] Mobile: reaproveita `.sidebar`/`.nav` (vira barra inferior); "Voltar" entra na barra.
 - [ ] **AÇÃO DO USUÁRIO**: rodar `supabase/14 - tema-do-casal.sql` no Supabase (sem ela, só o tema-do-casal não salva).
 
-### Etapa 5 — Tutorial específico do casal  → **PENDENTE**
+### Etapa 5 — Tutorial específico do casal  → **FEITO** ✅
 - [x] Tutorial geral já menciona a aba "Nós dois".
-- [ ] Acrescentar tutorial específico/mais detalhado do casal (criar espaço, enviar código, entrar no casal certo, registrar memórias, roleta, privacidade).
+- [x] Tutorial do casal (`TUTORIAL_STEPS_CASAL`, 7 passos: boas-vindas, código/enviar, assistindo juntos, registrar memória, sortear date, tema compartilhado, privacidade).
+- [x] **Só aparece pra quem TEM casal**: auto-abre 1x ao entrar no ambiente do casal (guard `tutorialCasalChecked` + chave `dorama-club-tutorial-casal-visto`). Nunca abre pra quem não tem vínculo.
+- [x] Reabrir quando quiser: botão "Como funciona o Nós dois" na seção Início do casal.
+- [x] Overlay de tutorial generalizado com `kind` ("geral" | "casal") — reaproveita o mesmo componente.
 
 ---
 
@@ -112,6 +115,7 @@ Decisão do usuário: o casal não é mais uma aba espremida — é um **ambient
 - **Etapa 2**: `supabase/13 - criar-espaco-do-casal.sql` (novo), `supabase.js` (funções do casal), `supabase/README.md`, `PENDENTE.md`, `PLANO_CASAL_E_TUTORIAL.md`.
 - **Etapa 3** (Codex + Claude): `app.js` (toda a aba "Nós dois": setup, hero, stats, timeline automática, capa, lista, diário com campos afetivos, sobre nós, cartinhas, roleta + handlers; correção anti-loop em `loadCoupleData`; aviso "falta sua pessoa"), `supabase.js` (CRUD: dramas/diário/about/cartinhas do casal), `styles.css` (estilos do casal + `.couple-waiting`), `PLANO_CASAL_E_TUTORIAL.md`.
 - **Etapa 4**: `supabase/14 - tema-do-casal.sql` (novo), `supabase.js` (`saveCoupleTheme`), `app.js` (ambiente do casal: `state.space`, shell/sidebar do casal, `coupleSpaceView` + seções, portal Home/sidebar, tema compartilhado `aplicarTemaAmbiente`/`salvarTemaCasal`/`usarDoramaComoTemaCasal`, `mapCoupleRow`), `styles.css` (`.couple-portal-btn`, `.couple-home-card`, regras mobile), `supabase/README.md`, `PENDENTE.md`, `PLANO_CASAL_E_TUTORIAL.md`.
+- **Etapa 5**: `app.js` (tutorial generalizado com `kind`; `TUTORIAL_STEPS_CASAL`; auto-abrir só com casal; botão "Como funciona o Nós dois"), `PLANO_CASAL_E_TUTORIAL.md`. Sem migração.
 - **Etapa 3 primeira versão**: `supabase.js` (CRUD do casal), `app.js` (aba "Nós dois" + handlers), `styles.css` (visual do cantinho), `PENDENTE.md`, `PLANO_CASAL_E_TUTORIAL.md`.
 
 ---

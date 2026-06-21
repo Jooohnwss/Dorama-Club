@@ -293,10 +293,12 @@ let addingClub = false; // mostrar formulários de criar/entrar mesmo já tendo 
 
 // ---------- Tutorial / onboarding ----------
 const TUTORIAL_KEY = "dorama-club-tutorial-visto";
-let tutorial = null; // { step } quando aberto
-let tutorialChecked = false; // garante auto-abrir só 1x por sessão (e evita loop de render)
+const TUTORIAL_CASAL_KEY = "dorama-club-tutorial-casal-visto";
+let tutorial = null; // { step, kind } quando aberto ("geral" | "casal")
+let tutorialChecked = false; // auto-abrir geral só 1x por sessão (e evita loop de render)
+let tutorialCasalChecked = false; // auto-abrir casal só 1x por sessão
 
-// Passos do tutorial (slides curtos). emoji + título + corpo.
+// Passos do tutorial geral (slides curtos). emoji + título + corpo.
 const TUTORIAL_STEPS = [
   { emoji: "💜", title: "Bem-vinda ao Dorama Club", body: "Seu cantinho pra organizar doramas, marcar seus surtos e dividir tudo com as doramigas. Vou te mostrar o básico em alguns toques — leva menos de um minuto." },
   { emoji: "➕", title: "Adicionar doramas", body: "Toque em <strong>Descobrir</strong> ou use a busca pra achar um dorama. Ao adicionar, ele entra nas suas <strong>Listas</strong> (quero ver, assistindo, terminei…)." },
@@ -308,18 +310,35 @@ const TUTORIAL_STEPS = [
   { emoji: "💕", title: "Nós dois", body: "Toque em <strong>Nós dois</strong> (o coração 💕 no menu, ou o card na Início) para entrar no cantinho do casal: um espaço privado por código com doramas vistos juntos, memórias, cartinhas, dates e até um tema só de vocês." },
 ];
 
+// Passos do tutorial do casal — só aparece pra quem já TEM um casal.
+const TUTORIAL_STEPS_CASAL = [
+  { emoji: "💕", title: "Bem-vindos ao cantinho de vocês", body: "Esse é o ambiente privado do casal: doramas vistos juntos, memórias, cartinhas, dates e um tema só de vocês. Só vocês dois enxergam. Te mostro rapidinho como usar." },
+  { emoji: "🔑", title: "O código de vocês", body: "Cada casal tem um <strong>código</strong> (aparece na capa, em Início). Se a sua pessoa ainda não entrou, toque em <strong>Copiar código</strong> e mande pra ela — é por ele que ela entra no casal certo." },
+  { emoji: "📺", title: "Assistindo juntos", body: "Na seção <strong>Assistindo</strong>, adicione um dorama da sua lista pessoal pro casal e marque em que episódio vocês estão. É a lista de vocês dois, separada da sua." },
+  { emoji: "📖", title: "Registrar memória", body: "Em <strong>Diário</strong> (ou no botão “Memória” de um dorama), guarde cada date: lanche, onde assistiram, quem escolheu, quem chorou mais, notas dele/dela e o momento favorito. Vira o álbum de vocês." },
+  { emoji: "🎲", title: "Sortear date", body: "Sem saber o que ver? Toque em <strong>Sortear date</strong> na capa: o app escolhe um dorama, um lanche e uma missão fofa pra noite de vocês." },
+  { emoji: "🎨", title: "Tema de nós dois", body: "Na seção <strong>Tema</strong>, escolham as cores do cantinho (ou montem com um dorama favorito). É <strong>compartilhado</strong>: quando um muda, vale pros dois. 💞" },
+  { emoji: "🔒", title: "É privado de verdade", body: "Nada do casal aparece nas Doramigas nem pra mais ninguém. Pra encerrar o vínculo existe <strong>Sair deste casal</strong> (em Início); o <strong>Voltar pro app</strong> só troca de ambiente, sem desfazer nada." },
+];
+
+function tutorialSteps() {
+  return tutorial?.kind === "casal" ? TUTORIAL_STEPS_CASAL : TUTORIAL_STEPS;
+}
 function tutorialVisto() {
   try { return localStorage.getItem(TUTORIAL_KEY) === "1"; } catch { return false; }
 }
-function marcarTutorialVisto() {
-  try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch { /* ignore */ }
+function tutorialCasalVisto() {
+  try { return localStorage.getItem(TUTORIAL_CASAL_KEY) === "1"; } catch { return false; }
 }
-function abrirTutorial(step = 0) {
-  tutorial = { step };
+function marcarTutorialVisto(kind) {
+  try { localStorage.setItem(kind === "casal" ? TUTORIAL_CASAL_KEY : TUTORIAL_KEY, "1"); } catch { /* ignore */ }
+}
+function abrirTutorial(step = 0, kind = "geral") {
+  tutorial = { step, kind };
   render();
 }
 function fecharTutorial(marcar) {
-  if (marcar) marcarTutorialVisto();
+  if (marcar) marcarTutorialVisto(tutorial?.kind);
   tutorial = null;
   render();
 }
@@ -327,16 +346,17 @@ function passoTutorial(delta) {
   if (!tutorial) return;
   const novo = tutorial.step + delta;
   if (novo < 0) return;
-  if (novo >= TUTORIAL_STEPS.length) { fecharTutorial(true); return; }
-  tutorial = { step: novo };
+  if (novo >= tutorialSteps().length) { fecharTutorial(true); return; }
+  tutorial = { ...tutorial, step: novo };
   render();
 }
 
 function tutorialTemplate() {
   if (!tutorial) return "";
-  const i = Math.min(tutorial.step, TUTORIAL_STEPS.length - 1);
-  const s = TUTORIAL_STEPS[i];
-  const ultimo = i === TUTORIAL_STEPS.length - 1;
+  const steps = tutorialSteps();
+  const i = Math.min(tutorial.step, steps.length - 1);
+  const s = steps[i];
+  const ultimo = i === steps.length - 1;
   return `
     <div class="modal tutorial-overlay">
       <section class="tutorial-card">
@@ -345,11 +365,11 @@ function tutorialTemplate() {
         <h2>${s.title}</h2>
         <p>${s.body}</p>
         <div class="tutorial-dots">
-          ${TUTORIAL_STEPS.map((_, n) => `<span class="${n === i ? "on" : ""}"></span>`).join("")}
+          ${steps.map((_, n) => `<span class="${n === i ? "on" : ""}"></span>`).join("")}
         </div>
         <div class="tutorial-actions">
           ${i > 0 ? `<button class="btn ghost" type="button" data-tut-prev>Voltar</button>` : `<button class="btn ghost" type="button" data-tut-later>Ver depois</button>`}
-          <button class="btn" type="button" data-tut-next>${ultimo ? "Começar 💜" : "Próximo"}</button>
+          <button class="btn" type="button" data-tut-next>${ultimo ? (tutorial.kind === "casal" ? "Começar 💕" : "Começar 💜") : "Próximo"}</button>
         </div>
       </section>
     </div>`;
@@ -881,10 +901,15 @@ function render() {
     return;
   }
 
-  // Abre o tutorial automaticamente na primeira vez (só uma vez por sessão).
+  // Abre o tutorial geral automaticamente na primeira vez (só uma vez por sessão).
   if (!tutorialChecked) {
     tutorialChecked = true;
-    if (!tutorialVisto()) tutorial = { step: 0 };
+    if (!tutorialVisto()) tutorial = { step: 0, kind: "geral" };
+  }
+  // Tutorial do casal: só faz sentido pra quem JÁ tem casal e está no ambiente dele.
+  if (!tutorial && state.space === "couple" && state.couple && !tutorialCasalChecked) {
+    tutorialCasalChecked = true;
+    if (!tutorialCasalVisto()) tutorial = { step: 0, kind: "casal" };
   }
 
   const noCasal = state.space === "couple";
@@ -2373,6 +2398,10 @@ function coupleInicioSection() {
         <div class="field full"><label>Frase do casal</label><input name="tagline" value="${esc(state.couple.tagline || "")}" placeholder="Nosso cantinho de doramas e dates." /></div>
         <div class="actions field full"><button class="btn secondary" type="submit">Salvar capa</button><button class="btn ghost" type="button" data-leave-couple>Sair deste casal</button></div>
       </form>
+    </section>
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 10px">Primeira vez aqui? Veja como usar o cantinho de vocês.</p>
+      <div class="actions" style="margin:0"><button class="btn ghost" type="button" data-open-couple-tutorial>Como funciona o Nós dois</button></div>
     </section>`;
 }
 
@@ -3625,7 +3654,8 @@ function bindShell() {
     listen(button, "click", () => handleDeleteFavorito(button.dataset.delFavorito));
   });
   listen(document.querySelector("#change-pass-form"), "submit", handleChangePassword);
-  listen(document.querySelector("[data-open-tutorial]"), "click", () => abrirTutorial(0));
+  listen(document.querySelector("[data-open-tutorial]"), "click", () => abrirTutorial(0, "geral"));
+  listen(document.querySelector("[data-open-couple-tutorial]"), "click", () => abrirTutorial(0, "casal"));
   bindPhotoPicker();
 
   // Motivo "Outro": mostra o campo de texto quando escolhido.
