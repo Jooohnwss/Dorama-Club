@@ -1241,7 +1241,7 @@ textarea:focus {
 /* ---------- Alternador Pessoal ↔ Nós dois (na sidebar, estilo app financeiro) ---------- */
 .space-switch {
   display: flex;
-  width: min(390px, 100%);
+  width: min(340px, 100%);
   gap: 6px;
   padding: 5px;
   border-radius: 999px;
@@ -1258,7 +1258,7 @@ textarea:focus {
   align-items: center;
   justify-content: flex-start;
   gap: 9px;
-  padding: 8px 12px 8px 8px;
+  padding: 6px 10px 6px 6px;
   border-radius: 999px;
   background: transparent;
   color: var(--cor-texto-suave);
@@ -1295,15 +1295,15 @@ textarea:focus {
 .switch-ico {
   flex: 0 0 auto;
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   place-items: center;
   border-radius: 999px;
   background: var(--cor-superficie-2);
 }
 .switch-ico .ico {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
 }
 .space-switch button.on {
   background: var(--cor-primaria);
@@ -1318,35 +1318,6 @@ textarea:focus {
 }
 
 /* ---------- Portal "Nós dois" (entrar/voltar do ambiente do casal) ---------- */
-.couple-portal-btn {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  width: 100%;
-  margin-top: 10px;
-  padding: 12px 13px;
-  border-radius: var(--raio-sm);
-  background: color-mix(in srgb, var(--cor-primaria) 13%, transparent);
-  border: 1px solid color-mix(in srgb, var(--cor-primaria) 32%, transparent);
-  color: var(--cor-texto);
-  font-weight: 800;
-  text-align: left;
-}
-.couple-portal-btn:hover {
-  background: color-mix(in srgb, var(--cor-primaria) 20%, transparent);
-}
-.couple-portal-btn .ico {
-  color: var(--cor-primaria);
-}
-.couple-portal-btn.back {
-  margin-top: auto;
-  background: var(--cor-superficie-2);
-  border-color: var(--cor-borda);
-}
-.couple-portal-btn.back .ico {
-  color: var(--cor-texto-suave);
-}
-
 /* Card de destaque do casal na Home */
 .couple-home-card {
   display: flex;
@@ -2718,32 +2689,17 @@ textarea:focus {
   }
 
   /* No app normal, o portal "Nós dois" mora no card da Home (não na barra). */
-  .sidebar:not(.couple-sidebar) > .couple-portal-btn {
-    display: none;
+  .shell.couple-space {
+    padding-bottom: 0;
   }
 
-  /* No ambiente do casal, "Voltar pro app" vira um item da barra inferior. */
-  .couple-sidebar .couple-portal-btn.back {
-    flex: 0 0 auto;
-    flex-direction: column;
-    gap: 4px;
-    min-height: 54px;
-    margin-top: 0;
-    padding: 7px 10px;
-    border: 0;
-    border-radius: 14px;
-    background: transparent;
-    font-size: 0.66rem;
-    text-align: center;
+  .couple-sidebar {
+    display: none;
   }
 
   /* No celular as seções do casal viram uma faixa de abas no topo (mais
      confiável que espremer 8 itens na barra inferior). A barra de baixo do
      casal fica só com "Voltar pro app". */
-  .couple-sidebar .nav {
-    display: none;
-  }
-
   .couple-tabs {
     display: flex;
     gap: 8px;
@@ -2797,16 +2753,25 @@ textarea:focus {
 
   .space-switch {
     width: 100%;
-    max-width: 430px;
+    max-width: 330px;
   }
 
   .space-switch button {
-    padding: 7px 10px 7px 7px;
+    justify-content: center;
+    padding: 7px;
   }
 
   .switch-ico {
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
+  }
+
+  .switch-copy small {
+    display: none;
+  }
+
+  .switch-copy strong {
+    font-size: 0.78rem;
   }
 
   .nav {

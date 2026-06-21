@@ -322,7 +322,7 @@ const TUTORIAL_STEPS_CASAL = [
   { emoji: "📖", title: "Registrar memória", body: "Em <strong>Diário</strong> (ou no botão “Memória” de um dorama), guarde cada date: lanche, onde assistiram, quem escolheu, quem chorou mais, notas dele/dela e o momento favorito. Vira o álbum de vocês." },
   { emoji: "🎲", title: "Sortear date", body: "Sem saber o que ver? Toque em <strong>Sortear date</strong> na capa: o app escolhe um dorama, um lanche e uma missão fofa pra noite de vocês." },
   { emoji: "🎨", title: "Tema de nós dois", body: "Na seção <strong>Tema</strong>, escolham as cores do cantinho (ou montem com um dorama favorito). É <strong>compartilhado</strong>: quando um muda, vale pros dois. 💞" },
-  { emoji: "🔒", title: "É privado de verdade", body: "Nada do casal aparece nas Doramigas nem pra mais ninguém. Pra encerrar o vínculo existe <strong>Sair deste casal</strong> (em Início); o <strong>Voltar pro app</strong> só troca de ambiente, sem desfazer nada." },
+  { emoji: "🔒", title: "É privado de verdade", body: "Nada do casal aparece nas Doramigas nem pra mais ninguém. Para trocar entre o app pessoal e o cantinho do casal, use o alternador <strong>Pessoal / Casal</strong>. Para encerrar o vínculo existe <strong>Sair deste casal</strong> em Ajustes." },
 ];
 
 function tutorialSteps() {
@@ -1156,7 +1156,6 @@ function coupleSidebarTemplate() {
       ${temCasal ? `<nav class="nav">
         ${secoes.map(([key, label, ic]) => `<button class="${coupleSection === key ? "active" : ""}" data-couple-section="${key}">${icon(ic)}<span class="nav-label">${label}</span></button>`).join("")}
       </nav>` : `<nav class="nav"></nav>`}
-      <button class="couple-portal-btn back" data-leave-space>${icon("out")}<span>Voltar pro app</span></button>
     </aside>
   `;
 }
@@ -4016,7 +4015,6 @@ function bindShell() {
   listen(document.querySelector("[data-copy-couple-code]"), "click", copyCoupleCode);
   listen(document.querySelector("[data-date-roulette]"), "click", handleDateRoulette);
   listen(document.querySelector("[data-leave-couple]"), "click", handleLeaveCouple);
-  listen(document.querySelector("[data-leave-space]"), "click", leaveCoupleSpace);
   document.querySelectorAll("[data-space-go]").forEach((b) => {
     listen(b, "click", () => (b.dataset.spaceGo === "couple" ? enterCoupleSpace() : leaveCoupleSpace()));
   });
