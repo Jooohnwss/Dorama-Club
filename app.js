@@ -70,6 +70,13 @@ import {
   saveCouplePet,
   loadCoupleQuiz,
   saveCoupleQuizAnswer,
+  loadCoupleRewards,
+  addCoupleReward,
+  deleteCoupleReward,
+  loadCoupleClaims,
+  addCoupleClaim,
+  setClaimUsed,
+  deleteCoupleClaim,
   loadCoupleDramas,
   addCoupleDrama,
   updateCoupleDrama,
@@ -487,6 +494,17 @@ let couplePet = null; // mascote do casal (linha de couple_pet)
 let petReacao = ""; // mensagem transitória do pet ao cuidar
 let coupleQuiz = []; // respostas do quiz da semana [{q,user_id,answer}]
 let coupleQuizFor = null; // "coupleId:week" já carregado (evita loop)
+// "Nós 🔥": loja privada de recompensas (só pra você e a Abikeila)
+const NOS_EMAILS = ["jonatas.w.silva.w@gmail.com", "abikeila_2001@outlook.com"];
+const NOS_PIN_KEY = "dorama-club-nos-pin";
+let nosRewards = [];
+let nosClaims = [];
+let nosFor = null;
+let nosUnlocked = false; // destravado nesta sessão (após o PIN)
+
+function casalPrivadoOn() {
+  return cloudOn() && state.couple && NOS_EMAILS.includes(String(authUser?.email || "").toLowerCase());
+}
 // Favoritos especiais (aba Perfil).
 let favoritos = [];
 let favoritosFor = null;
@@ -1150,6 +1168,7 @@ function coupleSidebarTemplate() {
     ["diario", "Diário", "lists"],
     ["sobre", "Sobre nós", "heart"],
     ["diversao", "Diversão", "dice"],
+    ...(casalPrivadoOn() ? [["nos", "Nós 🔥", "heart"]] : []),
     ["ajustes", "Ajustes", "paint"],
   ];
   const nome = state.couple?.title || "Nós dois";
@@ -3249,6 +3268,194 @@ async function handleQuizAnswer(raw) {
   }
 }
 
+async function handleNosSetPin(event) {
+  event.preventDefault();
+  const pin = String(new FormData(event.currentTarget).get("pin") || "").trim();
+  if (pin.length < 3) { toast("PIN muito curto (mín. 3)."); return; }
+  try { localStorage.setItem(NOS_PIN_KEY, pin); } catch { /* ignore */ }
+  nosUnlocked = true;
+  render();
+}
+function handleNosEnterPin(event) {
+  event.preventDefault();
+  const pin = String(new FormData(event.currentTarget).get("pin") || "").trim();
+  if (pin === nosPinSalvo()) { nosUnlocked = true; render(); }
+  else toast("PIN incorreto.");
+}
+async function handleNosCreate(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const d = Object.fromEntries(new FormData(event.currentTarget));
+  const title = String(d.title || "").trim();
+  if (!title) return;
+  try {
+    await addCoupleReward(state.couple.id, authUser.id, { title, kind: d.kind, cost: Number(d.cost) || 10 });
+    nosRewards = await loadCoupleRewards(state.couple.id);
+    render();
+    toast("Vale criado 💞");
+  } catch { toast("Não consegui criar o vale."); }
+}
+async function handleNosPreset(i) {
+  const p = NOS_PRESETS[Number(i)];
+  if (!p || !state.couple) return;
+  try {
+    await addCoupleReward(state.couple.id, authUser.id, p);
+    nosRewards = await loadCoupleRewards(state.couple.id);
+    render();
+    toast("Vale adicionado 💞");
+  } catch { toast("Não consegui adicionar."); }
+}
+async function handleNosClaim(id) {
+  const r = nosRewards.find((x) => x.id === id);
+  if (!r || !state.couple) return;
+  if (nosSaldo() < Number(r.cost || 0)) { toast(`Faltam ${Number(r.cost) - nosSaldo()} pts pra esse vale.`); return; }
+  const ok = await confirmar(`Resgatar “${r.title}”?`, { sub: `Vai custar ${r.cost} pts.`, ok: "Resgatar 🔥" });
+  if (!ok) return;
+  try {
+    await addCoupleClaim(state.couple.id, authUser.id, r);
+    nosClaims = await loadCoupleClaims(state.couple.id);
+    render();
+    toast("Resgatado! 🔥 Sua pessoa vai ver.");
+  } catch { toast("Não consegui resgatar."); }
+}
+async function handleNosDeleteReward(id) {
+  const ok = await confirmar("Apagar esse vale?", { ok: "Apagar", danger: true });
+  if (!ok) return;
+  try { await deleteCoupleReward(id); nosRewards = nosRewards.filter((r) => r.id !== id); render(); } catch { toast("Não consegui apagar."); }
+}
+async function handleNosClaimUsed(raw) {
+  const [id, v] = String(raw).split(":");
+  try { await setClaimUsed(id, v === "1"); nosClaims = await loadCoupleClaims(state.couple.id); render(); } catch { toast("Não consegui atualizar."); }
+}
+async function handleNosDeleteClaim(id) {
+  const ok = await confirmar("Apagar esse resgate? Os pontos voltam.", { ok: "Apagar", danger: true });
+  if (!ok) return;
+  try { await deleteCoupleClaim(id); nosClaims = nosClaims.filter((c) => c.id !== id); render(); } catch { toast("Não consegui apagar."); }
+}
+
+// ---------- "Nós 🔥": loja privada de recompensas ----------
+const NOS_PRESETS = [
+  { title: "Vale um áudio fofo 🎙️", kind: "fofo", cost: 10 },
+  { title: "Vale uma chamada até dormir 🌙", kind: "fofo", cost: 20 },
+  { title: "Vale escolher o próximo dorama 🎬", kind: "fofo", cost: 8 },
+  { title: "Vale uma carta escrita à mão 💌", kind: "fofo", cost: 25 },
+  { title: "Vale um date virtual (assistir junto) 🍿", kind: "fofo", cost: 15 },
+  { title: "Vale uma selfie sua agora 🤳", kind: "picante", cost: 15 },
+  { title: "Vale uma foto especial 🔥", kind: "picante", cost: 30 },
+  { title: "Vale uma surpresa sua 😏", kind: "picante", cost: 25 },
+];
+
+function nosPontosGanhos() {
+  const eps = coupleDramas.reduce((s, d) => s + Number(d.current_episode || 0), 0);
+  return eps * 2 + coupleDiary.length * 10 + coupleLetters.length * 6;
+}
+function nosGastos() {
+  return nosClaims.reduce((s, c) => s + Number(c.cost || 0), 0);
+}
+function nosSaldo() {
+  return Math.max(0, nosPontosGanhos() - nosGastos());
+}
+function nosPinSalvo() {
+  try { return localStorage.getItem(NOS_PIN_KEY) || ""; } catch { return ""; }
+}
+function nomeMembro(uid) {
+  if (uid === authUser?.id) return "você";
+  const m = coupleMembers.find((x) => x.user_id === uid);
+  return (m?.name || m?.nickname || "sua pessoa").split(" ")[0];
+}
+
+async function loadNosData() {
+  if (!state.couple || !casalPrivadoOn()) return;
+  try {
+    const [r, c] = await Promise.all([loadCoupleRewards(state.couple.id), loadCoupleClaims(state.couple.id)]);
+    nosRewards = r;
+    nosClaims = c;
+  } catch {
+    nosRewards = []; nosClaims = [];
+  }
+  nosFor = state.couple.id;
+  render();
+}
+
+function nosLockTemplate() {
+  const temPin = Boolean(nosPinSalvo());
+  return `
+    <div class="section-title"><h2>🔥 Nós</h2></div>
+    <section class="nos-lock">
+      <div class="nos-lock-emoji">🔒</div>
+      <h3>${temPin ? "Cantinho privado de vocês" : "Criem um PIN pra trancar"}</h3>
+      <p class="muted">${temPin ? "Digite o PIN pra abrir." : "Escolham um PIN curto. Só vocês dois entram aqui."}</p>
+      <form id="${temPin ? "nos-enterpin-form" : "nos-setpin-form"}" class="nos-pin-form">
+        <input name="pin" type="password" inputmode="numeric" placeholder="••••" maxlength="8" autocomplete="off" required />
+        <button class="btn" type="submit">${temPin ? "Abrir 🔥" : "Criar PIN"}</button>
+      </form>
+    </section>`;
+}
+
+function nosRewardCard(r) {
+  return `
+    <article class="nos-card ${r.kind === "picante" ? "picante" : "fofo"}">
+      <span class="nos-kind">${r.kind === "picante" ? "🔥 picante" : "💕 fofo"}</span>
+      <strong>${esc(r.title)}</strong>
+      <div class="nos-card-foot">
+        <span class="nos-cost">${r.cost} pts</span>
+        <div class="mini-actions">
+          <button data-nos-claim="${r.id}">Resgatar</button>
+          <button data-nos-del-reward="${r.id}">${icon("trash")}</button>
+        </div>
+      </div>
+    </article>`;
+}
+
+function nosSection() {
+  if (!nosUnlocked) return nosLockTemplate();
+  const saldo = nosSaldo();
+  const fofos = nosRewards.filter((r) => r.kind !== "picante");
+  const picantes = nosRewards.filter((r) => r.kind === "picante");
+  const carregando = nosFor !== state.couple.id;
+
+  const claimsHtml = nosClaims.length
+    ? nosClaims.map((c) => `
+        <article class="nos-claim ${c.used ? "used" : ""}">
+          <div>
+            <strong>${esc(c.title || "Vale")}</strong>
+            <small>${esc(nomeMembro(c.claimed_by))} resgatou · ${esc(timeAgo(c.created_at))}${c.used ? " · ✓ usado" : ""}</small>
+          </div>
+          <div class="mini-actions">
+            <button data-nos-used="${c.id}:${c.used ? "0" : "1"}">${c.used ? "Reabrir" : "Marcar usado"}</button>
+            <button data-nos-del-claim="${c.id}">${icon("trash")}</button>
+          </div>
+        </article>`).join("")
+    : `<div class="empty">Nenhum vale resgatado ainda. 😏</div>`;
+
+  return `
+    <div class="section-title"><h2>🔥 Nós</h2><span class="muted" style="font-size:.8rem">só de vocês dois</span></div>
+    <section class="nos-saldo">
+      <strong>${carregando ? "…" : saldo} pts</strong>
+      <span>de vocês pra gastar</span>
+      <small class="muted">Ganham pontos assistindo episódios, guardando memórias e cartinhas. 💞</small>
+    </section>
+
+    <div class="section-title compact"><h2>Criar um vale</h2></div>
+    <form id="nos-create-form" class="form-card form-grid">
+      <div class="field full"><label>O que vale?</label><input name="title" placeholder="Vale um nude, vale uma massagem…" required /></div>
+      <div class="field"><label>Categoria</label><select name="kind"><option value="fofo">💕 Fofo</option><option value="picante">🔥 Picante</option></select></div>
+      <div class="field"><label>Custo (pontos)</label><input name="cost" type="number" min="1" value="15" /></div>
+      <div class="actions field full"><button class="btn" type="submit">${icon("add")} Criar vale</button></div>
+    </form>
+    <div class="nos-presets">
+      ${NOS_PRESETS.map((p, i) => `<button class="nos-preset ${p.kind}" type="button" data-nos-preset="${i}">${esc(p.title)} · ${p.cost}pts</button>`).join("")}
+    </div>
+
+    <div class="section-title compact"><h2>💕 Vales fofos</h2></div>
+    ${fofos.length ? `<section class="nos-grid">${fofos.map(nosRewardCard).join("")}</section>` : `<div class="empty">Criem o primeiro vale fofo.</div>`}
+    <div class="section-title compact"><h2>🔥 Vales picantes</h2></div>
+    ${picantes.length ? `<section class="nos-grid">${picantes.map(nosRewardCard).join("")}</section>` : `<div class="empty">Criem o primeiro vale picante. 😏</div>`}
+
+    <div class="section-title compact"><h2>Resgatados</h2></div>
+    <section class="nos-claims">${claimsHtml}</section>`;
+}
+
 function coupleDiversaoSection() {
   return `
     <div class="section-title"><h2>Diversão do casal</h2></div>
@@ -3328,7 +3535,9 @@ function coupleTemaSection() {
 function coupleSectionTabs() {
   const secoes = [
     ["inicio", "Painel"], ["assistindo", "Assistindo"], ["diario", "Diário"],
-    ["sobre", "Sobre nós"], ["diversao", "Diversão"], ["ajustes", "Ajustes"],
+    ["sobre", "Sobre nós"], ["diversao", "Diversão"],
+    ...(casalPrivadoOn() ? [["nos", "Nós 🔥"]] : []),
+    ["ajustes", "Ajustes"],
   ];
   return `<div class="couple-tabs">${secoes.map(([k, l]) => `<button class="${coupleSection === k ? "active" : ""}" data-couple-section="${k}">${esc(l)}</button>`).join("")}</div>`;
 }
@@ -3346,6 +3555,7 @@ function coupleSpaceView() {
     case "certificados": conteudo = coupleCertificadosSection(); break;
     case "tema": conteudo = coupleTemaSection(); break;
     case "diversao": conteudo = coupleDiversaoSection(); break;
+    case "nos": conteudo = casalPrivadoOn() ? nosSection() : coupleInicioSection(); break;
     case "ajustes": conteudo = coupleAjustesSection(); break;
     default: conteudo = coupleInicioSection();
   }
@@ -4559,6 +4769,14 @@ function bindShell() {
   document.querySelectorAll("[data-quiz]").forEach((button) => {
     listen(button, "click", () => handleQuizAnswer(button.dataset.quiz));
   });
+  listen(document.querySelector("#nos-setpin-form"), "submit", handleNosSetPin);
+  listen(document.querySelector("#nos-enterpin-form"), "submit", handleNosEnterPin);
+  listen(document.querySelector("#nos-create-form"), "submit", handleNosCreate);
+  document.querySelectorAll("[data-nos-preset]").forEach((b) => listen(b, "click", () => handleNosPreset(b.dataset.nosPreset)));
+  document.querySelectorAll("[data-nos-claim]").forEach((b) => listen(b, "click", () => handleNosClaim(b.dataset.nosClaim)));
+  document.querySelectorAll("[data-nos-del-reward]").forEach((b) => listen(b, "click", () => handleNosDeleteReward(b.dataset.nosDelReward)));
+  document.querySelectorAll("[data-nos-used]").forEach((b) => listen(b, "click", () => handleNosClaimUsed(b.dataset.nosUsed)));
+  document.querySelectorAll("[data-nos-del-claim]").forEach((b) => listen(b, "click", () => handleNosDeleteClaim(b.dataset.nosDelClaim)));
   listen(document.querySelector("#couple-add-cat"), "change", (e) => { coupleAddCatSel = e.target.value; });
   listen(document.querySelector("#couple-search-form"), "submit", runCoupleSearch);
   document.querySelectorAll("[data-couple-add-tmdb]").forEach((button) => {
@@ -4652,6 +4870,7 @@ function bindShell() {
   if (state.space === "couple" && state.couple && coupleFor !== state.couple.id) loadCoupleData();
   if (state.space === "couple" && state.couple && coupleSection === "certificados" && coupleFor === state.couple.id && coupleRuntimesFor !== state.couple.id) loadCoupleRuntimes();
   if (state.space === "couple" && state.couple && coupleSection === "diversao" && coupleFor === state.couple.id && coupleQuizFor !== `${state.couple.id}:${semanaAtual()}`) loadCoupleQuizData();
+  if (state.space === "couple" && state.couple && coupleSection === "nos" && casalPrivadoOn() && coupleFor === state.couple.id && nosFor !== state.couple.id) loadNosData();
   if (state.view === "profile" && casaisFor !== (authUser?.id || "_")) loadCasaisData();
   if (state.view === "profile" && favoritosFor !== (authUser?.id || "_")) loadFavoritosData();
 }
@@ -5540,6 +5759,7 @@ async function handleLeaveCouple() {
     couplePet = null;
     coupleQuiz = [];
     coupleQuizFor = null;
+    nosRewards = []; nosClaims = []; nosFor = null; nosUnlocked = false;
     state.space = "solo"; // volta pro app normal
     saveState();
     aplicarTemaAmbiente(); // restaura o tema pessoal

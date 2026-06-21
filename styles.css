@@ -1297,6 +1297,112 @@ textarea:focus {
   background: color-mix(in srgb, var(--cor-primaria) 22%, transparent);
 }
 
+/* "Nós 🔥" — loja privada de recompensas */
+.nos-lock {
+  text-align: center;
+  padding: 30px 20px;
+  border-radius: 22px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+}
+.nos-lock-emoji { font-size: 2.6rem; }
+.nos-lock h3 { margin: 8px 0 4px; }
+.nos-pin-form {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+}
+.nos-pin-form input {
+  width: 140px;
+  text-align: center;
+  letter-spacing: 0.4em;
+  font-size: 1.2rem;
+}
+.nos-saldo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 16px;
+  padding: 18px;
+  border-radius: 20px;
+  color: var(--cor-texto);
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 35%, transparent);
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--cor-primaria) 20%, transparent), transparent 70%),
+    color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+}
+.nos-saldo strong { font-size: 2rem; }
+.nos-saldo span { font-weight: 800; }
+.nos-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 6px;
+}
+.nos-preset {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie-2);
+  color: var(--cor-texto);
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.nos-preset.picante {
+  border-color: color-mix(in srgb, #e0566b 45%, transparent);
+  color: #e0566b;
+}
+.nos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.nos-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+}
+.nos-card.picante {
+  border-color: color-mix(in srgb, #e0566b 35%, transparent);
+  background: color-mix(in srgb, #e0566b 8%, var(--cor-superficie));
+}
+.nos-kind {
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  color: var(--cor-texto-suave);
+}
+.nos-card strong { font-size: 1rem; line-height: 1.25; }
+.nos-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+.nos-cost { font-weight: 850; color: var(--cor-primaria); }
+.nos-claims { display: grid; gap: 10px; }
+.nos-claim {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+}
+.nos-claim small { display: block; color: var(--cor-texto-suave); font-weight: 700; }
+.nos-claim.used { opacity: 0.6; }
+
 /* Quiz do casal */
 .quiz-score {
   display: flex;

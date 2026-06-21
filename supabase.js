@@ -399,6 +399,65 @@ export async function saveCouplePinnedLetter(coupleId, texto) {
   if (error) throw error;
 }
 
+// ---------- RECOMPENSAS DO CASAL ("Nós 🔥") ----------
+export async function loadCoupleRewards(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_rewards")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCoupleReward(coupleId, userId, reward) {
+  const { error } = await supabase.from("couple_rewards").insert({
+    couple_id: coupleId,
+    title: reward.title,
+    kind: reward.kind || "fofo",
+    cost: Number(reward.cost) || 10,
+    created_by: userId,
+  });
+  if (error) throw error;
+}
+
+export async function deleteCoupleReward(id) {
+  const { error } = await supabase.from("couple_rewards").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadCoupleClaims(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_reward_claims")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCoupleClaim(coupleId, userId, reward) {
+  const { error } = await supabase.from("couple_reward_claims").insert({
+    couple_id: coupleId,
+    reward_id: reward.id,
+    title: reward.title,
+    kind: reward.kind || "fofo",
+    cost: Number(reward.cost) || 0,
+    claimed_by: userId,
+  });
+  if (error) throw error;
+}
+
+export async function setClaimUsed(id, used) {
+  const { error } = await supabase.from("couple_reward_claims").update({ used }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteCoupleClaim(id) {
+  const { error } = await supabase.from("couple_reward_claims").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ---------- QUIZ DO CASAL ----------
 export async function loadCoupleQuiz(coupleId, week) {
   const { data, error } = await supabase
