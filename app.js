@@ -255,7 +255,9 @@ const favoritoCategorias = [
   "Personagem favorito",
   "Vilão favorito",
   "Personagem que eu odeio",
+  "Personagem que eu defenderia no tribunal",
   "Cena inesquecível",
+  "Frase icônica",
   "Trilha sonora favorita",
 ];
 // "Posso comentar com quem" do dorama aberto no modal.
@@ -340,6 +342,8 @@ let casais = [];
 let casaisFor = null;
 const casalCategorias = [
   "Casal favorito",
+  "Casal com química de milhões",
+  "Casal com química de boleto vencido",
   "Casal que merecia final melhor",
   "Casal sem química",
   "Casal que me destruiu",
@@ -900,6 +904,19 @@ function fraseDoDia() {
   return FRASES_DIA[dia % FRASES_DIA.length];
 }
 
+const FRASES_FIM = [
+  "Mais um trauma concluído com sucesso. 🎓",
+  "Sobreviveu a mais um. 💪",
+  "Acabou. E agora, o vazio. 🕳️",
+  "Chorou, surtou e terminou. 😭",
+  "Finalizou e já quer o próximo. 🔁",
+  "Coração destruído, missão cumprida. 💔",
+];
+
+function fraseFim() {
+  return FRASES_FIM[Math.floor(Math.random() * FRASES_FIM.length)];
+}
+
 // Resultado do "humor de hoje" mostrado na própria home.
 let moodResult = null;
 
@@ -943,7 +960,7 @@ function wrapText(ctx, text, x, y, maxW, lh) {
   return Math.min(lines.length, 3);
 }
 
-async function gerarCardMeuDia(drama) {
+async function gerarCardMeuDia(drama, opts = {}) {
   const W = 1080, H = 1350;
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -985,7 +1002,7 @@ async function gerarCardMeuDia(drama) {
   ctx.textAlign = "center";
   ctx.fillStyle = "#ffffff";
   ctx.font = '800 46px Inter, system-ui, sans-serif';
-  ctx.fillText("💜 Dorama Club", W / 2, 100);
+  ctx.fillText(opts.certificado ? "🎓 Certificado de conclusão" : "💜 Dorama Club", W / 2, 100);
 
   // pôster
   const pw = 470, ph = 705, px = (W - pw) / 2, py = 150;
@@ -1002,7 +1019,7 @@ async function gerarCardMeuDia(drama) {
   let y = py + ph + 80;
   ctx.fillStyle = "rgba(255,255,255,0.85)";
   ctx.font = '700 32px Inter, system-ui, sans-serif';
-  ctx.fillText(drama ? "Continuo assistindo" : "Minha vida dorameira", W / 2, y);
+  ctx.fillText(opts.certificado ? "Finalizei com sucesso" : drama ? "Continuo assistindo" : "Minha vida dorameira", W / 2, y);
 
   y += 64;
   ctx.fillStyle = "#ffffff";
@@ -1040,6 +1057,12 @@ async function gerarCardMeuDia(drama) {
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   ctx.font = '700 34px Inter, system-ui, sans-serif';
   ctx.fillText(`✅ ${byStatus("finished").length} finalizados   ⭐ ${byStatus("favorites").length} favoritos`, W / 2, y);
+
+  if (opts.certificado) {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = '800 34px Inter, system-ui, sans-serif';
+    wrapText(ctx, opts.frase || "Mais um trauma concluído com sucesso. 🎓", W / 2, y + 16, W - 140, 42);
+  }
 
   ctx.fillStyle = "rgba(255,255,255,0.8)";
   ctx.font = '700 30px Inter, system-ui, sans-serif';
@@ -1083,13 +1106,16 @@ async function shareMeuDia() {
   }
 }
 
-async function compartilharDorama(id) {
+async function compartilharDorama(id, opts = {}) {
   const drama = state.dramas.find((d) => d.id === id);
   if (!drama) return;
   toast("Gerando card…");
   try {
-    const blob = await gerarCardMeuDia(drama);
-    await compartilharImagem(blob, `${drama.title} — no Dorama Club 💜 ${inviteLink()}`);
+    const blob = await gerarCardMeuDia(drama, opts);
+    const txt = opts.certificado
+      ? `🎓 Finalizei ${drama.title}! ${opts.frase || ""} ${inviteLink()}`
+      : `${drama.title} — no Dorama Club 💜 ${inviteLink()}`;
+    await compartilharImagem(blob, txt);
   } catch {
     toast("Não consegui gerar o card.");
   }
@@ -1492,6 +1518,7 @@ const REACOES = [
   ["😡", "Passa raiva"],
   ["😍", "Amo esse"],
   ["🙅", "Eu avisei"],
+  ["🧽", "Passei pano"],
 ];
 
 const FRASES_DORAMEIRA = [
@@ -1758,6 +1785,7 @@ function profileTemplate() {
       <div>
         <h2 style="margin:0">${esc(profile.name || "Perfil")}</h2>
         <p class="muted" style="margin:4px 0 0">${esc(profile.nickname || profile.type || "")}</p>
+        ${titulosGanhos()[0] ? `<span class="chip" style="margin-top:8px;display:inline-flex">🏆 ${esc(titulosGanhos()[0])}</span>` : ""}
       </div>
     </div>
     <div class="section-title"><h2>🔗 Convidar amigas</h2></div>
@@ -1795,6 +1823,8 @@ function profileTemplate() {
     ${rankingEmocionalTemplate()}
     <div class="section-title"><h2>🕰️ Linha do tempo dorameira</h2></div>
     ${linhaDoTempoTemplate()}
+    <div class="section-title"><h2>⚰️ Cemitério dos dropados</h2></div>
+    ${cemiterioTemplate()}
     <div class="section-title"><h2>💞 Casais que eu shippo</h2></div>
     ${casaisTemplate()}
     <div class="section-title"><h2>⭐ Favoritos especiais</h2></div>
@@ -1966,6 +1996,29 @@ function funnyStats() {
   if (drops) linhas.push(`Foram <strong>${drops}</strong> ${drops === 1 ? "dorama dropado" : "doramas dropados"} sem dó.`);
   if (since) linhas.push(`Sua vida dorameira começou em <strong>${esc(since)}</strong>.`);
   return linhas;
+}
+
+function titulosGanhos() {
+  const dramas = state.dramas;
+  const eps = dramas.reduce((s, d) => s + Number(d.currentEpisode || 0), 0);
+  const list = [];
+  if (dramas.some((d) => Number(d.cry) >= 9)) list.push("Sofredora Premium 😭");
+  if (byStatus("dropped").length >= 3) list.push("Rainha do Drop ✂️");
+  if (state.profile?.type === "A que ama um CEO frio") list.push("CEO Defender 🧊");
+  if (eps >= 100) list.push("Maratonista 🏃‍♀️");
+  if (byStatus("finished").length >= 10) list.push("Veterana 🎖️");
+  if (byStatus("favorites").length >= 5) list.push("Coração Mole 💕");
+  return list;
+}
+
+function cemiterioTemplate() {
+  const dropados = byStatus("dropped");
+  if (!dropados.length) return `<div class="empty">Nenhum dorama dropado. Você é forte. 💪</div>`;
+  return `<section class="grid cards">${dropados
+    .map(
+      (d) => `<div class="card cemiterio-card"><span class="muted">⚰️ Descanse em paz</span><strong>${esc(d.title)}</strong>${d.dropReason ? `<span class="muted">“${esc(d.dropReason)}”</span>` : ""}<span class="muted">parou no ep. ${d.currentEpisode || 0}</span></div>`,
+    )
+    .join("")}</section>`;
 }
 
 function badges() {
@@ -2373,6 +2426,7 @@ function modalTemplate() {
             <div class="actions field full">
               <button class="btn" type="submit">Salvar detalhes</button>
               <button class="btn secondary" type="button" data-share-card="${drama.id}">${icon("share")} Compartilhar</button>
+              ${drama.status === "finished" ? `<button class="btn secondary" type="button" data-certificado="${drama.id}">🎓 Certificado</button>` : ""}
               <button class="btn danger" type="button" data-remove="${drama.id}">${icon("trash")} Remover</button>
             </div>
           </form>
@@ -2851,6 +2905,7 @@ function bindModal() {
   listen(document.querySelector("#profile-form"), "submit", saveProfile);
   listen(document.querySelector("#drama-form"), "submit", saveDramaDetails);
   listen(document.querySelector("[data-share-card]"), "click", () => compartilharDorama(modal.id));
+  listen(document.querySelector("[data-certificado]"), "click", () => compartilharDorama(modal.id, { certificado: true, frase: fraseFim() }));
   document.querySelectorAll("[data-sortear]").forEach((button) => {
     listen(button, "click", () => sortearComFiltro(button.dataset.sortear));
   });
@@ -2974,11 +3029,11 @@ function setEpisode(id, alvo) {
   saveState();
   syncDrama(updated);
   if (justFinished) {
-    registrarAtividade(`${state.profile?.name || "Alguém"} terminou ${updated.title}! 🎉`);
+    registrarAtividade(`${state.profile?.name || "Alguém"} terminou ${updated.title} — ${fraseFim()}`);
     // Spec seção 7: ao terminar, abrir avaliação (nota, choro, surto, raiva, recomenda).
     modal = { type: "detail", id };
     render();
-    toast("Terminou! Conta como foi: nota, choro, surto e raiva.");
+    toast(`Terminou! ${fraseFim()} Conta como foi 💜`);
   } else {
     render();
     toast(`Episódio ${updated.currentEpisode} marcado.`);

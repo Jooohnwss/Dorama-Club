@@ -1311,6 +1311,18 @@ textarea:focus {
   font-size: 0.74rem;
 }
 
+.cemiterio-card {
+  text-align: center;
+  border-style: dashed;
+  border-top-left-radius: 40px;
+  border-top-right-radius: 40px;
+}
+
+.cemiterio-card strong {
+  display: block;
+  margin: 4px 0;
+}
+
 /* ---------- Conquistas (badges) ---------- */
 .badge-grid {
   display: grid;
