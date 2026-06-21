@@ -202,6 +202,7 @@ let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop
 let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
+let listSort = "recente"; // ordenação da Minhas listas
 let addingClub = false; // mostrar formulários de criar/entrar mesmo já tendo clube
 
 // Troca o clube ativo (recarrega membros/feed/social do novo).
@@ -1413,16 +1414,45 @@ function placeFormTemplate(drama) {
   `;
 }
 
+const LISTA_VAZIA = {
+  watching: "Nada em andamento. Bora começar um? ▶️",
+  wishlist: "Sua watchlist está vazia. Adicione o que você quer ver. 📝",
+  finished: "Você ainda não finalizou nenhum dorama. 🎬",
+  paused: "Nenhum pausado por aqui. 👏",
+  dropped: "Nenhum dropado. Você é forte. 💪",
+  favorites: "Sem favoritos ainda. Toque no ♥ nos seus doramas. 💕",
+  comfort: "Marque um dorama como conforto (nos detalhes). 🧸",
+};
+
+function sortDramas(list) {
+  const arr = list.slice();
+  if (listSort === "az") arr.sort((a, b) => a.title.localeCompare(b.title));
+  else if (listSort === "nota") arr.sort((a, b) => Number(b.personalRating || 0) - Number(a.personalRating || 0));
+  else if (listSort === "progresso") arr.sort((a, b) => Number(b.currentEpisode || 0) - Number(a.currentEpisode || 0));
+  return arr; // "recente" mantém a ordem atual
+}
+
 function listsTemplate() {
+  const todos = byStatus(state.activeList);
+  const lista = sortDramas(todos);
+  const sorts = [["recente", "Recentes"], ["az", "A-Z"], ["nota", "Maior nota"], ["progresso", "Mais avançados"]];
   return `
     <div class="section-title">
       <h2>Minhas listas</h2>
-      <button class="btn ghost" data-view="add">+ Adicionar</button>
+      <button class="btn ghost" data-view="add">${icon("add")} Adicionar</button>
     </div>
     <div class="tabs">
-      ${statuses.map((status) => `<button class="${state.activeList === status.key ? "active" : ""}" data-active-list="${status.key}">${status.label}</button>`).join("")}
+      ${statuses.map((status) => `<button class="${state.activeList === status.key ? "active" : ""}" data-active-list="${status.key}">${status.label} <b>${byStatus(status.key).length}</b></button>`).join("")}
     </div>
-    ${dramaGrid(byStatus(state.activeList))}
+    ${todos.length
+      ? `<div class="list-toolbar">
+           <input id="list-search" type="search" placeholder="🔍 Buscar nesta lista…" autocomplete="off" />
+           <select id="list-sort">${sorts.map(([v, l]) => `<option value="${v}" ${listSort === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+         </div>`
+      : ""}
+    ${lista.length
+      ? `<section class="drama-grid">${lista.map(dramaCard).join("")}</section><div id="list-empty" class="empty" hidden>Nenhum resultado pra essa busca.</div>`
+      : `<div class="empty">${LISTA_VAZIA[state.activeList] || "Nada aqui ainda."}</div>`}
   `;
 }
 
@@ -2250,7 +2280,7 @@ function dramaCard(drama) {
   ].join("");
 
   return `
-    <article class="drama-card">
+    <article class="drama-card" data-title="${esc((drama.title || "").toLowerCase())}">
       <img class="poster" src="${esc(drama.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(drama.title)}" loading="lazy" decoding="async" />
       <div>
         <h3>${esc(drama.title)}</h3>
@@ -2267,7 +2297,7 @@ function dramaCard(drama) {
         </div>
         <div class="mini-actions">
           ${drama.status === "watching" ? `<button data-plus-one="${drama.id}">${icon("add")} +1 ep</button>` : ""}
-          ${drama.status === "watching" ? `<button data-comentar-surto="${drama.id}">💬 Surto</button>` : ""}
+          ${drama.status === "watching" ? `<button data-set-ep="${drama.id}">✏️ ep</button>` : ""}
           <button data-detail="${drama.id}">${icon("detail")} Detalhes</button>
           <button data-toggle-favorite="${drama.id}">${icon("heart")} ${drama.favorite ? "Tirar" : "Favoritar"}</button>
         </div>
@@ -2715,6 +2745,25 @@ function bindShell() {
 
   document.querySelectorAll("[data-active-list]").forEach((button) => {
     listen(button, "click", () => setState({ activeList: button.dataset.activeList }));
+  });
+
+  const buscaLista = document.querySelector("#list-search");
+  if (buscaLista) {
+    listen(buscaLista, "input", () => {
+      const q = buscaLista.value.trim().toLowerCase();
+      let visiveis = 0;
+      document.querySelectorAll(".drama-grid .drama-card").forEach((card) => {
+        const ok = !q || (card.dataset.title || "").includes(q);
+        card.style.display = ok ? "" : "none";
+        if (ok) visiveis += 1;
+      });
+      const vazio = document.querySelector("#list-empty");
+      if (vazio) vazio.hidden = visiveis !== 0;
+    });
+  }
+  listen(document.querySelector("#list-sort"), "change", (event) => {
+    listSort = event.target.value;
+    render();
   });
 
   document.querySelectorAll("[data-plus-one]").forEach((button) => {

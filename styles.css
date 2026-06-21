@@ -710,6 +710,35 @@ textarea:focus {
   border-color: var(--cor-primaria);
 }
 
+.tabs button b {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cor-texto-suave) 18%, transparent);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.tabs button.active b {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.list-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.list-toolbar input {
+  flex: 1;
+}
+
+.list-toolbar select {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 /* ---------- Cards de dorama ---------- */
 .drama-grid {
   display: grid;
