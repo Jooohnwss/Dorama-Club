@@ -2754,35 +2754,40 @@ function averageRating() {
 // Configurações do app financeiro). É o ÚNICO lugar de criar/entrar/sair.
 function coupleProfileSection() {
   if (!cloudOn()) return "";
-  if (!state.couple) {
-    return `
-      <div class="section-title"><h2>💕 Espaço do casal</h2></div>
-      <section class="form-card">
+
+  // Topo: criar (sem casal) OU gerenciar (com casal).
+  const topo = state.couple
+    ? `<section class="form-card">
+        <p class="muted" style="margin:0 0 6px">Vocês já têm um cantinho! Pra entrar, use o alternador <strong>🏠 Meu app / 💕 Nós dois</strong> (no PC) ou o botão abaixo.</p>
+        <p class="muted" style="margin:0 0 4px">Código do casal:</p>
+        <p style="margin:0 0 12px;font-size:1.5rem;font-weight:900;letter-spacing:.06em;color:var(--cor-primaria)">${esc(state.couple.code)}</p>
+        <p class="muted" style="margin:0 0 12px;font-size:.84rem">Mande esse código pra sua pessoa. Ela entra em <strong>Perfil → Espaço do casal → “Recebeu um código?”</strong> e cola aí. 💌</p>
+        <div class="actions" style="margin:0">
+          <button class="btn" type="button" data-space-go="couple">${icon("heart")} Abrir nosso cantinho</button>
+          <button class="btn secondary" type="button" data-copy-couple-code>Copiar código</button>
+          <button class="btn ghost" type="button" data-leave-couple>Sair deste casal</button>
+        </div>
+      </section>`
+    : `<section class="form-card">
         <p class="muted" style="margin:0 0 12px">Um cantinho privado só de vocês dois — doramas vistos juntos, memórias, cartinhas, dates, um pet e um tema só de vocês. Crie e mande o código pra sua pessoa.</p>
         <form id="create-couple-form" class="form-grid">
           <div class="field full"><label for="couple-title">Nome do casal</label><input id="couple-title" name="title" placeholder="Jonatas & meu amor" /></div>
           <div class="actions field full"><button class="btn" type="submit">Criar nosso espaço 💕</button></div>
         </form>
-      </section>
-      <section class="form-card">
-        <p class="muted" style="margin:0 0 10px">Recebeu um código da sua pessoa? Entre no casal certo.</p>
+      </section>`;
+
+  // "Recebeu um código?" SEMPRE visível (é onde a outra pessoa cola o código).
+  const entrar = state.couple
+    ? ""
+    : `<section class="form-card">
+        <p class="muted" style="margin:0 0 10px"><strong style="color:var(--cor-texto)">Recebeu um código?</strong> Cole aqui pra entrar no casal da sua pessoa.</p>
         <form id="join-couple-form" class="search-bar">
           <input name="code" placeholder="CASAL-123456" autocomplete="off" required />
           <button class="btn secondary" type="submit">Entrar</button>
         </form>
       </section>`;
-  }
-  return `
-    <div class="section-title"><h2>💕 Espaço do casal</h2></div>
-    <section class="form-card">
-      <p class="muted" style="margin:0 0 6px">Vocês já têm um cantinho! Pra entrar, use o alternador <strong>🏠 Meu app / 💕 Nós dois</strong> lá no topo.</p>
-      <p class="muted" style="margin:0 0 12px">Código do casal: <strong style="color:var(--cor-texto)">${esc(state.couple.code)}</strong></p>
-      <div class="actions" style="margin:0">
-        <button class="btn" type="button" data-space-go="couple">${icon("heart")} Abrir nosso cantinho</button>
-        <button class="btn secondary" type="button" data-copy-couple-code>Copiar código</button>
-        <button class="btn ghost" type="button" data-leave-couple>Sair deste casal</button>
-      </div>
-    </section>`;
+
+  return `<div class="section-title"><h2>💕 Espaço do casal</h2></div>${topo}${entrar}`;
 }
 
 function profileTemplate() {
