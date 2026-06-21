@@ -476,6 +476,7 @@ let coupleSection = "inicio"; // seção interna do ambiente do casal
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let recadoIndex = Math.floor(Math.random() * 1000); // qual recadinho mostrar no topo
 let coupleAddSearch = { query: "", loading: false, results: [] }; // busca TMDB no add do casal
+let coupleAddCatSel = "watching"; // categoria escolhida no add do casal (persiste no re-render)
 let temaSearchCasal = { query: "", loading: false, results: [] }; // busca de tema dentro do casal
 let runtimeCache = {}; // tmdbId -> minutos por episódio (TMDB), pra estimar horas
 let coupleRuntimesFor = null; // casal cujos runtimes já buscamos (evita loop)
@@ -2648,10 +2649,8 @@ function coupleDramasTemplate() {
       <div class="field">
         <label>Pra qual categoria?</label>
         <select id="couple-add-cat">
-          <option value="watching">Assistindo juntos</option>
-          <option value="wishlist">Queremos ver</option>
-          <option value="watched">Já vimos</option>
-          <option value="favorite">Favorito do casal</option>
+          ${[["watching", "Assistindo juntos"], ["wishlist", "Queremos ver"], ["watched", "Já vimos"], ["favorite", "Favorito do casal"]]
+            .map(([k, l]) => `<option value="${k}" ${coupleAddCatSel === k ? "selected" : ""}>${l}</option>`).join("")}
         </select>
       </div>
       ${temLista ? `
@@ -4177,6 +4176,7 @@ function bindShell() {
     listen(sel, "change", () => handleCoupleMoveTo(sel.dataset.coupleMoveTo, sel.value));
   });
   listen(document.querySelector("[data-couple-sortear-fila]"), "click", handleCoupleSortearFila);
+  listen(document.querySelector("#couple-add-cat"), "change", (e) => { coupleAddCatSel = e.target.value; });
   listen(document.querySelector("#couple-search-form"), "submit", runCoupleSearch);
   document.querySelectorAll("[data-couple-add-tmdb]").forEach((button) => {
     listen(button, "click", () => handleCoupleAddTmdb(button.dataset.coupleAddTmdb, button.dataset.media));
@@ -4821,7 +4821,7 @@ async function compartilharCertificadoMarco(i) {
 const CAT_CASAL_PARA_PESSOAL = { watching: "watching", wishlist: "wishlist", watched: "finished", favorite: "finished" };
 
 function coupleAddCat() {
-  return document.querySelector("#couple-add-cat")?.value || "watching";
+  return document.querySelector("#couple-add-cat")?.value || coupleAddCatSel || "watching";
 }
 
 // Já existe esse dorama no casal? (por tmdb_id, ou título quando não tem id)
@@ -4948,16 +4948,26 @@ async function handleCoupleSortearFila() {
   if (ok) handleCoupleMove(escolhido.id);
 }
 
+// Monta o patch de episódio; se completou todos, já manda pros finalizados.
+function patchEpisodioCasal(drama, novoEp) {
+  const total = Number(drama.episodes || 0);
+  const ep = Math.max(0, Number(novoEp) || 0);
+  const patch = { currentEpisode: ep };
+  if (total > 0 && ep >= total && drama.status === "watching") patch.status = "watched";
+  return patch;
+}
+
 async function handleCoupleEpisode(id) {
   const drama = coupleDramas.find((d) => d.id === id);
   if (!drama) return;
   const valor = await perguntar(`Episódio atual de ${drama.title}`, String(drama.current_episode || 0), { inputType: "number", ok: "Salvar" });
   if (valor == null) return;
+  const patch = patchEpisodioCasal(drama, valor);
   try {
-    await updateCoupleDrama(id, { currentEpisode: valor });
+    await updateCoupleDrama(id, patch);
     coupleDramas = await loadCoupleDramas(state.couple.id);
     render();
-    toast("Episódio do casal atualizado.");
+    toast(patch.status === "watched" ? "Completaram! Foi pros finalizados 🎉" : "Episódio do casal atualizado.");
   } catch {
     toast("Não consegui atualizar.");
   }
@@ -4975,10 +4985,12 @@ function handleCoupleMemory(id) {
 async function handleCouplePlusEp(id) {
   const drama = coupleDramas.find((d) => d.id === id);
   if (!drama) return;
+  const patch = patchEpisodioCasal(drama, Number(drama.current_episode || 0) + 1);
   try {
-    await updateCoupleDrama(id, { currentEpisode: Number(drama.current_episode || 0) + 1 });
+    await updateCoupleDrama(id, patch);
     coupleDramas = await loadCoupleDramas(state.couple.id);
     render();
+    if (patch.status === "watched") toast("Completaram! Foi pros finalizados 🎉");
   } catch {
     toast("Não consegui atualizar.");
   }
