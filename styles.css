@@ -1125,21 +1125,36 @@ textarea:focus {
 }
 
 /* ---------- Pet do casal ---------- */
-.pet-stage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 26px 18px;
-  margin-bottom: 16px;
+/* Nosso cantinho: quartinho fofo com o bichinho e as decorações */
+.pet-room {
+  position: relative;
+  height: 240px;
+  margin-bottom: 14px;
   border-radius: 22px;
+  overflow: hidden;
   border: 1px solid var(--cor-borda);
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding-bottom: 34px;
+  /* parede + piso */
   background:
-    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--cor-primaria) 16%, transparent), transparent 60%),
-    color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+    linear-gradient(to bottom,
+      color-mix(in srgb, var(--cor-secundaria) 16%, var(--cor-superficie)) 0%,
+      color-mix(in srgb, var(--cor-secundaria) 16%, var(--cor-superficie)) 64%,
+      color-mix(in srgb, var(--cor-primaria) 18%, var(--cor-superficie)) 64%,
+      color-mix(in srgb, var(--cor-primaria) 18%, var(--cor-superficie)) 100%);
+}
+.pet-room .pet-bubble {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
 }
 .pet-avatar {
   position: relative;
+  z-index: 2;
   font-size: 5rem;
   line-height: 1;
   filter: drop-shadow(0 8px 16px color-mix(in srgb, var(--cor-sombra) 60%, transparent));
@@ -1149,13 +1164,27 @@ textarea:focus {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }
-.pet-acc {
+.pet-worn {
   position: absolute;
-  right: -6px;
-  bottom: -4px;
-  font-size: 1.3rem;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.4rem;
   filter: none;
 }
+/* móveis no quarto */
+.pet-deco {
+  position: absolute;
+  font-size: 2rem;
+  z-index: 1;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.18));
+}
+.deco-tv { top: 16px; left: 18px; font-size: 2.2rem; }
+.deco-quadro { top: 16px; right: 18px; font-size: 2rem; }
+.deco-planta { bottom: 14px; left: 18px; font-size: 2.4rem; }
+.deco-abajur { bottom: 14px; right: 18px; font-size: 2.3rem; }
+.deco-sofa { bottom: 6px; left: 50%; transform: translateX(-50%); font-size: 3.4rem; opacity: 0.96; }
+.deco-pipoca { bottom: 18px; left: 63%; font-size: 1.7rem; }
 .pet-bubble {
   padding: 8px 14px;
   border-radius: 14px;
@@ -1170,6 +1199,7 @@ textarea:focus {
 .pet-mood {
   text-align: center;
   width: min(360px, 100%);
+  margin: 0 auto 14px;
 }
 .pet-bar {
   height: 12px;

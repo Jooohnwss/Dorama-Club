@@ -2393,7 +2393,7 @@ function coupleCertificadosSection() {
 }
 
 // ---------- Pet do casal ----------
-const PET_CARINHAS = ["🐶", "🐕", "🐩", "🦮", "🐕‍🦺", "🐱", "🐰", "🐻"];
+const PET_CARINHAS = ["🐱", "🐈", "🐈‍⬛", "🐶", "🐕", "🐰", "🐻", "🐼", "🦊", "🐹"];
 
 // Felicidade derivada das ações do casal (sem decair/morrer — só carinho).
 function petFelicidade() {
@@ -2409,72 +2409,83 @@ function petStatus(fel) {
   return "Com saudade — registrem uma memória 🥺";
 }
 
-// Acessórios desbloqueados por marcos do casal.
-function petAcessorios() {
+// Decorações do cantinho desbloqueadas por marcos. tipo: "movel" (no quarto)
+// ou "usado" (no próprio bichinho).
+function petDecoracoes() {
   const eps = coupleDramas.reduce((s, d) => s + Number(d.current_episode || 0), 0);
   const finalizados = coupleDramas.filter((d) => d.status === "watched" || d.status === "favorite").length;
   return [
-    { emoji: "🦴", nome: "Ossinho", earned: eps >= 1 },
-    { emoji: "🎀", nome: "Coleira", earned: eps >= 5 },
-    { emoji: "🧸", nome: "Brinquedo", earned: coupleDiary.length >= 3 },
-    { emoji: "👕", nome: "Roupinha", earned: finalizados >= 1 },
-    { emoji: "💌", nome: "Carteiro", earned: coupleLetters.length >= 1 },
-    { emoji: "👑", nome: "Coroa", earned: eps >= 50 },
+    { emoji: "🍿", nome: "Pipoca", earned: eps >= 1, tipo: "movel", pos: "pipoca" },
+    { emoji: "💡", nome: "Abajur", earned: coupleDiary.length >= 1, tipo: "movel", pos: "abajur" },
+    { emoji: "🛋️", nome: "Sofá", earned: eps >= 5, tipo: "movel", pos: "sofa" },
+    { emoji: "🪴", nome: "Plantinha", earned: coupleDiary.length >= 3, tipo: "movel", pos: "planta" },
+    { emoji: "🖼️", nome: "Quadro de vocês", earned: coupleLetters.length >= 1, tipo: "movel", pos: "quadro" },
+    { emoji: "📺", nome: "TV", earned: finalizados >= 1, tipo: "movel", pos: "tv" },
+    { emoji: "🎀", nome: "Laço", earned: eps >= 10, tipo: "usado" },
+    { emoji: "👑", nome: "Coroa", earned: eps >= 50, tipo: "usado" },
   ];
+}
+
+function petPickHtml(selecionado) {
+  return PET_CARINHAS.map((e, i) => {
+    const marcado = selecionado ? couplePet?.species === e : i === 0;
+    return `<label class="pet-pick-opt"><input type="radio" name="species" value="${e}" ${marcado ? "checked" : ""}/><span>${e}</span></label>`;
+  }).join("");
 }
 
 function couplePetSection() {
   if (!couplePet) {
     return `
-      <div class="section-title"><h2>🐾 Nosso pet</h2></div>
+      <div class="section-title"><h2>🏠 Nosso cantinho</h2></div>
       <section class="pet-create">
-        <p class="muted">Adotem um mascote pro cantinho de vocês. Ele fica mais feliz conforme vocês assistem, guardam memórias e trocam cartinhas. 🐶</p>
+        <p class="muted">Adotem um bichinho pro cantinho de vocês — um gatinho, um cachorro, o que quiserem. Ele fica mais feliz e o quartinho vai ganhando móveis conforme vocês assistem, guardam memórias e trocam cartinhas. 🐱</p>
         <form id="pet-create-form" class="form-card form-grid">
           <div class="field full">
-            <label>Nome do pet</label>
+            <label>Nome do bichinho</label>
             <input name="name" placeholder="Pipoca, Mochi, Bolinha…" required />
           </div>
           <div class="field full">
             <label>Escolham a carinha</label>
-            <div class="pet-pick">
-              ${PET_CARINHAS.map((e, i) => `<label class="pet-pick-opt"><input type="radio" name="species" value="${e}" ${i === 0 ? "checked" : ""}/><span>${e}</span></label>`).join("")}
-            </div>
+            <div class="pet-pick">${petPickHtml(false)}</div>
           </div>
           <div class="actions field full"><button class="btn" type="submit">Adotar 🐾</button></div>
         </form>
       </section>`;
   }
   const fel = petFelicidade();
-  const acessorios = petAcessorios();
-  const usados = acessorios.filter((a) => a.earned).map((a) => a.emoji).join(" ");
+  const decos = petDecoracoes();
+  const moveis = decos.filter((d) => d.tipo === "movel" && d.earned);
+  const usados = decos.filter((d) => d.tipo === "usado" && d.earned).map((d) => d.emoji).join("");
   return `
-    <div class="section-title"><h2>🐾 ${esc(couplePet.name || "Nosso pet")}</h2></div>
-    <section class="pet-stage">
-      <div class="pet-avatar">${couplePet.species || "🐶"}${usados ? `<span class="pet-acc">${usados}</span>` : ""}</div>
+    <div class="section-title"><h2>🏠 Cantinho de ${esc(couplePet.name || "vocês")}</h2></div>
+    <section class="pet-room">
+      ${moveis.map((d) => `<span class="pet-deco deco-${d.pos}" title="${esc(d.nome)}">${d.emoji}</span>`).join("")}
+      <div class="pet-avatar">${usados ? `<span class="pet-worn">${usados}</span>` : ""}${couplePet.species || "🐱"}</div>
       ${petReacao ? `<div class="pet-bubble">${esc(petReacao)}</div>` : ""}
-      <div class="pet-mood">
-        <strong>${esc(petStatus(fel))}</strong>
-        <div class="pet-bar"><span style="width:${fel}%"></span></div>
-        <small class="muted">Felicidade ${fel}%</small>
-      </div>
-      <div class="pet-actions">
-        <button class="btn ghost" data-pet-care="carinho">❤️ Carinho</button>
-        <button class="btn ghost" data-pet-care="petisco">🦴 Petisco</button>
-        <button class="btn ghost" data-pet-care="banho">🛁 Banho</button>
-        <button class="btn ghost" data-pet-care="passear">🐾 Passear</button>
-        <button class="btn ghost" data-pet-care="surpresa">💌 Surpresa</button>
-      </div>
     </section>
-    <div class="section-title"><h2>Acessórios desbloqueados</h2></div>
+    <div class="pet-mood">
+      <strong>${esc(petStatus(fel))}</strong>
+      <div class="pet-bar"><span style="width:${fel}%"></span></div>
+      <small class="muted">Felicidade ${fel}%</small>
+    </div>
+    <div class="pet-actions">
+      <button class="btn ghost" data-pet-care="carinho">❤️ Carinho</button>
+      <button class="btn ghost" data-pet-care="petisco">🍗 Petisco</button>
+      <button class="btn ghost" data-pet-care="banho">🛁 Banho</button>
+      <button class="btn ghost" data-pet-care="passear">🐾 Brincar</button>
+      <button class="btn ghost" data-pet-care="surpresa">💌 Surpresa</button>
+    </div>
+    <div class="section-title compact"><h2>Decorações do cantinho</h2></div>
+    <p class="muted" style="margin:-6px 0 10px;font-size:.82rem">Vão aparecendo no quarto conforme vocês usam o app.</p>
     <section class="badge-grid">
-      ${acessorios.map((a) => `<div class="badge ${a.earned ? "" : "locked"}"><span class="badge-emoji">${a.emoji}</span><strong>${esc(a.nome)}</strong></div>`).join("")}
+      ${decos.map((d) => `<div class="badge ${d.earned ? "" : "locked"}"><span class="badge-emoji">${d.emoji}</span><strong>${esc(d.nome)}</strong></div>`).join("")}
     </section>
     <section class="form-card">
-      <p class="muted" style="margin:0 0 10px">Quiser mudar o nome ou a carinha?</p>
+      <p class="muted" style="margin:0 0 10px">Mudar o nome ou a carinha?</p>
       <form id="pet-create-form" class="form-grid">
         <div class="field"><label>Nome</label><input name="name" value="${esc(couplePet.name || "")}" required /></div>
-        <div class="field full"><label>Carinha</label><div class="pet-pick">${PET_CARINHAS.map((e) => `<label class="pet-pick-opt"><input type="radio" name="species" value="${e}" ${couplePet.species === e ? "checked" : ""}/><span>${e}</span></label>`).join("")}</div></div>
-        <div class="actions field full"><button class="btn secondary" type="submit">Salvar pet</button></div>
+        <div class="field full"><label>Carinha</label><div class="pet-pick">${petPickHtml(true)}</div></div>
+        <div class="actions field full"><button class="btn secondary" type="submit">Salvar</button></div>
       </form>
     </section>`;
 }

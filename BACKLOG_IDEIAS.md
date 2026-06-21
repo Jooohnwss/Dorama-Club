@@ -66,7 +66,8 @@ Roleta de date · tema do casal por dorama (compartilhado) · diário do casal c
 - [x] ✅ **Acessórios desbloqueáveis** por marcos (ossinho, coleira aos 5 eps, brinquedo às 3 memórias, roupinha ao 1º finalizado, carteiro à 1ª cartinha, coroa aos 50 eps).
 - [x] ✅ **Pet entrega surpresa** (botão 💌 com mensagem fofa).
 - [x] ✅ **Pet aparece na aba Nós dois** (seção "Nosso pet", mascote animado).
-- [ ] 🟢 *Futuro:* passeio ligar de verdade na roleta de date; mais acessórios/skins.
+- [x] ✅ **"Nosso cantinho" (estilo Couple2/PrettyCat)**: quartinho fofo com o bichinho (gato em destaque) + **decorações desbloqueáveis no quarto** (sofá, TV, plantinha, quadro, pipoca, abajur, laço, coroa). Sem migração. *(commit Nosso cantinho)*
+- [ ] 🟢 *Futuro:* passeio ligar de verdade na roleta de date; mais móveis/skins; arrastar pra decorar.
 
 ## 🎮 Joguinhos
 - [x] ✅ **Bingo do episódio**: cartela 3×3 de clichês, marca células, fecha linha (↔↕⤢) = BINGO + compartilhar card. Local (localStorage), sem migração. *(commit Bingo)*
