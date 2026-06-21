@@ -617,6 +617,12 @@ textarea:focus {
   color: var(--cor-primaria);
 }
 
+.mini-actions button[data-admin-del-user]:hover,
+.mini-actions button[data-admin-del-comment]:hover {
+  border-color: #e0566b;
+  color: #e0566b;
+}
+
 .empty {
   padding: 26px;
   border: 1px dashed var(--cor-borda);

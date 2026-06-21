@@ -223,3 +223,8 @@ export async function adminDeleteComment(id) {
   const { error } = await supabase.rpc("admin_delete_comment", { p_id: id });
   if (error) throw error;
 }
+
+export async function adminDeleteUser(id) {
+  const { error } = await supabase.rpc("admin_delete_user", { p_id: id });
+  if (error) throw error;
+}

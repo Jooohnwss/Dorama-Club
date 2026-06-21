@@ -23,6 +23,7 @@ import {
   adminClubs,
   adminComments,
   adminDeleteComment,
+  adminDeleteUser,
 } from "./supabase.js";
 
 const STORAGE_KEY = "dorama-club-state-v1";
@@ -529,7 +530,7 @@ function adminTemplate() {
     <div class="section-title"><h2>Usuárias (${admin.users.length})</h2></div>
     <section class="grid cards">
       ${admin.users.length
-        ? admin.users.map((u) => `<div class="card"><strong>${esc(u.name || "(sem nome)")}</strong><p class="muted">${esc(u.email || "")}</p><div class="chips">${u.nickname ? `<span class="chip">${esc(u.nickname)}</span>` : ""}<span class="chip">${u.dramas || 0} doramas</span>${u.since ? `<span class="chip">desde ${u.since}</span>` : ""}</div></div>`).join("")
+        ? admin.users.map((u) => `<div class="card"><strong>${esc(u.name || "(sem nome)")}</strong><p class="muted">${esc(u.email || "")}</p><div class="chips">${u.nickname ? `<span class="chip">${esc(u.nickname)}</span>` : ""}<span class="chip">${u.dramas || 0} doramas</span>${u.since ? `<span class="chip">desde ${u.since}</span>` : ""}</div><div class="mini-actions"><button data-admin-del-user="${u.id}" data-admin-user-name="${esc(u.name || u.email || "")}">${icon("trash")} Excluir</button></div></div>`).join("")
         : `<div class="empty">Nenhuma usuária ainda.</div>`}
     </section>
 
@@ -1290,6 +1291,10 @@ function bindShell() {
     listen(button, "click", () => handleAdminDeleteComment(button.dataset.adminDelComment));
   });
 
+  document.querySelectorAll("[data-admin-del-user]").forEach((button) => {
+    listen(button, "click", () => handleAdminDeleteUser(button.dataset.adminDelUser, button.dataset.adminUserName));
+  });
+
   document.querySelectorAll("[data-mood]").forEach((button) => {
     listen(button, "click", () => sugerirPorHumor(button.dataset.mood));
   });
@@ -1650,6 +1655,19 @@ async function handleAdminDeleteComment(id) {
     render();
   } catch {
     toast("Não consegui apagar o comentário.");
+  }
+}
+
+async function handleAdminDeleteUser(id, nome) {
+  if (!window.confirm(`Excluir a usuária “${nome}” e TODOS os dados dela? Isso não tem volta.`)) return;
+  try {
+    await adminDeleteUser(id);
+    admin.users = admin.users.filter((u) => u.id !== id);
+    if (admin.overview) admin.overview.users = Math.max(0, (admin.overview.users || 1) - 1);
+    toast("Usuária excluída.");
+    render();
+  } catch (error) {
+    toast(error?.message || "Não consegui excluir essa usuária.");
   }
 }
 
