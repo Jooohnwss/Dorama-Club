@@ -473,6 +473,7 @@ let coupleAbout = {};
 let coupleLetters = [];
 let coupleLoading = false;
 let coupleSection = "inicio"; // seção interna do ambiente do casal
+let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let temaSearchCasal = { query: "", loading: false, results: [] }; // busca de tema dentro do casal
 let runtimeCache = {}; // tmdbId -> minutos por episódio (TMDB), pra estimar horas
 let coupleRuntimesFor = null; // casal cujos runtimes já buscamos (evita loop)
@@ -2497,7 +2498,7 @@ function coupleHeroTemplate() {
   const names = coupleMembers.map((m) => m.name || m.nickname || "Minha pessoa").join(" & ");
   const sozinho = coupleMembers.length < 2;
   return `
-    <section class="couple-hero">
+    <section class="couple-hero slim">
       <div>
         <span>Cantinho privado</span>
         <h2>${esc(title)}</h2>
@@ -2506,11 +2507,64 @@ function coupleHeroTemplate() {
           ${names ? `<span class="chip">${esc(names)}</span>` : ""}
           ${state.couple.specialDate ? `<span class="chip">Desde ${esc(state.couple.specialDate)}</span>` : ""}
         </div>
-        ${sozinho ? `<p class="couple-waiting">💌 Falta sua pessoa entrar. O código fica em <strong>Ajustes</strong>, protegido da bagunça do painel.</p>` : ""}
+        ${sozinho ? `<p class="couple-waiting">💌 Falta sua pessoa entrar. O código fica em <strong>Ajustes</strong>.</p>` : ""}
       </div>
-      <div class="couple-actions">
-        <button class="btn secondary" data-couple-section="diario">${icon("lists")} Nova memória</button>
-        <button class="btn ghost" data-date-roulette>${icon("dice")} Sortear date</button>
+    </section>`;
+}
+
+// Hero do painel: o dorama que vocês estão vivendo agora (com a imagem dele).
+function coupleFocusCard() {
+  const ativo = coupleDramas.find((d) => d.status === "watching");
+  const finalizado = coupleDramas.find((d) => d.status === "watched" || d.status === "favorite");
+  if (ativo) {
+    const ep = Number(ativo.current_episode || 0);
+    const total = Number(ativo.episodes || 0);
+    const pct = total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
+    return `
+      <section class="focus-card" ${ativo.cover ? `style="--focus-cover:url('${esc(ativo.cover)}')"` : ""}>
+        <div class="focus-bg"></div>
+        <img class="focus-poster" src="${esc(ativo.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(ativo.title)}" />
+        <div class="focus-copy">
+          <span>Agora no sofá de vocês</span>
+          <h3>${esc(ativo.title)}</h3>
+          <button class="ep-set" data-couple-ep="${ativo.id}">${total ? `Episódio ${ep} de ${total}` : `Episódio ${ep}`} ✏️</button>
+          <div class="focus-progress"><span style="width:${pct}%"></span></div>
+          <div class="actions">
+            <button class="btn" data-couple-plus="${ativo.id}">${icon("add")} +1 ep</button>
+            <button class="btn secondary" data-couple-memory="${ativo.id}">${icon("lists")} Registrar memória</button>
+            <button class="btn ghost" data-couple-finish="${ativo.id}">🎉 Finalizamos</button>
+          </div>
+        </div>
+      </section>`;
+  }
+  if (finalizado) {
+    return `
+      <section class="focus-card" ${finalizado.cover ? `style="--focus-cover:url('${esc(finalizado.cover)}')"` : ""}>
+        <div class="focus-bg"></div>
+        <img class="focus-poster" src="${esc(finalizado.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(finalizado.title)}" />
+        <div class="focus-copy">
+          <span>Último que vocês terminaram</span>
+          <h3>${esc(finalizado.title)}</h3>
+          <p>Qual vai ser o próximo surto de vocês?</p>
+          <div class="actions">
+            <button class="btn" data-couple-section="assistindo">${icon("add")} Escolher o próximo</button>
+            <button class="btn ghost" data-couple-cert="${finalizado.id}">🎓 Certificado</button>
+            <button class="btn ghost" data-date-roulette>${icon("dice")} Sortear date</button>
+          </div>
+        </div>
+      </section>`;
+  }
+  return `
+    <section class="focus-card">
+      <div class="focus-bg"></div>
+      <div class="focus-copy empty-focus">
+        <span>Comece o cantinho de vocês</span>
+        <h3>Escolham o primeiro dorama juntos</h3>
+        <p>Adicione um dorama da sua lista ao casal e o painel ganha vida.</p>
+        <div class="actions">
+          <button class="btn" data-couple-section="assistindo">${icon("add")} Escolher da nossa lista</button>
+          <button class="btn secondary" data-date-roulette>${icon("dice")} Sortear date</button>
+        </div>
       </div>
     </section>`;
 }
@@ -2561,7 +2615,7 @@ function coupleDramasTemplate() {
 }
 
 function coupleDiaryTemplate() {
-  const options = coupleDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+  const options = coupleDramas.map((d) => `<option value="${d.id}" ${coupleMemoryDraft === d.id ? "selected" : ""}>${esc(d.title)}</option>`).join("");
   const entries = coupleDiary.length
     ? coupleDiary.map((e) => {
         const meta = [e.place, e.snack, e.mood].filter(Boolean).map(esc).join(" · ");
@@ -2670,8 +2724,8 @@ function couplePinnedLetterTemplate() {
     </section>`;
 }
 
-function coupleInicioDashboardTemplate() {
-  const ultimo = coupleDramas.find((d) => d.status === "watching") || coupleDramas[0];
+// Atalhos do painel (cards pra cada área), com um teaser do conteúdo.
+function coupleDashAtalhos() {
   const ultimaMemoria = coupleDiary
     .slice()
     .sort((a, b) => new Date(b.created_at || b.watched_on || 0) - new Date(a.created_at || a.watched_on || 0))[0];
@@ -2679,50 +2733,38 @@ function coupleInicioDashboardTemplate() {
   const petNome = couplePet?.name || "Nosso pet";
   const sobrePreenchido = Object.values(coupleAbout).filter((v) => String(v || "").trim()).length;
   const sobreTotal = aboutLabels.length;
-  const horas = coupleHorasEstimadas();
   return `
     <section class="couple-dashboard">
-      <button class="couple-dash-card featured" type="button" data-couple-section="assistindo">
-        <span class="muted">Agora no sofá de vocês</span>
-        <strong>${ultimo ? esc(ultimo.title) : "Escolher primeiro dorama"}</strong>
-        <small>${ultimo ? `Vocês estão no ep. ${Number(ultimo.current_episode || 0)}${ultimo.episodes ? ` de ${ultimo.episodes}` : ""}.` : "Adicione um dorama e o painel começa a ganhar vida."}</small>
-        <em>${horas ? `~${horas}h juntos` : "Começar maratona"}</em>
-      </button>
       <button class="couple-dash-card" type="button" data-couple-section="diario">
-        <span class="muted">Diário do casal</span>
-        <strong>${ultimaMemoria ? esc(ultimaMemoria.drama_title || "Memória do casal") : "Diário vazio"}</strong>
+        <span class="muted">📖 Diário</span>
+        <strong>${ultimaMemoria ? esc(ultimaMemoria.drama_title || "Última memória") : "Diário em branco"}</strong>
         <small>${ultimaMemoria ? esc(ultimaMemoria.fav_moment || ultimaMemoria.comment || "Guardada no cantinho de vocês.") : "Primeira página: o que vocês viram, comeram e sentiram."}</small>
       </button>
       <button class="couple-dash-card" type="button" data-couple-section="sobre">
-        <span class="muted">Sobre nós</span>
+        <span class="muted">💞 Sobre nós</span>
         <strong>${sobrePreenchido}/${sobreTotal} respostas</strong>
         <small>Preferências, piadas internas e coisinhas que só vocês entendem.</small>
       </button>
       <button class="couple-dash-card" type="button" data-couple-section="diversao">
-        <span class="muted">Diversão</span>
+        <span class="muted">🎲 Diversão</span>
         <strong>${esc(petNome)}</strong>
-        <small>${ganhos} certificado${ganhos === 1 ? "" : "s"} desbloqueado${ganhos === 1 ? "" : "s"}.</small>
+        <small>${ganhos} certificado${ganhos === 1 ? "" : "s"} desbloqueado${ganhos === 1 ? "" : "s"} · roleta de date.</small>
       </button>
     </section>`;
 }
 
-// Seção "Início" do casal: painel limpo + atalhos para as áreas.
+// Seção "Painel" do casal: a imagem do que estão vivendo + atalhos + resumo + timeline.
 function coupleInicioSection() {
   return `
     ${couplePinnedLetterTemplate()}
     ${coupleHeroTemplate()}
-    ${coupleInicioDashboardTemplate()}
-    <section class="couple-panel-grid">
-      <div>
-        <div class="section-title compact"><h2>Linha do tempo</h2></div>
-        ${coupleTimelineTemplate()}
-      </div>
-      <div>
-        <div class="section-title compact"><h2>Resumo</h2></div>
-        <section class="couple-mini-stats">${coupleStats().map(([label, value]) => `<div><strong>${value}</strong><span>${esc(label)}</span></div>`).join("")}</section>
-        <button class="couple-settings-link" type="button" data-couple-section="ajustes">Editar capa, tema e código do convite</button>
-      </div>
-    </section>`;
+    ${coupleFocusCard()}
+    ${coupleDashAtalhos()}
+    <div class="section-title compact"><h2>Resumo de vocês</h2></div>
+    <section class="grid stats">${coupleStats().map(([label, value]) => `<div class="stat"><span class="muted">${esc(label)}</span><strong>${value}</strong></div>`).join("")}</section>
+    <div class="section-title compact"><h2>Linha do tempo</h2></div>
+    ${coupleTimelineTemplate()}
+    <button class="couple-settings-link" type="button" data-couple-section="ajustes">⚙️ Capa, tema, código e cartinha ficam em Ajustes</button>`;
 }
 
 function coupleAjustesSection() {
@@ -4048,6 +4090,12 @@ function bindShell() {
   document.querySelectorAll("[data-couple-memory]").forEach((button) => {
     listen(button, "click", () => handleCoupleMemory(button.dataset.coupleMemory));
   });
+  document.querySelectorAll("[data-couple-plus]").forEach((button) => {
+    listen(button, "click", () => handleCouplePlusEp(button.dataset.couplePlus));
+  });
+  document.querySelectorAll("[data-couple-finish]").forEach((button) => {
+    listen(button, "click", () => handleCoupleFinish(button.dataset.coupleFinish));
+  });
   document.querySelectorAll("[data-del-couple-drama]").forEach((button) => {
     listen(button, "click", () => handleDeleteCoupleDrama(button.dataset.delCoupleDrama));
   });
@@ -4525,6 +4573,7 @@ function leaveCoupleSpace() {
 function setCoupleSection(sec) {
   coupleSection = sec;
   petReacao = "";
+  coupleMemoryDraft = null;
   render();
 }
 
@@ -4709,13 +4758,40 @@ async function handleCoupleEpisode(id) {
   }
 }
 
+// "Registrar memória": vai pro Diário com o dorama já pré-selecionado.
 function handleCoupleMemory(id) {
+  coupleMemoryDraft = id;
+  coupleSection = "diario";
+  render();
+  const ta = document.querySelector("#couple-diary-form textarea");
+  ta?.focus();
+}
+
+async function handleCouplePlusEp(id) {
   const drama = coupleDramas.find((d) => d.id === id);
-  const select = document.querySelector("#couple-diary-form [name='dramaId']");
-  const ep = document.querySelector("#couple-diary-form [name='episode']");
-  if (select && drama) select.value = drama.id;
-  if (ep && drama) ep.value = Number(drama.current_episode || 0);
-  document.querySelector("#couple-diary-form textarea")?.focus();
+  if (!drama) return;
+  try {
+    await updateCoupleDrama(id, { currentEpisode: Number(drama.current_episode || 0) + 1 });
+    coupleDramas = await loadCoupleDramas(state.couple.id);
+    render();
+  } catch {
+    toast("Não consegui atualizar.");
+  }
+}
+
+async function handleCoupleFinish(id) {
+  const drama = coupleDramas.find((d) => d.id === id);
+  if (!drama) return;
+  const ok = await confirmar(`Finalizar “${drama.title}” juntos?`, { sub: "Vai pra estante de finalizados e libera o certificado. 🎉", ok: "Finalizamos!" });
+  if (!ok) return;
+  try {
+    await updateCoupleDrama(id, { status: "watched" });
+    coupleDramas = await loadCoupleDramas(state.couple.id);
+    render();
+    toast("Mais um finalizado juntos! 🎉");
+  } catch {
+    toast("Não consegui finalizar.");
+  }
 }
 
 async function handleCoupleDiary(event) {

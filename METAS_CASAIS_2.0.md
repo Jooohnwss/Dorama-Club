@@ -265,8 +265,8 @@ Regra:
 
 ## Ordem Recomendada
 
-1. Refazer alternador Pessoal / Nos dois. **Status: primeira versao implementada.**
-2. Refazer Painel com imagem do ultimo dorama.
+1. Refazer alternador Pessoal / Nos dois. **Status: implementado (sidebar no PC, Perfil/abas no mobile).**
+2. Refazer Painel com imagem do ultimo dorama. **Status: implementado — hero com a capa do dorama em andamento (+1 ep, registrar memoria, finalizamos), estados finalizado/vazio, atalhos, resumo e linha do tempo. Codigo/config movidos pra Ajustes.**
 3. Reestruturar Assistindo em: ativos, fila, finalizados.
 4. Refazer Diario como album por tipo de pagina.
 5. Refazer Sobre nos como ficha viva + perguntas.
