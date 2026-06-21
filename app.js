@@ -2469,26 +2469,34 @@ function formatDateShort(value) {
 
 function coupleTimelineTemplate() {
   const eventos = [];
-  if (state.couple?.specialDate) eventos.push([state.couple.specialDate, "💕 Data especial do casal"]);
+  if (state.couple?.specialDate) eventos.push([state.couple.specialDate, "💕", "Data especial de vocês", ""]);
   const primeiroDorama = coupleDramas.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[0];
-  if (primeiroDorama) eventos.push([primeiroDorama.created_at?.slice(0, 10), `🎬 Primeiro dorama no cantinho: ${primeiroDorama.title}`]);
+  if (primeiroDorama) eventos.push([primeiroDorama.created_at?.slice(0, 10), "🎬", "Primeiro dorama no cantinho", primeiroDorama.title]);
   const finalizado = coupleDramas.find((d) => d.status === "watched" || d.status === "favorite");
-  if (finalizado) eventos.push([finalizado.created_at?.slice(0, 10), `🏁 Primeiro finalizado juntos: ${finalizado.title}`]);
+  if (finalizado) eventos.push([finalizado.created_at?.slice(0, 10), "🏁", "Primeiro finalizado juntos", finalizado.title]);
   const primeiraMemoria = coupleDiary.slice().sort((a, b) => new Date(a.watched_on || a.created_at) - new Date(b.watched_on || b.created_at))[0];
-  if (primeiraMemoria) eventos.push([(primeiraMemoria.watched_on || primeiraMemoria.created_at || "").slice(0, 10), `📖 Primeira memória: ${primeiraMemoria.drama_title || "nosso diário"}`]);
+  if (primeiraMemoria) eventos.push([(primeiraMemoria.watched_on || primeiraMemoria.created_at || "").slice(0, 10), "📖", "Primeira memória", primeiraMemoria.drama_title || "nosso diário"]);
   const comPiada = coupleDiary.find((d) => d.inside_joke);
-  if (comPiada) eventos.push([(comPiada.watched_on || comPiada.created_at || "").slice(0, 10), `💬 Frase interna: ${comPiada.inside_joke}`]);
+  if (comPiada) eventos.push([(comPiada.watched_on || comPiada.created_at || "").slice(0, 10), "💬", "Frase que virou nossa", comPiada.inside_joke]);
   const cartinha = coupleLetters[0];
-  if (cartinha) eventos.push([(cartinha.created_at || "").slice(0, 10), "💌 Primeira cartinha guardada"]);
+  if (cartinha) eventos.push([(cartinha.created_at || "").slice(0, 10), "💌", "Primeira cartinha guardada", ""]);
 
   const limpos = eventos
     .filter(([data]) => data)
     .sort((a, b) => new Date(a[0]) - new Date(b[0]))
     .slice(0, 6);
-  if (!limpos.length) return `<div class="empty">A linha do tempo nasce conforme vocês adicionam doramas, memórias e cartinhas.</div>`;
+  if (!limpos.length) return `<div class="empty">A linha do tempo nasce conforme vocês adicionam doramas, memórias e cartinhas. ✨</div>`;
   return `
-    <section class="couple-auto-timeline">
-      ${limpos.map(([data, texto]) => `<div class="tl-item"><span class="tl-ano">${esc(formatDateShort(data))}</span><span class="tl-texto">${esc(texto)}</span></div>`).join("")}
+    <section class="couple-timeline-v">
+      ${limpos.map(([data, emoji, titulo, sub]) => `
+        <div class="ctl-item">
+          <span class="ctl-dot">${emoji}</span>
+          <div class="ctl-body">
+            <span class="ctl-date">${esc(formatDateShort(data))}</span>
+            <strong class="ctl-title">${esc(titulo)}</strong>
+            ${sub ? `<span class="ctl-sub">${esc(sub)}</span>` : ""}
+          </div>
+        </div>`).join("")}
     </section>`;
 }
 
@@ -2505,7 +2513,7 @@ function coupleGreetingTemplate() {
           ? (names ? `<span>${esc(names)}</span>` : "")
           : `<span>Vocês ainda não têm nome. Bora batizar o casal?</span>`}
       </div>
-      <button class="btn ghost couple-greeting-btn" type="button" data-couple-name>${nome ? "Renomear" : "Definir nome"}</button>
+      ${nome ? "" : `<button class="btn ghost couple-greeting-btn" type="button" data-couple-name>Definir nome</button>`}
       ${sozinho ? `<span class="couple-greeting-wait">💌 Falta sua pessoa entrar — código em <strong>Ajustes</strong></span>` : ""}
     </div>`;
 }
@@ -2775,10 +2783,31 @@ function coupleInicioSection() {
     ${coupleFocusCard()}
     ${coupleDashAtalhos()}
     <div class="section-title compact"><h2>Resumo de vocês</h2></div>
-    <section class="grid stats">${coupleStats().map(([label, value]) => `<div class="stat"><span class="muted">${esc(label)}</span><strong>${value}</strong></div>`).join("")}</section>
+    ${coupleResumoTemplate()}
     <div class="section-title compact"><h2>Linha do tempo</h2></div>
-    ${coupleTimelineTemplate()}
-    <button class="couple-settings-link" type="button" data-couple-section="ajustes">⚙️ Capa, tema, código e cartinha ficam em Ajustes</button>`;
+    ${coupleTimelineTemplate()}`;
+}
+
+// Resumo do casal: números com ícone, em cards bonitos.
+function coupleResumoTemplate() {
+  const eps = coupleDramas.reduce((s, d) => s + Number(d.current_episode || 0), 0);
+  const horas = coupleHorasEstimadas();
+  const finalizados = coupleDramas.filter((d) => d.status === "watched" || d.status === "favorite").length;
+  const certs = coupleCertificados().filter((c) => c.earned).length;
+  const itens = [
+    ["📺", eps, "Episódios juntos"],
+    ["⏱️", horas ? `~${horas}h` : "—", "Horas juntos"],
+    ["🍿", coupleDramas.length, "Doramas"],
+    ["🏁", finalizados, "Finalizados"],
+    ["📖", coupleDiary.length, "Memórias"],
+    ["🎓", certs, "Certificados"],
+  ];
+  return `<section class="couple-resumo">${itens.map(([emoji, valor, label]) => `
+    <div class="couple-resumo-item">
+      <span class="cr-emoji">${emoji}</span>
+      <strong>${valor}</strong>
+      <span class="cr-label">${esc(label)}</span>
+    </div>`).join("")}</section>`;
 }
 
 function coupleAjustesSection() {
