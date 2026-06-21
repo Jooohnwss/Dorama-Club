@@ -809,6 +809,35 @@ textarea:focus {
   background: color-mix(in srgb, var(--cor-primaria) 14%, transparent);
 }
 
+.linkish {
+  background: none;
+  color: var(--cor-texto-suave);
+  text-decoration: underline;
+  font-size: 0.84rem;
+  margin-top: 4px;
+  align-self: center;
+}
+
+.linkish:hover {
+  color: var(--cor-primaria);
+}
+
+.nav button {
+  position: relative;
+}
+
+.nav-dot {
+  position: absolute;
+  top: 8px;
+  right: 50%;
+  transform: translateX(14px);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff4d6d;
+  border: 2px solid var(--cor-superficie);
+}
+
 .compat-bar {
   height: 8px;
   border-radius: 999px;

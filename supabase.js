@@ -43,8 +43,25 @@ export async function signOut() {
 
 export function onAuthChange(callback) {
   if (!supabase) return () => {};
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(session?.user || null));
+  const { data } = supabase.auth.onAuthStateChange((event, session) => callback(session?.user || null, event));
   return () => data.subscription.unsubscribe();
+}
+
+export async function resetPassword(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(String(email).trim(), {
+    redirectTo: location.origin,
+  });
+  if (error) throw error;
+}
+
+export async function updatePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
+export async function renameClub(clubId, name) {
+  const { error } = await supabase.rpc("rename_club", { p_club: clubId, p_name: name });
+  if (error) throw error;
 }
 
 // ---------- PERFIL ----------
@@ -60,7 +77,14 @@ export async function loadProfile(userId) {
     type: data.type || "",
     inviteCode: data.invite_code || "",
     invitedBy: data.invited_by || null,
+    tema: data.tema || "",
+    temaCustom: data.tema_custom || "",
   };
+}
+
+export async function saveTheme(userId, temaId, temaCustomJson) {
+  const { error } = await supabase.from("profiles").update({ tema: temaId, tema_custom: temaCustomJson || null }).eq("id", userId);
+  if (error) throw error;
 }
 
 // Procura quem tem aquele código de convite (retorna { id, name } ou null).
@@ -212,6 +236,19 @@ export async function clubFeed(clubId) {
   const { data, error } = await supabase.rpc("club_feed", { p_club: clubId });
   if (error) throw error;
   return data || [];
+}
+
+// Data do último comentário do clube (pra avisar "tem novidade").
+export async function clubLatestComment(clubId) {
+  const { data, error } = await supabase
+    .from("comments")
+    .select("created_at")
+    .eq("club_id", clubId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return data?.created_at || null;
 }
 
 export async function postComment(userId, clubId, comment) {

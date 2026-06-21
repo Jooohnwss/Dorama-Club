@@ -20,6 +20,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 09 | `09 - codigo-de-convite-e-indicacao.sql` | Código de convite por pessoa (`invite_code`) + `invited_by` (quem convidou quem); `admin_users` mostra indicações | Social |
 | 10 | `10 - reacoes-comuns-e-lista-compartilhada.sql` | Reações no mural (`comment_reactions`), doramas em comum (`club_dramas`) e lista compartilhada (`club_list` + votos) | B |
 | 11 | `11 - favoritos-ranking-e-compatibilidade.sql` | `favoritos` (vilão/cena/trilha) + `club_ranking` turbinado + `club_compatibility` (% entre doramigas) | B |
+| 12 | `12 - tema-na-conta-e-renomear-clube.sql` | `profiles.tema`/`tema_custom` (tema segue a conta) + `rename_club` | Polimento |
 
 ## Convenção de nome
 

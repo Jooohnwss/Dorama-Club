@@ -11,6 +11,10 @@ import {
   saveProfile as saveProfileRemote,
   findInviter,
   setInvitedBy,
+  resetPassword,
+  updatePassword,
+  renameClub,
+  saveTheme,
   loadDramas,
   upsertDrama,
   deleteDramaRemote,
@@ -20,6 +24,7 @@ import {
   clubMembersList,
   leaveClub,
   clubFeed,
+  clubLatestComment,
   postComment,
   deleteOwnComment,
   loadSurtos,
@@ -186,6 +191,7 @@ let search = { query: "", loading: false, results: [], selected: null, error: ""
 let authUser = null;
 let authMode = "signin"; // "signin" | "signup"
 let authBusy = false;
+let recovery = false; // tela de "definir nova senha" após clicar no link do e-mail
 let renderEvents = null;
 let initStarted = false;
 let unsubscribeAuth = null;
@@ -194,6 +200,31 @@ let clubMembers = [];
 let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop)
 let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
+let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
+let clubHasNews = false; // bolinha de novidade na aba Doramigas
+const SEEN_CLUB_KEY = "dorama-club-visto";
+
+async function checarNovidadesClube() {
+  clubHasNews = false;
+  if (!cloudOn() || !state.club) return;
+  try {
+    const ultimo = await clubLatestComment(state.club.id);
+    if (!ultimo) return;
+    const visto = localStorage.getItem(SEEN_CLUB_KEY) || "";
+    clubHasNews = new Date(ultimo).getTime() > new Date(visto || 0).getTime();
+  } catch {
+    /* ignore */
+  }
+}
+
+function marcarClubeVisto() {
+  try {
+    localStorage.setItem(SEEN_CLUB_KEY, new Date().toISOString());
+  } catch {
+    /* ignore */
+  }
+  clubHasNews = false;
+}
 // Social do clube (feed automático, dorama do mês, ranking, diário compartilhado).
 let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
 // Favoritos especiais (aba Perfil).
@@ -375,6 +406,7 @@ function salvarTema(id) {
     /* ignore */
   }
   aplicarTema(id);
+  if (cloudOn()) saveTheme(authUser.id, id, null).catch(() => {});
   render();
 }
 
@@ -448,12 +480,14 @@ async function usarDoramaComoTema(drama) {
       "--fonte-base": 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif',
     },
   };
+  const customJson = JSON.stringify(tema);
   try {
-    localStorage.setItem(TEMA_CUSTOM_KEY, JSON.stringify(tema));
+    localStorage.setItem(TEMA_CUSTOM_KEY, customJson);
     localStorage.setItem(TEMA_KEY, "custom");
   } catch {
     /* ignore */
   }
+  if (cloudOn()) saveTheme(authUser.id, "custom", customJson).catch(() => {});
   temaSearch = { query: "", loading: false, results: [] };
   aplicarTema("custom");
   render();
@@ -535,6 +569,12 @@ function app() {
 
 function render() {
   resetRenderEvents();
+  // Veio do link de recuperação de senha: define a nova senha.
+  if (recovery) {
+    app().innerHTML = `${recoveryTemplate()}<div id="toast-root"></div>`;
+    listen(document.querySelector("#recovery-form"), "submit", handleRecoverySubmit);
+    return;
+  }
   // Com Supabase configurado, exige login antes de tudo.
   if (supabaseReady() && !authUser) {
     app().innerHTML = `${authTemplate()}<div id="toast-root"></div>`;
@@ -607,6 +647,26 @@ function authTemplate() {
           <div class="actions field full">
             <button class="btn" type="submit" ${authBusy ? "disabled" : ""}>${authBusy ? "Aguarde…" : signup ? "Criar conta" : "Entrar"}</button>
           </div>
+          ${!signup ? `<button type="button" class="linkish" data-forgot>Esqueci minha senha</button>` : ""}
+        </form>
+      </section>
+    </main>
+  `;
+}
+
+function recoveryTemplate() {
+  return `
+    <main class="welcome">
+      <section class="welcome-card">
+        <div class="logo">DC</div>
+        <h1>Nova senha</h1>
+        <p>Escolha uma nova senha pra sua conta.</p>
+        <form id="recovery-form" class="form-grid">
+          <div class="field full">
+            <label for="newpass">Nova senha</label>
+            <input id="newpass" name="password" type="password" minlength="6" placeholder="mínimo 6 caracteres" required />
+          </div>
+          <div class="actions field full"><button class="btn" type="submit">Salvar nova senha</button></div>
         </form>
       </section>
     </main>
@@ -671,7 +731,7 @@ function sidebarTemplate() {
         </div>
       </div>
       <nav class="nav">
-        ${items.map(([key, label, ic]) => `<button class="${state.view === key ? "active" : ""}" data-view="${key}">${icon(ic)}<span class="nav-label">${label}</span></button>`).join("")}
+        ${items.map(([key, label, ic]) => `<button class="${state.view === key ? "active" : ""}" data-view="${key}">${icon(ic)}${key === "club" && clubHasNews ? `<span class="nav-dot"></span>` : ""}<span class="nav-label">${label}</span></button>`).join("")}
       </nav>
       ${supabaseReady() ? `<button class="logout" data-logout>${icon("out")}<span>Sair</span></button>` : ""}
     </aside>
@@ -819,6 +879,13 @@ function homeTemplate() {
         <button class="btn secondary" data-random>${icon("dice")} Sortear próximo</button>
       </div>
     </section>
+    ${state.dramas.length === 0
+      ? `<section class="form-card" style="margin-top:14px">
+           <h3 style="margin:0 0 6px">Bem-vinda! 💜 Vamos começar?</h3>
+           <p class="muted" style="margin:0 0 12px">Adicione o primeiro dorama que você está vendo (ou quer ver). É só buscar pelo nome.</p>
+           <div class="actions" style="margin:0"><button class="btn" data-view="add">${icon("add")} Adicionar meu primeiro dorama</button></div>
+         </section>`
+      : ""}
     <section class="grid stats">
       ${stats.map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
     </section>
@@ -1019,7 +1086,10 @@ function clubTemplate() {
   return `
     <div class="section-title">
       <h2>${esc(state.club.name)}</h2>
-      <button class="btn ghost" data-copy-code>Copiar código</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn ghost" data-rename-club>✏️ Renomear</button>
+        <button class="btn ghost" data-copy-code>Copiar código</button>
+      </div>
     </div>
     <section class="grid cards">
       <div class="card"><span class="muted">Código do clube</span><strong>${esc(state.club.code)}</strong></div>
@@ -1239,7 +1309,7 @@ function commentFormTemplate() {
           <label for="commentDrama">Sobre qual dorama?</label>
           <select id="commentDrama" name="dramaId">
             <option value="">Geral (sem dorama)</option>
-            ${meusDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("")}
+            ${meusDramas.map((d) => `<option value="${d.id}" ${commentDraft === d.id ? "selected" : ""}>${esc(d.title)}</option>`).join("")}
           </select>
         </div>
         <div class="field">
@@ -1371,6 +1441,16 @@ function profileTemplate() {
     ${casaisTemplate()}
     <div class="section-title"><h2>⭐ Favoritos especiais</h2></div>
     ${favoritosTemplate()}
+    <div class="section-title"><h2>🔒 Segurança</h2></div>
+    <section class="form-card">
+      <form id="change-pass-form" class="form-grid">
+        <div class="field full">
+          <label for="changePass">Trocar senha</label>
+          <input id="changePass" name="password" type="password" minlength="6" placeholder="nova senha (mínimo 6)" required />
+        </div>
+        <div class="actions field full"><button class="btn secondary" type="submit">Salvar nova senha</button></div>
+      </form>
+    </section>
     <div class="section-title">
       <h2>${icon("paint")} Tema do app</h2>
     </div>
@@ -1484,6 +1564,19 @@ async function handleAddFavorito(event) {
     toast("Favorito salvo! ⭐");
   } catch {
     toast("Não consegui salvar.");
+  }
+}
+
+async function handleChangePassword(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const pass = new FormData(form).get("password");
+  try {
+    await updatePassword(pass);
+    form.reset();
+    toast("Senha alterada! 💜");
+  } catch (error) {
+    toast(error?.message || "Não consegui trocar a senha.");
   }
 }
 
@@ -1763,6 +1856,7 @@ function dramaCard(drama) {
         </div>
         <div class="mini-actions">
           ${drama.status === "watching" ? `<button data-plus-one="${drama.id}">${icon("add")} +1 ep</button>` : ""}
+          ${drama.status === "watching" ? `<button data-comentar-surto="${drama.id}">💬 Surto</button>` : ""}
           <button data-detail="${drama.id}">${icon("detail")} Detalhes</button>
           <button data-toggle-favorite="${drama.id}">${icon("heart")} ${drama.favorite ? "Tirar" : "Favoritar"}</button>
         </div>
@@ -2007,6 +2101,34 @@ function bindAuth() {
     });
   });
   listen(document.querySelector("#auth-form"), "submit", handleAuthSubmit);
+  listen(document.querySelector("[data-forgot]"), "click", handleForgot);
+}
+
+async function handleForgot() {
+  const email = String(document.querySelector("#auth-form [name='email']")?.value || "").trim();
+  if (!email) {
+    toast("Digite seu e-mail no campo acima primeiro.");
+    return;
+  }
+  try {
+    await resetPassword(email);
+    toast("Enviamos um link de recuperação pro seu e-mail. 💌");
+  } catch {
+    toast("Não consegui enviar agora. Confira o e-mail.");
+  }
+}
+
+async function handleRecoverySubmit(event) {
+  event.preventDefault();
+  const pass = new FormData(event.currentTarget).get("password");
+  try {
+    await updatePassword(pass);
+    recovery = false;
+    render();
+    toast("Senha alterada! 💜");
+  } catch (error) {
+    toast(error?.message || "Não consegui salvar a senha.");
+  }
 }
 
 function authError(error) {
@@ -2191,6 +2313,10 @@ function bindShell() {
   document.querySelectorAll("[data-toggle-favorite]").forEach((button) => {
     listen(button, "click", () => toggleField(button.dataset.toggleFavorite, "favorite"));
   });
+  document.querySelectorAll("[data-comentar-surto]").forEach((button) => {
+    listen(button, "click", () => handleComentarSurto(button.dataset.comentarSurto));
+  });
+  listen(document.querySelector("[data-rename-club]"), "click", handleRenameClub);
 
   document.querySelectorAll("[data-pick]").forEach((button) => {
     listen(button, "click", () => pickResult(Number(button.dataset.pick)));
@@ -2277,6 +2403,7 @@ function bindShell() {
   document.querySelectorAll("[data-del-favorito]").forEach((button) => {
     listen(button, "click", () => handleDeleteFavorito(button.dataset.delFavorito));
   });
+  listen(document.querySelector("#change-pass-form"), "submit", handleChangePassword);
   bindPhotoPicker();
 
   // Motivo "Outro": mostra o campo de texto quando escolhido.
@@ -2293,6 +2420,7 @@ function bindShell() {
   // Carrega dados sob demanda ao abrir as telas.
   if (state.view === "admin" && isAdmin() && !admin.loaded && !admin.loading) loadAdmin();
   if (state.view === "discover" && !discover.loaded && !discover.loading) loadDiscover();
+  if (state.view === "club" && (clubHasNews || localStorage.getItem(SEEN_CLUB_KEY) === null)) marcarClubeVisto();
   if (state.view === "club" && state.club && clubMembersFor !== state.club.id) loadClubMembers();
   if (state.view === "club" && state.club && clubFeedFor !== state.club.id) loadClubFeed();
   if (state.view === "club" && state.club && clubSocial.for !== state.club.id) loadClubSocial();
@@ -2628,6 +2756,7 @@ async function handlePostComment(event) {
   }
   try {
     await postComment(authUser.id, state.club.id, { body, tmdbId, dramaTitle, spoilerEpisode });
+    commentDraft = null;
     clubFeedFor = null;
     loadClubFeed();
     toast("Publicado no mural! 💜");
@@ -2692,6 +2821,29 @@ async function handleLeaveClub() {
   } catch {
     toast("Não consegui sair do clube agora.");
   }
+}
+
+async function handleRenameClub() {
+  const novo = window.prompt("Novo nome do clube:", state.club?.name || "");
+  if (!novo || !novo.trim() || !state.club) return;
+  try {
+    await renameClub(state.club.id, novo.trim());
+    state.club = { ...state.club, name: novo.trim() };
+    setState({ club: state.club });
+    toast("Nome do clube atualizado.");
+  } catch (error) {
+    toast(error?.message?.includes("criou") ? "Só quem criou o clube pode renomear." : "Não consegui renomear.");
+  }
+}
+
+function handleComentarSurto(id) {
+  if (!state.club) {
+    toast("Crie ou entre num clube pra comentar com as doramigas.");
+    setState({ view: "club" });
+    return;
+  }
+  commentDraft = id;
+  setState({ view: "club" });
 }
 
 function shareClub() {
@@ -2819,6 +2971,16 @@ async function hydrateFromCloud() {
   ]);
   state.profile = profile;
   state.dramas = dramas;
+  // Tema segue a conta: aplica o que está salvo no perfil.
+  if (profile?.tema) {
+    try {
+      if (profile.tema === "custom" && profile.temaCustom) localStorage.setItem(TEMA_CUSTOM_KEY, profile.temaCustom);
+      localStorage.setItem(TEMA_KEY, profile.tema);
+      aplicarTema(profile.tema);
+    } catch {
+      /* ignore */
+    }
+  }
   // Clube (Fase B): se as migrações ainda não rodaram, falha em silêncio.
   clubMembers = [];
   try {
@@ -2829,6 +2991,7 @@ async function hydrateFromCloud() {
   }
   saveState();
   resolveInvite();
+  checarNovidadesClube().then(render);
 }
 
 async function init() {
@@ -2843,7 +3006,13 @@ async function init() {
       // Sem conexão: cai no estado local até reconectar.
     }
     unsubscribeAuth?.();
-    unsubscribeAuth = onAuthChange(async (user) => {
+    unsubscribeAuth = onAuthChange(async (user, event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        authUser = user;
+        recovery = true;
+        render();
+        return;
+      }
       const previousId = authUser?.id;
       authUser = user;
       authBusy = false;
