@@ -41,14 +41,16 @@ Roleta de date · tema do casal por dorama (compartilhado) · diário do casal c
 - [ ] 🟢 **"Sobre nós" mais guiado** (perguntas em vez de campo livre).
 
 ## 🎓 Certificados (do casal)
-- [ ] 🎬 **Horas assistidas juntos**: buscar `episode_run_time` no TMDB (com fallback 1 ep = 60 min) e calcular eps×duração. Base pros certificados de maratona.
-- [ ] 🟢 **Certificado de Maratona** (por horas): 10h "Primeira maratona" · 25h "Casal Dorameiro Oficial" · 50h "Sobreviventes do Sofrimento" · 100h "Lenda dos Doramas".
-- [x] ✅ **Certificado de Dorama Finalizado Juntos** — botão 🎓 nos doramas "Já vimos/Favorito" gera card-imagem (capa, título, episódios, nome do casal, notas dele/dela vindas do diário, frase final). Reaproveita o canvas de card (`gerarCardMeuDia` com `opts.casal`). Falta só somar **horas** (depende do TMDB — Prioridade 2). *(commit Prioridade 1)*
-- [ ] 🟢 **Certificado de Casal Desbloqueado** (marcos): 1ª memória, 1º date, 1ª cartinha, 1º dorama finalizado, 10 eps juntos.
-- [ ] 🟢 **Certificado de Sofrimento**: muitos registros de "choramos/raiva/surto" no diário.
-- [ ] 🟢 **Certificado "Eu te avisei"**: ligado à frase interna / botão de personagem suspeito.
-- [ ] 🟢 **Certificado de Lanche Oficial**: mesmo lanche citado X vezes → "Pipoca doce oficialmente aprovada".
-- [ ] 🟢 **Exportar certificado como imagem** (reaproveitar o canvas de card que já existe).
+- [x] ✅ **Horas assistidas juntos** — TMDB `episode_run_time` (`getEpisodeRuntime`, fallback 60 min) × eps; cache em memória, busca preguiçosa na seção Certificados. *(commit Prioridade 2)*
+- [x] ✅ **Certificado de Maratona** (por horas): 10/25/50/100h. *(commit Prioridade 2)*
+- [x] ✅ **Certificado de Dorama Finalizado Juntos** — botão 🎓 nos doramas "Já vimos/Favorito" gera card-imagem (capa, título, episódios, **horas estimadas**, nome do casal, notas dele/dela do diário, frase final). *(commit Prioridade 1 + 2)*
+- [x] ✅ **Certificado de Casal Desbloqueado** (marcos): 1ª memória, 1ª cartinha, 1º finalizado, 10 eps juntos. *(commit Prioridade 2)*
+- [x] ✅ **Certificado de Sofrimento**: 3+ memórias com choro/raiva/surto. *(commit Prioridade 2)*
+- [x] ✅ **Certificado "Eu te avisei"**: ligado à frase interna do diário. *(commit Prioridade 2)*
+- [x] ✅ **Certificado de Lanche Oficial**: mesmo lanche citado 3×. *(commit Prioridade 2)*
+- [x] ✅ **Exportar certificado como imagem** — botão "Compartilhar" nos desbloqueados (reaproveita o canvas, `compartilharCertificadoMarco`). *(commit Prioridade 2)*
+
+> Nova **seção "Certificados"** no ambiente do casal: mostra horas estimadas + grade de certificados (bloqueado/desbloqueado) com compartilhar.
 
 ## 🏆 Pontuação / Gamificação
 - [ ] 🗄️ **Pontos do casal** (e talvez pessoal/clube): ações geram pontos.

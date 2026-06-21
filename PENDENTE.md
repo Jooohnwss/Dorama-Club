@@ -24,11 +24,11 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: deixa o **tema do ambiente "Nós dois" ser compartilhado** — quando um muda, vale pros dois
 - Status: você confirmou que já rodou a migração 14.
 
-### 1d. Rodar a migração 15 no Supabase (cartinha fixa)
+### 1d. ~~Rodar a migração 15 no Supabase (cartinha fixa)~~ ✅ FEITO
 - Onde: painel do Supabase → **SQL Editor** → New query
 - O quê: colar o conteúdo de `supabase/15 - cartinha-fixa-do-casal.sql` e clicar em **Run**
 - Pra quê: habilita a **cartinha fixa no topo** do casal (e a tela de "modo presente" na 1ª visita dela)
-- Sem isso: o botão "Salvar cartinha" dá erro (coluna `pinned_letter` não existe)
+- Status: você confirmou que já rodou a migração 15.
 
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**

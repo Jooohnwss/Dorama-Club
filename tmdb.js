@@ -120,9 +120,20 @@ export async function getDramaDetails(tmdbId) {
     title: result.name || result.original_name || "Sem título",
     year: result.first_air_date ? Number(result.first_air_date.slice(0, 4)) : "",
     episodes: result.number_of_episodes || 16,
+    runtime: (result.episode_run_time && result.episode_run_time[0]) || 0,
     genres: (result.genres || []).map((genre) => genre.name),
     rating: result.vote_average ? Number(result.vote_average.toFixed(1)) : "",
     cover: posterUrl(result.poster_path),
     synopsis: result.overview || "",
   };
+}
+
+// Duração média de um episódio (minutos). 0 quando o TMDB não informa.
+export async function getEpisodeRuntime(tmdbId) {
+  try {
+    const r = await tmdb(`/tv/${tmdbId}`);
+    return (r.episode_run_time && r.episode_run_time[0]) || 0;
+  } catch {
+    return 0;
+  }
 }

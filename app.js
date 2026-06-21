@@ -1,4 +1,4 @@
-import { searchDramas, getDramaDetails, getWatchProviders, getBackdrop, trendingWeek, discoverDramas, tmdbReady } from "./tmdb.js";
+import { searchDramas, getDramaDetails, getEpisodeRuntime, getWatchProviders, getBackdrop, trendingWeek, discoverDramas, tmdbReady } from "./tmdb.js";
 import { temas, acharTema, temaPadrao, categorias } from "./temas.js";
 import {
   supabaseReady,
@@ -471,6 +471,8 @@ let coupleLetters = [];
 let coupleLoading = false;
 let coupleSection = "inicio"; // seção interna do ambiente do casal
 let temaSearchCasal = { query: "", loading: false, results: [] }; // busca de tema dentro do casal
+let runtimeCache = {}; // tmdbId -> minutos por episódio (TMDB), pra estimar horas
+let coupleRuntimesFor = null; // casal cujos runtimes já buscamos (evita loop)
 // Favoritos especiais (aba Perfil).
 let favoritos = [];
 let favoritosFor = null;
@@ -600,6 +602,7 @@ const ICONS = {
   out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
   refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 7"/><path d="M21 3v4h-4"/>',
   compass: '<circle cx="12" cy="12" r="9"/><polygon points="16 8 13 13 8 16 11 11 16 8"/>',
+  medal: '<circle cx="12" cy="9" r="6"/><path d="M8.5 13.5L7 22l5-3 5 3-1.5-8.5"/>',
 };
 
 function icon(name) {
@@ -1108,6 +1111,7 @@ function coupleSidebarTemplate() {
     ["diario", "Diário", "lists"],
     ["sobre", "Sobre nós", "heart"],
     ["cartinhas", "Cartinhas", "share"],
+    ["certificados", "Certificados", "medal"],
     ["tema", "Tema", "paint"],
   ];
   const nome = state.couple?.title || "Nós dois";
@@ -1366,7 +1370,7 @@ async function gerarCardMeuDia(drama, opts = {}) {
   ctx.textAlign = "center";
   ctx.fillStyle = "#ffffff";
   ctx.font = '800 46px Inter, system-ui, sans-serif';
-  ctx.fillText(opts.casal ? "🎓 Finalizamos juntos" : opts.certificado ? "🎓 Certificado de conclusão" : "💜 Dorama Club", W / 2, 100);
+  ctx.fillText(opts.header || (opts.casal ? "🎓 Finalizamos juntos" : opts.certificado ? "🎓 Certificado de conclusão" : "💜 Dorama Club"), W / 2, 100);
 
   // pôster
   const pw = 470, ph = 705, px = (W - pw) / 2, py = 150;
@@ -2279,6 +2283,88 @@ function coupleStats() {
   ];
 }
 
+// Horas estimadas que o casal assistiu junto: eps × duração (TMDB; fallback 60 min).
+function coupleHorasEstimadas() {
+  let minutos = 0;
+  for (const d of coupleDramas) {
+    const eps = Number(d.current_episode || 0);
+    if (!eps) continue;
+    const rt = runtimeCache[d.tmdb_id] || 60; // 0/undefined → fallback 60
+    minutos += eps * rt;
+  }
+  return Math.round(minutos / 60);
+}
+
+// Busca (preguiçosa) a duração dos episódios dos doramas do casal pra estimar horas.
+async function loadCoupleRuntimes() {
+  if (!state.couple) return;
+  const ids = [...new Set(coupleDramas.map((d) => d.tmdb_id).filter(Boolean))];
+  const faltam = tmdbReady() ? ids.filter((id) => runtimeCache[id] === undefined) : [];
+  if (faltam.length) {
+    await Promise.all(
+      faltam.map(async (id) => {
+        runtimeCache[id] = await getEpisodeRuntime(id);
+      }),
+    );
+  }
+  coupleRuntimesFor = state.couple.id; // marca como carregado (mesmo sem TMDB) — evita loop
+  render();
+}
+
+// Certificados desbloqueáveis do casal (calculados a partir dos dados).
+function coupleCertificados() {
+  const horas = coupleHorasEstimadas();
+  const eps = coupleDramas.reduce((s, d) => s + Number(d.current_episode || 0), 0);
+  const finalizados = coupleDramas.filter((d) => d.status === "watched" || d.status === "favorite").length;
+  const memorias = coupleDiary.length;
+  const cartinhas = coupleLetters.length;
+  const sofrimento = coupleDiary.filter((e) => /chor|raiv|surt/i.test(`${e.mood || ""} ${e.who_cried || ""} ${e.who_raged || ""} ${e.comment || ""}`)).length;
+  const temAviso = coupleDiary.some((e) => e.inside_joke);
+  const lanches = {};
+  coupleDiary.forEach((e) => {
+    const l = (e.snack || "").trim().toLowerCase();
+    if (l) lanches[l] = (lanches[l] || 0) + 1;
+  });
+  const lancheTop = Object.entries(lanches).sort((a, b) => b[1] - a[1])[0];
+
+  return [
+    { emoji: "🏃", nome: "Primeira maratona", desc: "10h juntos", earned: horas >= 10 },
+    { emoji: "💞", nome: "Casal Dorameiro Oficial", desc: "25h juntos", earned: horas >= 25 },
+    { emoji: "🥲", nome: "Sobreviventes do Sofrimento", desc: "50h juntos", earned: horas >= 50 },
+    { emoji: "👑", nome: "Lenda dos Doramas", desc: "100h juntos", earned: horas >= 100 },
+    { emoji: "📖", nome: "Primeira memória", desc: "Guardaram a 1ª memória", earned: memorias >= 1 },
+    { emoji: "💌", nome: "Primeira cartinha", desc: "Escreveram a 1ª cartinha", earned: cartinhas >= 1 },
+    { emoji: "🏁", nome: "Primeiro finalizado", desc: "Terminaram 1 dorama juntos", earned: finalizados >= 1 },
+    { emoji: "🔟", nome: "10 episódios juntos", desc: "Passaram de 10 episódios", earned: eps >= 10 },
+    { emoji: "😭", nome: "Certificado de Sofrimento", desc: "3+ memórias de choro/raiva/surto", earned: sofrimento >= 3 },
+    { emoji: "🙄", nome: "Eu te avisei", desc: "Registraram uma frase interna", earned: temAviso },
+    { emoji: "🍿", nome: "Lanche oficial", desc: lancheTop ? `“${lancheTop[0]}” aprovado pelo casal` : "Mesmo lanche 3×", earned: Boolean(lancheTop && lancheTop[1] >= 3) },
+  ];
+}
+
+function coupleCertificadosSection() {
+  const carregando = coupleRuntimesFor !== state.couple.id;
+  const horas = coupleHorasEstimadas();
+  const certs = coupleCertificados();
+  const desbloqueados = certs.filter((c) => c.earned).length;
+  return `
+    <div class="section-title"><h2>🎓 Certificados de vocês</h2></div>
+    <section class="grid stats">
+      <div class="stat"><span class="muted">Horas juntos (estimadas)</span><strong>${carregando ? "…" : `~${horas}h`}</strong></div>
+      <div class="stat"><span class="muted">Desbloqueados</span><strong>${desbloqueados}/${certs.length}</strong></div>
+    </section>
+    <p class="muted" style="margin:2px 0 14px;font-size:.82rem">Horas estimadas pela duração dos episódios (TMDB); quando não tem essa info, contamos 60 min por episódio.</p>
+    <section class="badge-grid">
+      ${certs.map((c, i) => `
+        <div class="badge ${c.earned ? "" : "locked"}">
+          <span class="badge-emoji">${c.emoji}</span>
+          <strong>${esc(c.nome)}</strong>
+          <small>${esc(c.desc)}</small>
+          ${c.earned ? `<button class="btn ghost cert-share" data-cert-share="${i}">${icon("share")} Compartilhar</button>` : ""}
+        </div>`).join("")}
+    </section>`;
+}
+
 function formatDateShort(value) {
   if (!value) return "";
   try {
@@ -2545,6 +2631,7 @@ function coupleSpaceView() {
     case "diario": return coupleDiaryTemplate();
     case "sobre": return coupleAboutTemplate();
     case "cartinhas": return coupleLettersTemplate();
+    case "certificados": return coupleCertificadosSection();
     case "tema": return coupleTemaSection();
     default: return coupleInicioSection();
   }
@@ -3694,6 +3781,9 @@ function bindShell() {
   document.querySelectorAll("[data-couple-cert]").forEach((button) => {
     listen(button, "click", () => compartilharCertificadoCasal(button.dataset.coupleCert));
   });
+  document.querySelectorAll("[data-cert-share]").forEach((button) => {
+    listen(button, "click", () => compartilharCertificadoMarco(button.dataset.certShare));
+  });
   document.querySelectorAll("[data-del-couple-diary]").forEach((button) => {
     listen(button, "click", () => handleDeleteCoupleDiary(button.dataset.delCoupleDiary));
   });
@@ -3764,6 +3854,7 @@ function bindShell() {
   if (state.view === "club" && state.club && clubFeedFor !== state.club.id) loadClubFeed();
   if (state.view === "club" && state.club && clubSocial.for !== state.club.id) loadClubSocial();
   if (state.space === "couple" && state.couple && coupleFor !== state.couple.id) loadCoupleData();
+  if (state.space === "couple" && state.couple && coupleSection === "certificados" && coupleFor === state.couple.id && coupleRuntimesFor !== state.couple.id) loadCoupleRuntimes();
   if (state.view === "profile" && casaisFor !== (authUser?.id || "_")) loadCasaisData();
   if (state.view === "profile" && favoritosFor !== (authUser?.id || "_")) loadFavoritosData();
 }
@@ -4202,16 +4293,40 @@ async function compartilharCertificadoCasal(id) {
   // Notas dele/dela: pega do diário desse dorama, se houver.
   const mem = coupleDiary.find((e) => (d.tmdb_id && e.tmdb_id === d.tmdb_id) || (e.drama_title && e.drama_title === d.title));
   const coupleName = state.couple?.title || coupleMembers.map((m) => m.name || m.nickname).filter(Boolean).join(" & ") || "Nós dois";
+  // Horas estimadas deste dorama (busca a duração se ainda não tiver no cache).
+  if (d.tmdb_id && runtimeCache[d.tmdb_id] === undefined && tmdbReady()) {
+    try { runtimeCache[d.tmdb_id] = await getEpisodeRuntime(d.tmdb_id); } catch { /* ignore */ }
+  }
+  const rt = runtimeCache[d.tmdb_id] || 60;
+  const horas = Math.round((Number(d.current_episode || d.episodes || 0) * rt) / 60);
   const dramaShape = { tmdbId: d.tmdb_id, cover: d.cover, title: d.title, episodes: d.episodes, currentEpisode: d.current_episode };
   try {
     const blob = await gerarCardMeuDia(dramaShape, {
       casal: true,
       coupleName,
+      horas: horas || 0,
       noteHim: mem?.note_him || "",
       noteHer: mem?.note_her || "",
       frase: fraseFim(),
     });
     await compartilharImagem(blob, `Finalizamos ${d.title} juntos! 💕 ${inviteLink()}`);
+  } catch {
+    toast("Não consegui gerar o certificado.");
+  }
+}
+
+// Compartilha um certificado de marco/conquista do casal (sem pôster).
+async function compartilharCertificadoMarco(i) {
+  const cert = coupleCertificados()[Number(i)];
+  if (!cert || !cert.earned) return;
+  toast("Gerando certificado…");
+  const coupleName = state.couple?.title || coupleMembers.map((m) => m.name || m.nickname).filter(Boolean).join(" & ") || "Nós dois";
+  try {
+    const blob = await gerarCardMeuDia(
+      { title: `${cert.emoji} ${cert.nome}` },
+      { casal: true, header: "🎓 Certificado do casal", coupleName, frase: cert.desc },
+    );
+    await compartilharImagem(blob, `${cert.nome} — desbloqueamos no Dorama Club! 💕 ${inviteLink()}`);
   } catch {
     toast("Não consegui gerar o certificado.");
   }
