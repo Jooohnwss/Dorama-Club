@@ -2269,38 +2269,38 @@ function dramaCard(drama) {
   const pct = total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
   const showProgress = drama.status !== "wishlist" && total > 0 && ep > 0;
   const temEpisodio = drama.status !== "wishlist" && total > 0;
+  // Só repete o status quando a aba mistura status (favoritos / conforto).
+  const mostrarStatus = state.activeList === "favorites" || state.activeList === "comfort";
   const meta = drama.status === "wishlist"
     ? `${drama.year || "—"} · ${esc(drama.priority || "Quero assistir")}`
-    : `${drama.year || "—"} · ${statusLabel(drama.status)}`;
+    : `${drama.year || "—"}${mostrarStatus ? ` · ${statusLabel(drama.status)}` : ""}${(drama.genres || [])[0] ? ` · ${esc(drama.genres[0])}` : ""}`;
 
-  const moodChips = [
+  const chips = [
+    drama.comfort ? `<span class="chip">🧸 Conforto</span>` : "",
+    drama.semaforo ? `<span class="chip">${semaforoEmoji(drama.semaforo)}</span>` : "",
+    drama.status === "paused" && drama.pauseReason ? `<span class="chip">⏸️ ${esc(drama.pauseReason)}</span>` : "",
+    drama.status === "dropped" && drama.dropReason ? `<span class="chip">🚫 ${esc(drama.dropReason)}</span>` : "",
     Number(drama.cry) > 0 ? `<span class="chip choro">😭 ${drama.cry}</span>` : "",
     Number(drama.hype) > 0 ? `<span class="chip surto">🔥 ${drama.hype}</span>` : "",
     Number(drama.rage) > 0 ? `<span class="chip raiva">😡 ${drama.rage}</span>` : "",
     drama.personalRating ? `<span class="chip">⭐ ${esc(drama.personalRating)}</span>` : "",
-  ].join("");
+  ].filter(Boolean).join("");
 
   return `
     <article class="drama-card" data-title="${esc((drama.title || "").toLowerCase())}">
-      <img class="poster" src="${esc(drama.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(drama.title)}" loading="lazy" decoding="async" />
-      <div>
-        <h3>${esc(drama.title)}</h3>
+      <button class="poster-btn" data-detail="${drama.id}" aria-label="Ver ${esc(drama.title)}">
+        <img class="poster" src="${esc(drama.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(drama.title)}" loading="lazy" decoding="async" />
+        ${drama.favorite ? `<span class="poster-fav">${icon("heart")}</span>` : ""}
+      </button>
+      <div class="drama-body">
+        <h3 class="drama-title" data-detail="${drama.id}">${esc(drama.title)}</h3>
         <p class="meta">${meta}</p>
         ${temEpisodio ? `<button class="ep-set card-ep" data-set-ep="${drama.id}">Ep. ${ep}/${total} ✏️</button>` : ""}
         ${showProgress ? `<div class="progress"><span style="width:${pct}%"></span></div>` : ""}
-        <div class="chips">
-          ${(drama.genres || []).slice(0, 2).map((genre) => `<span class="chip">${esc(genre)}</span>`).join("")}
-          ${drama.favorite ? `<span class="chip fav">${icon("heart")} Favorito</span>` : ""}
-          ${drama.comfort ? `<span class="chip">🧸 Conforto</span>` : ""}
-          ${drama.semaforo ? `<span class="chip">${semaforoEmoji(drama.semaforo)}</span>` : ""}
-          ${drama.status === "paused" && drama.pauseReason ? `<span class="chip">⏸️ ${esc(drama.pauseReason)}</span>` : ""}
-          ${drama.status === "dropped" && drama.dropReason ? `<span class="chip">🚫 ${esc(drama.dropReason)}</span>` : ""}
-          ${moodChips}
-        </div>
+        ${chips ? `<div class="chips">${chips}</div>` : ""}
         <div class="mini-actions">
           ${drama.status === "watching" ? `<button data-plus-one="${drama.id}">${icon("add")} +1 ep</button>` : ""}
-          <button data-detail="${drama.id}">${icon("detail")} Detalhes</button>
-          <button data-toggle-favorite="${drama.id}">${icon("heart")} ${drama.favorite ? "Tirar" : "Favoritar"}</button>
+          <button class="${drama.favorite ? "fav-on" : ""}" data-toggle-favorite="${drama.id}" title="${drama.favorite ? "Desfavoritar" : "Favoritar"}">${icon("heart")} ${drama.favorite ? "Favorito" : "Favoritar"}</button>
         </div>
       </div>
     </article>

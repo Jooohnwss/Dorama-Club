@@ -764,6 +764,62 @@ textarea:focus {
   background: var(--cor-superficie-2);
 }
 
+.poster-btn {
+  position: relative;
+  display: block;
+  width: 92px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: var(--raio-sm);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.poster-btn .poster {
+  display: block;
+  width: 100%;
+  transition: transform 0.14s ease;
+}
+
+.poster-btn:hover .poster {
+  transform: scale(1.05);
+}
+
+.poster-fav {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+}
+
+.poster-fav .ico {
+  width: 15px;
+  height: 15px;
+}
+
+.drama-title {
+  margin: 0 0 4px;
+  font-size: 1.02rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.drama-title:hover {
+  color: var(--cor-primaria);
+}
+
+.fav-on {
+  color: var(--cor-primaria) !important;
+  border-color: var(--cor-primaria) !important;
+}
+
 .drama-card h3 {
   margin: 0 0 4px;
   font-size: 1.02rem;
