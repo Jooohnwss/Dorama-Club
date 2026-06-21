@@ -1095,6 +1095,17 @@ textarea:focus {
   gap: 16px;
 }
 
+.couple-waiting {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cor-primaria) 12%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--cor-primaria) 40%, transparent);
+  color: var(--cor-texto) !important;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
 .couple-actions {
   display: flex;
   flex-wrap: wrap;

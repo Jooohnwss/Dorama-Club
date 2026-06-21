@@ -2093,6 +2093,7 @@ function coupleHeroTemplate() {
   const title = state.couple?.title || "Nós dois";
   const tagline = state.couple?.tagline || "Nosso cantinho de doramas, dates e surtos.";
   const names = coupleMembers.map((m) => m.name || m.nickname || "Minha pessoa").join(" & ");
+  const sozinho = coupleMembers.length < 2;
   return `
     <section class="couple-hero">
       <div>
@@ -2104,6 +2105,7 @@ function coupleHeroTemplate() {
           ${names ? `<span class="chip">${esc(names)}</span>` : ""}
           ${state.couple.specialDate ? `<span class="chip">Desde ${esc(state.couple.specialDate)}</span>` : ""}
         </div>
+        ${sozinho ? `<p class="couple-waiting">💌 Falta sua pessoa entrar. Envie o código <strong>${esc(state.couple.code)}</strong> pra ela usar em “Nós dois → Entrar com código”.</p>` : ""}
       </div>
       <div class="couple-actions">
         <button class="btn secondary" data-copy-couple-code>${icon("share")} Copiar código</button>
@@ -3732,7 +3734,6 @@ async function loadCoupleData() {
       loadCoupleAbout(id),
       loadCoupleLetters(id),
     ]);
-    coupleFor = id;
     coupleMembers = members;
     coupleDramas = dramas;
     coupleDiary = diary;
@@ -3741,6 +3742,9 @@ async function loadCoupleData() {
   } catch {
     toast("Não consegui carregar o espaço do casal.");
   } finally {
+    // Marca como carregado MESMO em erro: evita loop infinito de render
+    // (bindShell re-chamaria loadCoupleData enquanto coupleFor !== id).
+    coupleFor = id;
     coupleLoading = false;
   }
   render();

@@ -66,7 +66,7 @@ Dois grandes blocos, nesta ordem:
 
 > Nota: criei TODAS as tabelas do casal já nesta migração (não só o vínculo) pra você rodar SQL uma vez só. A Etapa 3 será só UI + funções CRUD em `supabase.js`, sem nova migração.
 
-### Etapa 3 — Área "Nós dois"  → **EM ANDAMENTO / primeira versão implementada**
+### Etapa 3 — Área "Nós dois"  → **FEITO** ✅
 - [x] Capa do casal.
 - [x] Criar/entrar por código na UI.
 - [x] Membros do casal.
@@ -77,7 +77,11 @@ Dois grandes blocos, nesta ordem:
 - [x] Campos afetivos no diário (quem escolheu, notas dele/dela, quem chorou, quem passou raiva).
 - [x] Roleta de date.
 - [x] Cartinhas/memórias.
-- [ ] Polimento visual e testes reais em duas contas.
+- [x] **Correção de robustez**: `loadCoupleData()` marca `coupleFor` mesmo em erro (evita loop infinito de render — mesma classe do crash "Ah, não!" antigo).
+- [x] **Polimento**: aviso no hero quando falta a 2ª pessoa entrar (mostra o código + onde usar).
+- [x] Todos os handlers ligados em `bindShell` e conferidos (criar/entrar, capa, +dorama, episódio, memória, sobre nós, cartinha, roleta, copiar código, sair, apagar).
+
+> **Falta só validação manual em 2 contas** (não dá pra automatizar — precisa de 2 logins reais). Checklist de teste abaixo, em "O que ainda falta testar".
 
 ### Etapa 4 — Navegação  → **PENDENTE**
 - [ ] Entrada "Nós dois" (sidebar desktop + decisão mobile: bottom nav vs. card de destaque na Home/Perfil).
@@ -98,6 +102,7 @@ Dois grandes blocos, nesta ordem:
 ## 📂 Arquivos alterados (acumulado)
 - **Etapa 1**: `app.js` (estado + `tutorialTemplate`/`bindTutorial` + auto-abrir + entrada no Perfil), `styles.css` (estilos do overlay), `PLANO_CASAL_E_TUTORIAL.md`.
 - **Etapa 2**: `supabase/13 - criar-espaco-do-casal.sql` (novo), `supabase.js` (funções do casal), `supabase/README.md`, `PENDENTE.md`, `PLANO_CASAL_E_TUTORIAL.md`.
+- **Etapa 3** (Codex + Claude): `app.js` (toda a aba "Nós dois": setup, hero, stats, timeline automática, capa, lista, diário com campos afetivos, sobre nós, cartinhas, roleta + handlers; correção anti-loop em `loadCoupleData`; aviso "falta sua pessoa"), `supabase.js` (CRUD: dramas/diário/about/cartinhas do casal), `styles.css` (estilos do casal + `.couple-waiting`), `PLANO_CASAL_E_TUTORIAL.md`.
 - **Etapa 3 primeira versão**: `supabase.js` (CRUD do casal), `app.js` (aba "Nós dois" + handlers), `styles.css` (visual do cantinho), `PENDENTE.md`, `PLANO_CASAL_E_TUTORIAL.md`.
 
 ---
@@ -110,6 +115,16 @@ Dois grandes blocos, nesta ordem:
 
 ## 🧪 O que ainda falta testar
 - Etapa 1: abrir no celular (largura pequena), conferir que o auto-abrir só ocorre 1x, que "Pular" não reabre, que "Como usar o app" no Perfil reabre, e que não atrapalha quem já usa.
+- **Etapa 3 — teste em 2 contas (manual, peça ajuda à sua pessoa ou use 2 logins):**
+  1. Conta A: aba **Nós dois → Criar nosso espaço** → aparece o hero com o código + aviso "falta sua pessoa entrar".
+  2. Conta A: **Copiar código** e mandar pra conta B.
+  3. Conta B: **Nós dois → Entrar com código** → confirmação "Entrar neste espaço?" → entra; o aviso some nas duas contas (2 membros).
+  4. Conta B (ou A): **Adicionar dorama** da lista pessoal → aparece em "Assistindo juntos" para os dois.
+  5. **Registrar memória** com campos afetivos → some na lista do diário para os dois.
+  6. **Sobre nós** e **Cartinha** → cada um vê o do outro.
+  7. **Sortear date** → modal com dorama + lanche + missão.
+  8. Segurança: conta C tentando entrar com o mesmo código → erro "já está completo (2 pessoas)". Conta já em casal tentando criar/entrar em outro → erro "já está em um espaço de casal".
+  9. **Sair deste casal** (confirmação forte) → volta pra tela de criar/entrar; o outro continua com o espaço.
 
 ---
 
