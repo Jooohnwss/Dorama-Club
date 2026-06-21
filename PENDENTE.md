@@ -42,6 +42,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: o diário do casal vira **álbum por tipo de página** (episódio/date/cartinha/surto/momento/marco)
 - Status: você confirmou que já rodou a migração 17.
 
+### 1g. Rodar a migração 18 no Supabase (quiz do casal)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/18 - quiz-do-casal.sql` e clicar em **Run**
+- Pra quê: o **quiz de compatibilidade semanal** (cada um responde 4 perguntas; revela quando os dois respondem)
+- Sem isso: o quiz não salva/carrega (tabela `couple_quiz_answers` não existe)
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

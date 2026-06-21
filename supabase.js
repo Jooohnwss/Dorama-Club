@@ -399,6 +399,28 @@ export async function saveCouplePinnedLetter(coupleId, texto) {
   if (error) throw error;
 }
 
+// ---------- QUIZ DO CASAL ----------
+export async function loadCoupleQuiz(coupleId, week) {
+  const { data, error } = await supabase
+    .from("couple_quiz_answers")
+    .select("q, user_id, answer")
+    .eq("couple_id", coupleId)
+    .eq("week", week);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveCoupleQuizAnswer(coupleId, userId, week, q, answer) {
+  const { error } = await supabase.from("couple_quiz_answers").upsert({
+    couple_id: coupleId,
+    week,
+    q,
+    user_id: userId,
+    answer,
+  });
+  if (error) throw error;
+}
+
 // ---------- PET DO CASAL ----------
 export async function loadCouplePet(coupleId) {
   const { data, error } = await supabase

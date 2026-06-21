@@ -1297,6 +1297,70 @@ textarea:focus {
   background: color-mix(in srgb, var(--cor-primaria) 22%, transparent);
 }
 
+/* Quiz do casal */
+.quiz-score {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  text-align: center;
+  color: var(--cor-texto);
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 35%, transparent);
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--cor-primaria) 18%, transparent), transparent 70%),
+    color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+}
+.quiz-score strong { font-size: 1.4rem; }
+.quiz-score span { color: var(--cor-texto-suave); font-weight: 700; }
+.quiz-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.quiz-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+}
+.quiz-n {
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  color: var(--cor-primaria);
+}
+.quiz-card strong { display: block; margin: 4px 0 12px; font-size: 1.05rem; }
+.quiz-opts { display: grid; gap: 8px; }
+.quiz-opt {
+  text-align: left;
+  padding: 10px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie-2);
+  color: var(--cor-texto);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.quiz-opt:hover:not(:disabled) { border-color: var(--cor-primaria); }
+.quiz-opt:disabled { cursor: default; }
+.quiz-opt.eu {
+  border-color: var(--cor-primaria);
+  background: color-mix(in srgb, var(--cor-primaria) 16%, transparent);
+}
+.quiz-opt.ela {
+  border-color: var(--cor-secundaria);
+  box-shadow: inset 0 0 0 1px var(--cor-secundaria);
+}
+.quiz-opt.eu.ela {
+  background: color-mix(in srgb, var(--cor-primaria) 22%, transparent);
+}
+.quiz-wait { display: block; margin-top: 8px; color: var(--cor-texto-suave); font-weight: 700; }
+.quiz-result { display: block; margin-top: 8px; font-weight: 800; }
+.quiz-result.match { color: #2fa86a; }
+.quiz-result.miss { color: var(--cor-texto-suave); }
+
 /* Bingo do episódio */
 .bingo-grid {
   display: grid;

@@ -26,6 +26,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 15 | `15 - cartinha-fixa-do-casal.sql` | Coluna `pinned_letter` em `couples`: cartinha fixa no topo do casal (e usada na tela de "modo presente") | Casal |
 | 16 | `16 - pet-do-casal.sql` | Tabela `couple_pet` (nome + carinha do mascote) + RLS (só o casal). Felicidade/acessórios são derivados das ações | Casal |
 | 17 | `17 - tipo-de-pagina-do-diario.sql` | Coluna `kind` em `couple_diary`: diário vira álbum por tipo (episódio/date/cartinha/surto/momento/marco) | Casal |
+| 18 | `18 - quiz-do-casal.sql` | Tabela `couple_quiz_answers` (resposta por pessoa/semana/pergunta) + RLS: quiz de compatibilidade semanal | Casal |
 
 ## Convenção de nome
 

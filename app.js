@@ -68,6 +68,8 @@ import {
   saveCouplePinnedLetter,
   loadCouplePet,
   saveCouplePet,
+  loadCoupleQuiz,
+  saveCoupleQuizAnswer,
   loadCoupleDramas,
   addCoupleDrama,
   updateCoupleDrama,
@@ -483,6 +485,8 @@ let runtimeCache = {}; // tmdbId -> minutos por episódio (TMDB), pra estimar ho
 let coupleRuntimesFor = null; // casal cujos runtimes já buscamos (evita loop)
 let couplePet = null; // mascote do casal (linha de couple_pet)
 let petReacao = ""; // mensagem transitória do pet ao cuidar
+let coupleQuiz = []; // respostas do quiz da semana [{q,user_id,answer}]
+let coupleQuizFor = null; // "coupleId:week" já carregado (evita loop)
 // Favoritos especiais (aba Perfil).
 let favoritos = [];
 let favoritosFor = null;
@@ -3142,6 +3146,109 @@ async function shareBingo() {
   }
 }
 
+// ---------- Quiz do casal (compatibilidade semanal) ----------
+const QUIZ_POOL = [
+  { q: "Qual nosso gênero favorito juntos?", opts: ["Romance fofo", "Comédia", "Suspense/crime", "Histórico"] },
+  { q: "Quem chora mais nos doramas?", opts: ["Eu", "Você", "Os dois", "Ninguém kkk"] },
+  { q: "Date dorameiro ideal?", opts: ["Maratona no sofá", "Cinema em casa", "Comida + 1 ep", "Madrugada surtando"] },
+  { q: "Vilão dá pra perdoar?", opts: ["Sempre", "Depende", "Nunca", "Se for bonito kkk"] },
+  { q: "Final que a gente prefere?", opts: ["Final feliz", "Final realista", "Final aberto", "Só não matem ninguém"] },
+  { q: "Nosso lanche oficial de dorama?", opts: ["Pipoca", "Doce", "Salgado", "Comida de verdade"] },
+  { q: "Quem escolhe o próximo dorama?", opts: ["Eu", "Você", "A gente decide junto", "Sortear"] },
+  { q: "Cena que mais mexe com a gente?", opts: ["Reconciliação", "Declaração", "Despedida", "Beijo na chuva"] },
+  { q: "Quantos episódios por noite?", opts: ["1, com calma", "2 a 3", "Maratona", "Até dormir no sofá"] },
+  { q: "Pior clichê de dorama?", opts: ["Mal-entendido bobo", "Triângulo amoroso", "Doença terminal", "Amnésia"] },
+  { q: "Se fôssemos um casal de dorama, seríamos…", opts: ["O fofo", "O caótico", "O dramático", "O que faz rir"] },
+  { q: "Maior red flag num personagem?", opts: ["Ciúme", "Mentira", "Frieza", "Sumir sem explicar"] },
+];
+
+function semanaAtual() {
+  const d = new Date();
+  const inicio = new Date(d.getFullYear(), 0, 1);
+  const semana = Math.ceil(((d - inicio) / 86400000 + inicio.getDay() + 1) / 7);
+  return `${d.getFullYear()}-W${semana}`;
+}
+
+// 4 perguntas da semana (rotativas, determinísticas pela semana). q = índice no pool.
+function quizSemana() {
+  const week = semanaAtual();
+  const seed = [...week].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const idxs = [];
+  let i = seed % QUIZ_POOL.length;
+  while (idxs.length < 4) { if (!idxs.includes(i)) idxs.push(i); i = (i + 1) % QUIZ_POOL.length; }
+  return { week, perguntas: idxs.map((ix) => ({ ix, ...QUIZ_POOL[ix] })) };
+}
+
+async function loadCoupleQuizData() {
+  if (!state.couple || !cloudOn()) return;
+  const week = semanaAtual();
+  try {
+    coupleQuiz = await loadCoupleQuiz(state.couple.id, week);
+  } catch {
+    coupleQuiz = [];
+  }
+  coupleQuizFor = `${state.couple.id}:${week}`;
+  render();
+}
+
+function coupleQuizTemplate() {
+  const { week, perguntas } = quizSemana();
+  const eu = authUser?.id;
+  const parceira = coupleMembers.find((m) => m.user_id !== eu);
+  const nomeParceira = parceira?.name || parceira?.nickname || "sua pessoa";
+  const semParceira = coupleMembers.length < 2;
+  const minha = (q) => coupleQuiz.find((a) => a.q === q && a.user_id === eu);
+  const dela = (q) => coupleQuiz.find((a) => a.q === q && a.user_id !== eu);
+
+  const respondidas = perguntas.filter((p) => minha(p.ix)).length;
+  const ambos = perguntas.filter((p) => minha(p.ix) && dela(p.ix));
+  const matches = ambos.filter((p) => minha(p.ix).answer === dela(p.ix).answer).length;
+  const completo = ambos.length === perguntas.length;
+  const pct = perguntas.length ? Math.round((matches / perguntas.length) * 100) : 0;
+
+  const cards = perguntas.map((p, n) => {
+    const meu = minha(p.ix);
+    const dual = dela(p.ix);
+    const revelado = meu && dual; // só revela quando os DOIS responderam
+    return `
+      <article class="quiz-card">
+        <span class="quiz-n">Pergunta ${n + 1}</span>
+        <strong>${esc(p.q)}</strong>
+        <div class="quiz-opts">
+          ${p.opts.map((opt, oi) => {
+            const escolhiEu = meu && meu.answer === oi;
+            const escolheuEla = dual && dual.answer === oi;
+            const cls = [escolhiEu ? "eu" : "", revelado && escolheuEla ? "ela" : ""].filter(Boolean).join(" ");
+            return `<button class="quiz-opt ${cls}" type="button" data-quiz="${p.ix}:${oi}" ${meu ? "disabled" : ""}>${esc(opt)}${revelado && escolheuEla ? ` · ${esc(nomeParceira.split(" ")[0])}` : ""}${escolhiEu ? " · você" : ""}</button>`;
+          }).join("")}
+        </div>
+        ${meu && !dual ? `<small class="quiz-wait">✓ você respondeu — aguardando ${esc(nomeParceira.split(" ")[0])}…</small>` : ""}
+        ${revelado ? `<small class="quiz-result ${meu.answer === dual.answer ? "match" : "miss"}">${meu.answer === dual.answer ? "💚 Vocês concordam!" : "🤔 Responderam diferente"}</small>` : ""}
+      </article>`;
+  }).join("");
+
+  return `
+    <div class="section-title"><h2>💞 Quiz do casal</h2><span class="muted" style="font-size:.8rem">${week}</span></div>
+    <p class="muted" style="margin:-6px 0 12px;font-size:.84rem">4 perguntas da semana. Cada um responde no seu app — a resposta do outro só aparece quando os dois responderem. Bateu = compatível! 💚</p>
+    ${semParceira ? `<div class="empty">O quiz precisa de vocês dois. Falta sua pessoa entrar no casal (código em Ajustes).</div>` : `
+      ${completo ? `<div class="quiz-score"><strong>${pct}% de compatibilidade essa semana</strong><span>${matches} de ${perguntas.length} respostas iguais ${pct >= 75 ? "🥰" : pct >= 50 ? "😊" : "😅"}</span></div>` : `<p class="muted" style="margin:0 0 10px;font-size:.82rem">Você respondeu ${respondidas}/${perguntas.length}.</p>`}
+      <section class="quiz-grid">${cards}</section>`}`;
+}
+
+async function handleQuizAnswer(raw) {
+  if (!state.couple) return;
+  const [q, oi] = String(raw).split(":").map(Number);
+  // Não deixa trocar depois de responder.
+  if (coupleQuiz.some((a) => a.q === q && a.user_id === authUser.id)) return;
+  try {
+    await saveCoupleQuizAnswer(state.couple.id, authUser.id, semanaAtual(), q, oi);
+    coupleQuiz = [...coupleQuiz, { q, user_id: authUser.id, answer: oi }];
+    render();
+  } catch {
+    toast("Não consegui salvar sua resposta.");
+  }
+}
+
 function coupleDiversaoSection() {
   return `
     <div class="section-title"><h2>Diversão do casal</h2></div>
@@ -3153,15 +3260,16 @@ function coupleDiversaoSection() {
       </button>
       <div class="couple-dash-card">
         <span class="muted">Joguinho</span>
+        <strong>💞 Quiz do casal</strong>
+        <small>4 perguntas da semana pra ver o quanto vocês combinam.</small>
+      </div>
+      <div class="couple-dash-card">
+        <span class="muted">Joguinho</span>
         <strong>🎬 Bingo do episódio</strong>
         <small>Marquem os clichês que aparecerem. Fechou linha, deu bingo!</small>
       </div>
-      <div class="couple-dash-card">
-        <span class="muted">Mascote</span>
-        <strong>${esc(couplePet?.name || "Nosso pet")}</strong>
-        <small>Um cachorrinho para cuidar com os momentos de vocês.</small>
-      </div>
     </section>
+    ${coupleQuizTemplate()}
     ${bingoTemplate()}
     ${coupleCertificadosSection()}
     ${couplePetSection()}`;
@@ -4448,6 +4556,9 @@ function bindShell() {
   });
   listen(document.querySelector("[data-bingo-novo]"), "click", () => { gerarBingoCard(bingoCard?.size || 3); render(); });
   listen(document.querySelector("[data-bingo-share]"), "click", shareBingo);
+  document.querySelectorAll("[data-quiz]").forEach((button) => {
+    listen(button, "click", () => handleQuizAnswer(button.dataset.quiz));
+  });
   listen(document.querySelector("#couple-add-cat"), "change", (e) => { coupleAddCatSel = e.target.value; });
   listen(document.querySelector("#couple-search-form"), "submit", runCoupleSearch);
   document.querySelectorAll("[data-couple-add-tmdb]").forEach((button) => {
@@ -4540,6 +4651,7 @@ function bindShell() {
   if (state.view === "club" && state.club && clubSocial.for !== state.club.id) loadClubSocial();
   if (state.space === "couple" && state.couple && coupleFor !== state.couple.id) loadCoupleData();
   if (state.space === "couple" && state.couple && coupleSection === "certificados" && coupleFor === state.couple.id && coupleRuntimesFor !== state.couple.id) loadCoupleRuntimes();
+  if (state.space === "couple" && state.couple && coupleSection === "diversao" && coupleFor === state.couple.id && coupleQuizFor !== `${state.couple.id}:${semanaAtual()}`) loadCoupleQuizData();
   if (state.view === "profile" && casaisFor !== (authUser?.id || "_")) loadCasaisData();
   if (state.view === "profile" && favoritosFor !== (authUser?.id || "_")) loadFavoritosData();
 }
@@ -5426,6 +5538,8 @@ async function handleLeaveCouple() {
     coupleAbout = {};
     coupleLetters = [];
     couplePet = null;
+    coupleQuiz = [];
+    coupleQuizFor = null;
     state.space = "solo"; // volta pro app normal
     saveState();
     aplicarTemaAmbiente(); // restaura o tema pessoal
