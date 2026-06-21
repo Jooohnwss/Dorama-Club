@@ -185,6 +185,69 @@ const defaults = {
 
 let state = loadState();
 let modal = null;
+let uiModal = null; // confirm/prompt bonito (substitui os popups do navegador)
+
+function uiModalTemplate() {
+  if (!uiModal) return "";
+  if (uiModal.type === "confirm") {
+    return `
+      <div class="modal ui-modal">
+        <section class="modal-card ui-card">
+          <h3>${esc(uiModal.message)}</h3>
+          ${uiModal.sub ? `<p class="muted">${esc(uiModal.sub)}</p>` : ""}
+          <div class="actions" style="justify-content:flex-end;margin-top:16px">
+            <button class="btn ghost" data-ui-cancel>${esc(uiModal.cancel || "Cancelar")}</button>
+            <button class="btn ${uiModal.danger ? "danger-solid" : ""}" data-ui-ok>${esc(uiModal.ok || "Confirmar")}</button>
+          </div>
+        </section>
+      </div>`;
+  }
+  return `
+    <div class="modal ui-modal">
+      <section class="modal-card ui-card">
+        <h3>${esc(uiModal.message)}</h3>
+        <form id="ui-prompt-form" class="form-grid" style="margin-top:12px">
+          <div class="field full">
+            <input id="ui-input" name="v" type="${uiModal.inputType || "text"}" value="${esc(uiModal.value ?? "")}" placeholder="${esc(uiModal.placeholder || "")}" ${uiModal.inputType === "number" ? 'min="0"' : ""} autocomplete="off" />
+          </div>
+          <div class="actions field full" style="justify-content:flex-end">
+            <button class="btn ghost" type="button" data-ui-cancel>Cancelar</button>
+            <button class="btn" type="submit">${esc(uiModal.ok || "OK")}</button>
+          </div>
+        </form>
+      </section>
+    </div>`;
+}
+
+function bindUiModal() {
+  if (!uiModal) return;
+  const fechar = (valor) => {
+    const resolver = uiModal.resolve;
+    uiModal = null;
+    render();
+    resolver(valor);
+  };
+  listen(document.querySelector("[data-ui-cancel]"), "click", () => fechar(uiModal.type === "confirm" ? false : null));
+  listen(document.querySelector("[data-ui-ok]"), "click", () => fechar(true));
+  const form = document.querySelector("#ui-prompt-form");
+  if (form) listen(form, "submit", (event) => { event.preventDefault(); fechar(document.querySelector("#ui-input").value); });
+  const input = document.querySelector("#ui-input");
+  if (input) { input.focus(); input.select?.(); }
+}
+
+function confirmar(message, opts = {}) {
+  return new Promise((resolve) => {
+    uiModal = { type: "confirm", message, ...opts, resolve };
+    render();
+  });
+}
+
+function perguntar(message, value = "", opts = {}) {
+  return new Promise((resolve) => {
+    uiModal = { type: "prompt", message, value, ...opts, resolve };
+    render();
+  });
+}
 let toastTimer = null;
 // Estado transitório da busca (não persiste no localStorage).
 let search = { query: "", loading: false, results: [], selected: null, error: "" };
@@ -634,11 +697,13 @@ function render() {
         ${viewTemplate()}
       </main>
       ${modal ? modalTemplate() : ""}
+      ${uiModalTemplate()}
       <div id="toast-root"></div>
     </div>
   `;
   bindShell();
   if (modal) bindModal();
+  bindUiModal();
 }
 
 function authTemplate() {
@@ -2761,10 +2826,10 @@ async function handleDeleteSurto(id) {
   }
 }
 
-function removeDrama(id) {
+async function removeDrama(id) {
   const drama = state.dramas.find((item) => item.id === id);
   if (!drama) return;
-  if (!window.confirm(`Remover “${drama.title}” das suas listas?`)) return;
+  if (!(await confirmar(`Remover “${drama.title}”?`, { sub: "Sai das suas listas (e da nuvem).", ok: "Remover", danger: true }))) return;
   if (cloudOn()) deleteDramaRemote(id).catch(() => {});
   modal = null;
   setState({ dramas: state.dramas.filter((item) => item.id !== id) });
@@ -3139,11 +3204,11 @@ function incrementEpisode(id) {
 }
 
 // Pergunta o episódio (pra quem maratonou vários de uma vez).
-function setEpisodeQuick(id) {
+async function setEpisodeQuick(id) {
   const drama = state.dramas.find((d) => d.id === id);
   if (!drama) return;
   const total = Number(drama.episodes || 0);
-  const resp = window.prompt(`Em qual episódio você está?${total ? ` (de ${total})` : ""}`, String(drama.currentEpisode || 0));
+  const resp = await perguntar(`Em qual episódio você está?${total ? ` (de ${total})` : ""}`, String(drama.currentEpisode || 0), { inputType: "number", ok: "Marcar" });
   if (resp === null) return;
   const n = parseInt(resp, 10);
   if (Number.isNaN(n)) return;
@@ -3292,7 +3357,7 @@ async function handleListVote(listId, vote) {
 }
 
 async function handleListRemove(listId) {
-  if (!window.confirm("Tirar este dorama da lista do clube?")) return;
+  if (!(await confirmar("Tirar este dorama da lista do clube?", { ok: "Tirar", danger: true }))) return;
   try {
     await clubListRemove(listId);
     clubSocial.list = clubSocial.list.filter((i) => i.id !== listId);
@@ -3331,7 +3396,7 @@ async function handlePostComment(event) {
 }
 
 async function handleDeleteComment(id) {
-  if (!window.confirm("Apagar este comentário?")) return;
+  if (!(await confirmar("Apagar este comentário?", { ok: "Apagar", danger: true }))) return;
   try {
     await deleteOwnComment(id);
     clubFeedItems = clubFeedItems.filter((item) => item.id !== id);
@@ -3376,7 +3441,7 @@ async function handleJoinClub(event) {
 
 async function handleLeaveClub() {
   if (!state.club) return;
-  if (!window.confirm(`Sair de "${state.club.name}"?`)) return;
+  if (!(await confirmar(`Sair de “${state.club.name}”?`, { ok: "Sair", danger: true }))) return;
   const saindoId = state.club.id;
   try {
     await leaveClub(saindoId);
@@ -3395,7 +3460,7 @@ async function handleLeaveClub() {
 }
 
 async function handleRenameClub() {
-  const novo = window.prompt("Novo nome do clube:", state.club?.name || "");
+  const novo = await perguntar("Novo nome do clube:", state.club?.name || "", { ok: "Salvar" });
   if (!novo || !novo.trim() || !state.club) return;
   try {
     await renameClub(state.club.id, novo.trim());
@@ -3504,7 +3569,7 @@ async function handleAdminDeleteComment(id) {
 }
 
 async function handleAdminDeleteUser(id, nome) {
-  if (!window.confirm(`Excluir a usuária “${nome}” e TODOS os dados dela? Isso não tem volta.`)) return;
+  if (!(await confirmar(`Excluir “${nome}”?`, { sub: "Apaga a conta e TODOS os dados dela. Não tem volta.", ok: "Excluir", danger: true }))) return;
   try {
     await adminDeleteUser(id);
     admin.users = admin.users.filter((u) => u.id !== id);

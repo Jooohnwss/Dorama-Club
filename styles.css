@@ -262,6 +262,26 @@ button {
   border: 1px solid color-mix(in srgb, #e0566b 45%, transparent);
 }
 
+.btn.danger-solid {
+  background: #e0566b;
+  color: #fff;
+}
+
+.ui-modal {
+  align-items: center;
+  z-index: 40;
+}
+
+.ui-card {
+  width: min(420px, 100%);
+  max-height: none;
+}
+
+.ui-card h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
 .btn.danger:hover {
   background: color-mix(in srgb, #e0566b 14%, transparent);
   filter: none;
