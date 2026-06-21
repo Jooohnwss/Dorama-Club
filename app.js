@@ -264,6 +264,7 @@ let clubMembers = [];
 let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop)
 let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
+let clubTab = "mural"; // aba interna da tela Doramigas
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
 let listSort = "recente"; // ordenação da Minhas listas
 let listView = "lista"; // "lista" | "grade"
@@ -1593,47 +1594,51 @@ function clubTemplate() {
       <button data-add-club>＋ Outro</button>
     </div>`;
 
+  const subtabs = [
+    ["mural", "💬 Mural"],
+    ["decidir", "🎬 Bora ver"],
+    ["ranking", "🏅 Ranking"],
+    ["galera", "🫂 Galera"],
+  ];
+
+  const membros = clubMembers.length
+    ? clubMembers.map((member) => `<div class="card"><strong>${esc(member.name || "(sem nome)")}</strong>${member.nickname ? `<p class="muted">${esc(member.nickname)}</p>` : ""}</div>`).join("")
+    : `<div class="empty">Carregando membros…</div>`;
+
+  const conteudo = {
+    mural: `${commentFormTemplate()}${clubFeedTemplate()}`,
+    decidir: `
+      <div class="section-title"><h2>🎬 Dorama do mês</h2></div>${doramaDoMesTemplate()}
+      <div class="section-title"><h2>🍿 Doramas em comum</h2></div>${doramasEmComumTemplate()}
+      <div class="section-title"><h2>📝 Lista compartilhada</h2></div>${listaCompartilhadaTemplate()}`,
+    ranking: `
+      <div class="section-title"><h2>🏅 Ranking do clube</h2></div>${rankingClubeTemplate()}
+      <div class="section-title"><h2>💞 Doramigas compatíveis</h2></div>${compatibilidadeTemplate()}`,
+    galera: `
+      <div class="section-title"><h2>Doramigas no clube (${clubMembers.length || "…"})</h2></div>
+      <section class="grid cards">${membros}</section>
+      <div class="section-title"><h2>📰 Feed</h2></div>${atividadesTemplate()}
+      <div class="section-title"><h2>📔 Diário compartilhado</h2></div>${diarioCompartilhadoTemplate()}
+      <div class="section-title"><h2>Convidar e gerenciar</h2></div>
+      <section class="grid cards">
+        <button class="card" data-share-club><strong>Chamar doramiga no WhatsApp</strong><p class="muted">Envia o código ${esc(state.club.code)}</p></button>
+        <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">Você deixa de ver este clube</p></button>
+      </section>`,
+  };
+
   return `
     ${switcher}
     <div class="section-title">
       <h2>${esc(state.club.name)}</h2>
       <div style="display:flex;gap:8px">
         <button class="btn ghost" data-rename-club>✏️ Renomear</button>
-        <button class="btn ghost" data-copy-code>Copiar código</button>
+        <button class="btn ghost" data-copy-code>📋 ${esc(state.club.code)}</button>
       </div>
     </div>
-    <section class="grid cards">
-      <div class="card"><span class="muted">Código do clube</span><strong>${esc(state.club.code)}</strong></div>
-      <div class="card"><span class="muted">Membros</span><strong>${clubMembers.length || "…"}</strong></div>
-    </section>
-    <div class="section-title"><h2>Doramigas no clube</h2></div>
-    <section class="grid cards">
-      ${clubMembers.length
-        ? clubMembers.map((member) => `<div class="card"><strong>${esc(member.name || "(sem nome)")}</strong>${member.nickname ? `<p class="muted">${esc(member.nickname)}</p>` : ""}</div>`).join("")
-        : `<div class="empty">Carregando membros…</div>`}
-    </section>
-    <div class="section-title"><h2>Convidar e gerenciar</h2></div>
-    <section class="grid cards">
-      <button class="card" data-share-club><strong>Chamar doramiga no WhatsApp</strong><p class="muted">Envia o código ${esc(state.club.code)}</p></button>
-      <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">Você deixa de ver este clube</p></button>
-    </section>
-    <div class="section-title"><h2>🎬 Dorama do mês</h2></div>
-    ${doramaDoMesTemplate()}
-    <div class="section-title"><h2>🍿 Doramas em comum</h2></div>
-    ${doramasEmComumTemplate()}
-    <div class="section-title"><h2>📝 Lista compartilhada</h2></div>
-    ${listaCompartilhadaTemplate()}
-    <div class="section-title"><h2>📰 Feed</h2></div>
-    ${atividadesTemplate()}
-    <div class="section-title"><h2>🏅 Ranking do clube</h2></div>
-    ${rankingClubeTemplate()}
-    <div class="section-title"><h2>💞 Doramigas compatíveis</h2></div>
-    ${compatibilidadeTemplate()}
-    <div class="section-title"><h2>Mural das doramigas</h2></div>
-    ${commentFormTemplate()}
-    ${clubFeedTemplate()}
-    <div class="section-title"><h2>📔 Diário compartilhado</h2></div>
-    ${diarioCompartilhadoTemplate()}
+    <div class="tabs club-subtabs">
+      ${subtabs.map(([k, l]) => `<button class="${clubTab === k ? "active" : ""}" data-club-tab="${k}">${l}</button>`).join("")}
+    </div>
+    ${conteudo[clubTab] || conteudo.mural}
   `;
 }
 
@@ -2895,6 +2900,12 @@ function bindShell() {
   listen(document.querySelector("[data-rename-club]"), "click", handleRenameClub);
   document.querySelectorAll("[data-switch-club]").forEach((button) => {
     listen(button, "click", () => handleSwitchClub(button.dataset.switchClub));
+  });
+  document.querySelectorAll("[data-club-tab]").forEach((button) => {
+    listen(button, "click", () => {
+      clubTab = button.dataset.clubTab;
+      render();
+    });
   });
   listen(document.querySelector("[data-add-club]"), "click", () => {
     addingClub = true;
