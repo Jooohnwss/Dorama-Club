@@ -337,6 +337,52 @@ export async function clubSharedSurtos(clubId) {
   return data || [];
 }
 
+// ---------- Reações ----------
+export async function clubReactions(clubId) {
+  const { data, error } = await supabase.rpc("club_reactions", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function toggleReaction(commentId, emoji) {
+  const { error } = await supabase.rpc("toggle_reaction", { p_comment: commentId, p_emoji: emoji });
+  if (error) throw error;
+}
+
+// ---------- Doramas em comum ----------
+export async function clubDramas(clubId) {
+  const { data, error } = await supabase.rpc("club_dramas", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+// ---------- Lista compartilhada ----------
+export async function clubListFeed(clubId) {
+  const { data, error } = await supabase.rpc("club_list_feed", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function clubListAdd(clubId, drama) {
+  const { error } = await supabase.rpc("club_list_add", {
+    p_club: clubId,
+    p_tmdb: drama.tmdbId ?? null,
+    p_title: drama.title,
+    p_cover: drama.cover || null,
+  });
+  if (error) throw error;
+}
+
+export async function clubListVote(listId, vote) {
+  const { error } = await supabase.rpc("club_list_vote", { p_list: listId, p_vote: vote });
+  if (error) throw error;
+}
+
+export async function clubListRemove(listId) {
+  const { error } = await supabase.rpc("club_list_remove", { p_list: listId });
+  if (error) throw error;
+}
+
 // ---------- ADMIN ----------
 export const ADMIN_EMAILS = ["jonatas.w.silva.w@gmail.com", "abikeila_2001@outlook.com"];
 

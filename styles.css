@@ -754,6 +754,93 @@ textarea:focus {
   font-weight: 800;
 }
 
+/* ---------- Reações / frases / votos / linha do tempo ---------- */
+.reacoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.reacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--cor-superficie-2);
+  border: 1px solid var(--cor-borda);
+  font-size: 0.9rem;
+}
+
+.reacao b {
+  font-size: 0.74rem;
+}
+
+.reacao.mine {
+  border-color: var(--cor-primaria);
+  background: color-mix(in srgb, var(--cor-primaria) 16%, transparent);
+}
+
+.frases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.frase {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--cor-superficie-2);
+  border: 1px solid var(--cor-borda);
+  color: var(--cor-texto-suave);
+  font-size: 0.76rem;
+}
+
+.frase:hover {
+  color: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+}
+
+.voto-row button.mine {
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria);
+  background: color-mix(in srgb, var(--cor-primaria) 14%, transparent);
+}
+
+.timeline {
+  display: grid;
+  gap: 0;
+  border-left: 2px solid var(--cor-borda);
+  margin-left: 8px;
+  padding-left: 16px;
+}
+
+.tl-item {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.tl-item::before {
+  content: "";
+  position: absolute;
+  left: -23px;
+  top: 13px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cor-primaria);
+}
+
+.tl-ano {
+  font-weight: 800;
+  color: var(--cor-primaria);
+  min-width: 48px;
+}
+
 /* ---------- Mural / comentários ---------- */
 .comment-card {
   display: flex;

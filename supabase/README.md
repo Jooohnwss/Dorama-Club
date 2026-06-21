@@ -18,6 +18,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 07 | `07 - criar-diario-de-surtos-e-casais.sql` | Tabelas `surtos` (diário por episódio) e `casais` (que eu shippo) + RLS | Pessoal |
 | 08 | `08 - social-do-clube.sql` | Feed automático, "posso comentar com quem", dorama do mês (`club_picks`), ranking e diário compartilhado | B |
 | 09 | `09 - codigo-de-convite-e-indicacao.sql` | Código de convite por pessoa (`invite_code`) + `invited_by` (quem convidou quem); `admin_users` mostra indicações | Social |
+| 10 | `10 - reacoes-comuns-e-lista-compartilhada.sql` | Reações no mural (`comment_reactions`), doramas em comum (`club_dramas`) e lista compartilhada (`club_list` + votos) | B |
 
 ## Convenção de nome
 
