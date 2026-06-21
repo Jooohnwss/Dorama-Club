@@ -14,6 +14,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 03 | `03 - area-de-administradores.sql` | Função `is_admin()` + funções de painel (`admin_overview`, `admin_users`, `admin_clubs`, `admin_comments`, `admin_delete_comment`) | Admin |
 | 04 | `04 - adicionar-semaforo-no-dorama.sql` | Coluna `semaforo` em `dramas` (Vale assistir?) | A |
 | 05 | `05 - admin-excluir-usuario.sql` | Função `admin_delete_user` (admin exclui qualquer usuária + dados em cascata) | Admin |
+| 06 | `06 - feed-do-clube.sql` | Função `club_feed` (mural do clube com autor) — comentários com trava de spoiler | B |
 
 ## Convenção de nome
 

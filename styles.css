@@ -754,6 +754,37 @@ textarea:focus {
   font-weight: 800;
 }
 
+/* ---------- Mural / comentários ---------- */
+.comment-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comment-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.comment-head .muted {
+  font-size: 0.76rem;
+}
+
+.comment-card p {
+  margin: 2px 0 0;
+  line-height: 1.45;
+}
+
+.spoiler-lock {
+  padding: 12px;
+  border-radius: var(--raio-sm);
+  background: var(--cor-superficie-2);
+  border: 1px dashed var(--cor-borda);
+  font-weight: 600;
+}
+
 /* ---------- Conquistas (badges) ---------- */
 .badge-grid {
   display: grid;

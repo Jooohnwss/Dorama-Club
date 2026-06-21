@@ -188,6 +188,30 @@ export async function leaveClub(clubId) {
   if (error) throw error;
 }
 
+// ---------- FEED / MURAL DO CLUBE ----------
+export async function clubFeed(clubId) {
+  const { data, error } = await supabase.rpc("club_feed", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function postComment(userId, clubId, comment) {
+  const { error } = await supabase.from("comments").insert({
+    club_id: clubId,
+    user_id: userId,
+    body: comment.body,
+    tmdb_id: comment.tmdbId ?? null,
+    drama_title: comment.dramaTitle || null,
+    spoiler_episode: Number(comment.spoilerEpisode) || 0,
+  });
+  if (error) throw error;
+}
+
+export async function deleteOwnComment(id) {
+  const { error } = await supabase.from("comments").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ---------- ADMIN ----------
 export const ADMIN_EMAILS = ["jonatas.w.silva.w@gmail.com", "abikeila_2001@outlook.com"];
 

@@ -17,6 +17,9 @@ import {
   myClubs,
   clubMembersList,
   leaveClub,
+  clubFeed,
+  postComment,
+  deleteOwnComment,
   isAdminEmail,
   adminOverview,
   adminUsers,
@@ -163,6 +166,8 @@ let unsubscribeAuth = null;
 // Membros do clube atual (carregados sob demanda).
 let clubMembers = [];
 let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop)
+let clubFeedItems = [];
+let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 // "Onde assistir" do dorama aberto no modal: null = carregando, [] = nada.
 let detailProviders = null;
 // Aba Descobrir (carregada sob demanda).
@@ -791,9 +796,86 @@ function clubTemplate() {
       <button class="card" data-share-club><strong>Chamar doramiga no WhatsApp</strong><p class="muted">Envia o código ${esc(state.club.code)}</p></button>
       <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">Você deixa de ver este clube</p></button>
     </section>
-    <div class="section-title"><h2>Feed e comentários</h2></div>
-    <div class="empty">Em breve: feed das doramigas e comentários com trava de spoiler.</div>
+    <div class="section-title"><h2>Mural das doramigas</h2></div>
+    ${commentFormTemplate()}
+    ${clubFeedTemplate()}
   `;
+}
+
+function commentFormTemplate() {
+  const meusDramas = state.dramas.filter((d) => d.tmdbId);
+  return `
+    <section class="form-card">
+      <form id="comment-form" class="form-grid">
+        <div class="field full">
+          <label for="commentBody">Conta o surto pras doramigas</label>
+          <textarea id="commentBody" name="body" placeholder="Gente, o episódio de hoje…" required></textarea>
+        </div>
+        <div class="field">
+          <label for="commentDrama">Sobre qual dorama?</label>
+          <select id="commentDrama" name="dramaId">
+            <option value="">Geral (sem dorama)</option>
+            ${meusDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label for="commentSpoiler">Spoiler até o episódio</label>
+          <input id="commentSpoiler" name="spoiler" type="number" min="0" value="0" />
+          <span class="muted" style="font-size:.74rem">0 = sem spoiler</span>
+        </div>
+        <div class="actions field full">
+          <button class="btn" type="submit">Publicar no mural</button>
+        </div>
+      </form>
+    </section>
+  `;
+}
+
+// Decide se quem está lendo pode ver o comentário (trava de spoiler).
+function podeVerComentario(item) {
+  if (!item.spoiler_episode) return true;
+  if (authUser && item.user_id === authUser.id) return true;
+  const meu = state.dramas.find((d) => d.tmdbId && item.tmdb_id && d.tmdbId === item.tmdb_id);
+  return Boolean(meu && Number(meu.currentEpisode || 0) >= item.spoiler_episode);
+}
+
+function clubFeedTemplate() {
+  if (clubFeedFor !== state.club.id) return `<div class="empty">Carregando o mural…</div>`;
+  if (!clubFeedItems.length) return `<div class="empty">Ninguém surtou ainda. Seja a primeira! 💜</div>`;
+  return `
+    <section class="grid">
+      ${clubFeedItems
+        .map((item) => {
+          const liberado = podeVerComentario(item);
+          const podeApagar = authUser && (item.user_id === authUser.id || isAdmin());
+          const corpo = liberado
+            ? `<p>${esc(item.body)}</p>`
+            : `<p class="muted spoiler-lock">🔒 Cuidado, spoiler! Você precisa chegar no episódio ${item.spoiler_episode}${item.drama_title ? ` de ${esc(item.drama_title)}` : ""} pra ver esse surto.</p>`;
+          return `
+        <div class="card comment-card">
+          <div class="comment-head">
+            <strong>${esc(item.author || "(sem nome)")}</strong>
+            <span class="muted">${timeAgo(item.created_at)}</span>
+          </div>
+          ${item.drama_title ? `<span class="chip">${esc(item.drama_title)}${item.spoiler_episode ? ` · spoiler ep. ${item.spoiler_episode}` : ""}</span>` : ""}
+          ${corpo}
+          ${podeApagar ? `<div class="mini-actions"><button data-del-comment="${item.id}">${icon("trash")} Apagar</button></div>` : ""}
+        </div>`;
+        })
+        .join("")}
+    </section>
+  `;
+}
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} h`;
+  const d = Math.floor(h / 24);
+  return `${d} d`;
 }
 
 function favoriteGenre() {
@@ -1319,6 +1401,10 @@ function bindShell() {
   listen(document.querySelector("#profile-form"), "submit", saveProfile);
   listen(document.querySelector("#create-club-form"), "submit", handleCreateClub);
   listen(document.querySelector("#join-club-form"), "submit", handleJoinClub);
+  listen(document.querySelector("#comment-form"), "submit", handlePostComment);
+  document.querySelectorAll("[data-del-comment]").forEach((button) => {
+    listen(button, "click", () => handleDeleteComment(button.dataset.delComment));
+  });
   bindPhotoPicker();
 
   // Motivo "Outro": mostra o campo de texto quando escolhido.
@@ -1336,6 +1422,7 @@ function bindShell() {
   if (state.view === "admin" && isAdmin() && !admin.loaded && !admin.loading) loadAdmin();
   if (state.view === "discover" && !discover.loaded && !discover.loading) loadDiscover();
   if (state.view === "club" && state.club && clubMembersFor !== state.club.id) loadClubMembers();
+  if (state.view === "club" && state.club && clubFeedFor !== state.club.id) loadClubFeed();
 }
 
 async function runSearch(event) {
@@ -1535,6 +1622,55 @@ async function loadClubMembers() {
   render();
 }
 
+async function loadClubFeed() {
+  if (!state.club) return;
+  clubFeedFor = state.club.id;
+  try {
+    clubFeedItems = await clubFeed(state.club.id);
+  } catch {
+    clubFeedItems = [];
+  }
+  render();
+}
+
+async function handlePostComment(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const body = String(data.body || "").trim();
+  if (!body || !state.club) return;
+  let tmdbId = null;
+  let dramaTitle = null;
+  let spoilerEpisode = 0;
+  if (data.dramaId) {
+    const drama = state.dramas.find((d) => d.id === data.dramaId);
+    if (drama) {
+      tmdbId = drama.tmdbId ?? null;
+      dramaTitle = drama.title;
+      spoilerEpisode = Number(data.spoiler) || 0;
+    }
+  }
+  try {
+    await postComment(authUser.id, state.club.id, { body, tmdbId, dramaTitle, spoilerEpisode });
+    clubFeedFor = null;
+    loadClubFeed();
+    toast("Publicado no mural! 💜");
+  } catch {
+    toast("Não consegui publicar agora.");
+  }
+}
+
+async function handleDeleteComment(id) {
+  if (!window.confirm("Apagar este comentário?")) return;
+  try {
+    await deleteOwnComment(id);
+    clubFeedItems = clubFeedItems.filter((item) => item.id !== id);
+    toast("Comentário apagado.");
+    render();
+  } catch {
+    toast("Não consegui apagar.");
+  }
+}
+
 async function handleCreateClub(event) {
   event.preventDefault();
   const name = String(new FormData(event.currentTarget).get("name") || "").trim();
@@ -1570,6 +1706,8 @@ async function handleLeaveClub() {
   try {
     await leaveClub(state.club.id);
     clubMembers = [];
+    clubFeedItems = [];
+    clubFeedFor = null;
     setState({ club: null });
     toast("Você saiu do clube.");
   } catch {
