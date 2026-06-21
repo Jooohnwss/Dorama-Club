@@ -21,6 +21,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 10 | `10 - reacoes-comuns-e-lista-compartilhada.sql` | Reações no mural (`comment_reactions`), doramas em comum (`club_dramas`) e lista compartilhada (`club_list` + votos) | B |
 | 11 | `11 - favoritos-ranking-e-compatibilidade.sql` | `favoritos` (vilão/cena/trilha) + `club_ranking` turbinado + `club_compatibility` (% entre doramigas) | B |
 | 12 | `12 - tema-na-conta-e-renomear-clube.sql` | `profiles.tema`/`tema_custom` (tema segue a conta) + `rename_club` | Polimento |
+| 13 | `13 - criar-espaco-do-casal.sql` | Espaço do casal "Nós dois": `couples` (+código único), `couple_members` (máx. 2), `couple_dramas`, `couple_diary`, `couple_about`, `couple_letters` + RLS (só os 2 veem) + RPC `create_couple` / `join_couple` / `my_couple` / `couple_members_list` | Casal |
 
 ## Convenção de nome
 

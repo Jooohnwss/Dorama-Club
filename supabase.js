@@ -321,6 +321,53 @@ export async function deleteCasal(id) {
   if (error) throw error;
 }
 
+// ---------- ESPAÇO DO CASAL ("Nós dois") ----------
+// Criar espaço (gera código, entra como membro). Erros do banco sobem com mensagem.
+export async function createCouple(title) {
+  const { data, error } = await supabase.rpc("create_couple", { p_title: title || null });
+  if (error) throw error;
+  return data; // linha de couples
+}
+
+// Entrar por código (banco valida: existe / não cheio / já estou em um casal).
+export async function joinCouple(code) {
+  const { data, error } = await supabase.rpc("join_couple", { p_code: code });
+  if (error) throw error;
+  return data;
+}
+
+// Meu casal (ou null se não estou em nenhum).
+export async function myCouple() {
+  const { data, error } = await supabase.rpc("my_couple");
+  if (error) throw error;
+  return data || null;
+}
+
+export async function coupleMembersList(coupleId) {
+  const { data, error } = await supabase.rpc("couple_members_list", { p_couple: coupleId });
+  if (error) throw error;
+  return data || [];
+}
+
+// Sair / desfazer vínculo (apaga só a minha filiação).
+export async function leaveCouple(coupleId) {
+  const { error } = await supabase.from("couple_members").delete().eq("couple_id", coupleId);
+  if (error) throw error;
+}
+
+// Editar a capa do casal (nome, frase, data especial).
+export async function updateCoupleCapa(coupleId, capa) {
+  const { error } = await supabase
+    .from("couples")
+    .update({
+      title: capa.title ?? null,
+      tagline: capa.tagline ?? null,
+      special_date: capa.specialDate || null,
+    })
+    .eq("id", coupleId);
+  if (error) throw error;
+}
+
 // ---------- SOCIAL DO CLUBE ----------
 const mesAtual = () => new Date().toISOString().slice(0, 7); // YYYY-MM
 

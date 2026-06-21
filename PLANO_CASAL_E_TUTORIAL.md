@@ -57,11 +57,14 @@ Dois grandes blocos, nesta ordem:
 - [x] `node --check app.js` + `npm run build` OK.
 - [x] Commit + push.
 
-### Etapa 2 — Planejamento seguro do casal (código de convite)  → **PENDENTE**
-- [ ] Migração `supabase/13 - criar-espaco-do-casal.sql`: tabelas `couples`, `couple_members` (ou `partner_id`), RLS, RPC `create_couple`/`join_couple`/`my_couple`/`leave_couple`.
-- [ ] Código único do casal; máximo 2 membros; dados privados (só o casal vê).
-- [ ] Funções em `supabase.js`.
-- [ ] Atualizar `supabase/README.md`.
+### Etapa 2 — Planejamento seguro do casal (código de convite)  → **FEITO (código) / falta rodar SQL** ✅
+- [x] Migração `supabase/13 - criar-espaco-do-casal.sql`: tabelas `couples`, `couple_members`, `couple_dramas`, `couple_diary`, `couple_about`, `couple_letters`, RLS, RPC `create_couple`/`join_couple`/`my_couple`/`couple_members_list`.
+- [x] Código único do casal; máximo 2 membros; **1 casal por pessoa**; dados privados (só o casal vê via `is_couple_member`). `leave_couple` = delete da própria filiação (policy `couple_members_delete_self`).
+- [x] Funções em `supabase.js`: `createCouple`, `joinCouple`, `myCouple`, `coupleMembersList`, `leaveCouple`, `updateCoupleCapa`. (CRUD de dramas/diário/about/cartinhas será adicionado na Etapa 3.)
+- [x] Atualizar `supabase/README.md` (linha 13) e `PENDENTE.md` (item 1b: rodar a migração).
+- [ ] **AÇÃO DO USUÁRIO**: rodar `supabase/13 - criar-espaco-do-casal.sql` no SQL Editor do Supabase. Sem isso a Etapa 3 não funciona em produção.
+
+> Nota: criei TODAS as tabelas do casal já nesta migração (não só o vínculo) pra você rodar SQL uma vez só. A Etapa 3 será só UI + funções CRUD em `supabase.js`, sem nova migração.
 
 ### Etapa 3 — Área "Nós dois"  → **PENDENTE**
 - [ ] Capa do casal, "Assistindo juntos", Diário do casal, Sobre nós, Timeline automática, Roleta de date, Cartinhas/memórias.
@@ -83,6 +86,7 @@ Dois grandes blocos, nesta ordem:
 
 ## 📂 Arquivos alterados (acumulado)
 - **Etapa 1**: `app.js` (estado + `tutorialTemplate`/`bindTutorial` + auto-abrir + entrada no Perfil), `styles.css` (estilos do overlay), `PLANO_CASAL_E_TUTORIAL.md`.
+- **Etapa 2**: `supabase/13 - criar-espaco-do-casal.sql` (novo), `supabase.js` (funções do casal), `supabase/README.md`, `PENDENTE.md`, `PLANO_CASAL_E_TUTORIAL.md`.
 
 ---
 
