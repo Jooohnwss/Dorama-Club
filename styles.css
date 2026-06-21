@@ -2075,6 +2075,29 @@ textarea:focus {
   font-size: 0.76rem;
 }
 
+.result-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+.result-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--cor-superficie-2);
+  color: var(--cor-texto-suave);
+}
+.result-tag.is-tv {
+  background: color-mix(in srgb, var(--cor-primaria) 16%, transparent);
+  color: var(--cor-primaria);
+}
+.result-tag.is-movie {
+  background: color-mix(in srgb, var(--cor-secundaria) 18%, transparent);
+  color: var(--cor-secundaria);
+}
+
 .selected-drama {
   display: grid;
   grid-template-columns: 110px minmax(0, 1fr);

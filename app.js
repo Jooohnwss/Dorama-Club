@@ -275,6 +275,7 @@ function perguntar(message, value = "", opts = {}) {
 let toastTimer = null;
 // Estado transitório da busca (não persiste no localStorage).
 let search = { query: "", loading: false, results: [], selected: null, error: "" };
+let manualAdd = false; // form de adicionar manualmente (quando não acha no TMDB)
 // Auth (preenchido em tempo de execução quando o Supabase está configurado).
 let authUser = null;
 let authMode = "signin"; // "signin" | "signup"
@@ -1747,19 +1748,28 @@ function sugerirPorHumor(tag) {
 function addTemplate() {
   return `
     <div class="section-title">
-      <h2>Qual dorama você quer adicionar?</h2>
+      <h2>Qual título você quer adicionar?</h2>
     </div>
     <section class="form-card">
       <form id="search-form" class="search-bar">
-        <input id="search" name="search" placeholder="Rainha das Lágrimas" value="${esc(search.query)}" autocomplete="off" required />
+        <input id="search" name="search" placeholder="Rainha das Lágrimas, nome original, filme…" value="${esc(search.query)}" autocomplete="off" required />
         <button class="btn" type="submit">Buscar</button>
       </form>
+      <p class="muted" style="margin:8px 0 0;font-size:.82rem">Busca séries e filmes, em português e no nome original.</p>
       ${search.loading ? `<p class="muted">Buscando no TMDB…</p>` : ""}
       ${search.error ? `<p class="muted">${esc(search.error)}</p>` : ""}
       ${searchResultsTemplate()}
+      ${search.query && !search.loading ? `<div class="actions" style="margin-top:12px"><button type="button" class="btn ghost" data-manual-toggle>Não achou? Adicionar manualmente</button></div>` : ""}
+      ${manualAdd ? manualFormTemplate() : ""}
     </section>
     ${search.selected ? placeFormTemplate(search.selected) : ""}
   `;
+}
+
+// Etiqueta do tipo + país (ex.: "Série · Coreia", "Filme · Japão").
+function midiaEtiqueta(drama) {
+  const tipo = drama.mediaType === "movie" ? "Filme" : "Série";
+  return drama.origem ? `${tipo} · ${drama.origem}` : tipo;
 }
 
 function searchResultsTemplate() {
@@ -1773,12 +1783,38 @@ function searchResultsTemplate() {
           <img src="${esc(drama.cover || POSTER_PLACEHOLDER)}" alt="" loading="lazy" />
           <span class="search-result-info">
             <strong>${esc(drama.title)}</strong>
-            <small>${drama.year || "—"}${drama.rating ? ` · nota ${drama.rating}` : ""}</small>
+            ${drama.original && drama.original !== drama.title ? `<small class="muted">${esc(drama.original)}</small>` : ""}
+            <span class="result-tags">
+              <span class="result-tag ${drama.mediaType === "movie" ? "is-movie" : "is-tv"}">${esc(midiaEtiqueta(drama))}</span>
+              ${drama.year ? `<span class="result-tag">${drama.year}</span>` : ""}
+              ${drama.rating ? `<span class="result-tag">⭐ ${drama.rating}</span>` : ""}
+            </span>
           </span>
         </button>`,
         )
         .join("")}
     </div>
+  `;
+}
+
+// Form de adicionar manualmente (quando não acha no TMDB).
+function manualFormTemplate() {
+  return `
+    <form id="manual-form" class="form-grid" style="margin-top:12px">
+      <div class="field full">
+        <label for="manualTitle">Título</label>
+        <input id="manualTitle" name="title" placeholder="Nome do dorama/filme" required />
+      </div>
+      <div class="field">
+        <label for="manualYear">Ano</label>
+        <input id="manualYear" name="year" type="number" min="1950" max="2100" placeholder="${new Date().getFullYear()}" />
+      </div>
+      <div class="field">
+        <label for="manualEpisodes">Episódios</label>
+        <input id="manualEpisodes" name="episodes" type="number" min="1" placeholder="16" />
+      </div>
+      <div class="actions field full"><button class="btn secondary" type="submit">Continuar</button></div>
+    </form>
   `;
 }
 
@@ -1791,7 +1827,7 @@ function placeFormTemplate(drama) {
       <div class="selected-drama">
         <img class="poster" src="${esc(drama.cover || POSTER_PLACEHOLDER)}" alt="Capa de ${esc(drama.title)}" />
         <div>
-          <p class="muted">${drama.year || "—"} · ${drama.episodes || "?"} episódios${drama.rating ? ` · nota ${drama.rating}` : ""}</p>
+          <p class="muted">${drama.mediaType === "movie" ? "Filme" : `${drama.episodes || "?"} episódios`}${drama.origem ? ` · ${esc(drama.origem)}` : ""} · ${drama.year || "—"}${drama.rating ? ` · nota ${drama.rating}` : ""}</p>
           <p>${esc(drama.synopsis || "Sem sinopse disponível.")}</p>
           <div class="chips">${(drama.genres || []).map((genre) => `<span class="chip">${esc(genre)}</span>`).join("")}</div>
         </div>
@@ -3831,6 +3867,8 @@ function bindShell() {
   listen(document.querySelector("[data-invite-copy]"), "click", copyInvite);
   listen(document.querySelector("[data-admin-refresh]"), "click", () => loadAdmin(true));
   listen(document.querySelector("#search-form"), "submit", runSearch);
+  listen(document.querySelector("[data-manual-toggle]"), "click", () => { manualAdd = !manualAdd; render(); });
+  listen(document.querySelector("#manual-form"), "submit", handleManualPick);
   listen(document.querySelector("#add-form"), "submit", addDrama);
   listen(document.querySelector("#profile-form"), "submit", saveProfile);
   listen(document.querySelector("#create-club-form"), "submit", handleCreateClub);
@@ -3966,14 +4004,39 @@ async function runSearch(event) {
     render();
     return;
   }
+  manualAdd = false;
   search = { ...search, query, loading: true, error: "", results: [], selected: null };
   render();
   try {
     const results = await searchDramas(query);
-    search = { ...search, loading: false, results, error: results.length ? "" : "Nada encontrado. Tente outro nome." };
+    search = { ...search, loading: false, results, error: results.length ? "" : "Nada encontrado. Tente o nome original ou adicione manualmente." };
   } catch {
     search = { ...search, loading: false, error: "Não consegui buscar agora. Confira a conexão e tente de novo." };
   }
+  render();
+}
+
+// "Adicionar manualmente": monta um selecionado sem TMDB e segue o fluxo normal.
+function handleManualPick(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const title = String(data.title || "").trim();
+  if (!title) return;
+  manualAdd = false;
+  search = {
+    ...search,
+    selected: {
+      tmdbId: null,
+      mediaType: "tv",
+      title,
+      year: data.year ? Number(data.year) : new Date().getFullYear(),
+      episodes: data.episodes ? Number(data.episodes) : 16,
+      cover: "",
+      synopsis: "",
+      genres: [],
+      origem: "",
+    },
+  };
   render();
 }
 
@@ -3982,7 +4045,7 @@ async function pickResult(tmdbId) {
   search = { ...search, selected: brief };
   render();
   try {
-    const details = await getDramaDetails(tmdbId);
+    const details = await getDramaDetails(tmdbId, brief?.mediaType || "tv");
     search = { ...search, selected: { ...brief, ...details } };
     render();
   } catch {
@@ -4065,6 +4128,7 @@ function addDrama(event) {
   });
 
   search = { query: "", loading: false, results: [], selected: null, error: "" };
+  manualAdd = false;
   syncDrama(drama);
   registrarAtividade(`${state.profile?.name || "Alguém"} ${drama.status === "watching" ? "começou" : "adicionou"} ${drama.title}${drama.status === "watching" ? "" : ` em ${statusLabel(drama.status)}`}.`);
   setState({ dramas: [drama, ...state.dramas], view: "lists", activeList: data.status });

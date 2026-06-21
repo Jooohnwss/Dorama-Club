@@ -27,23 +27,53 @@ function posterUrl(path) {
   return path ? IMG + path : "";
 }
 
+// País/origem amigável a partir do resultado do TMDB (pra etiqueta na busca).
+const PAIS_POR_CODIGO = {
+  KR: "Coreia", TH: "Tailândia", JP: "Japão", CN: "China", TW: "Taiwan",
+  HK: "Hong Kong", US: "EUA", BR: "Brasil", GB: "Reino Unido", IN: "Índia",
+  PH: "Filipinas", ID: "Indonésia", VN: "Vietnã", FR: "França", ES: "Espanha",
+};
+const PAIS_POR_IDIOMA = {
+  ko: "Coreia", th: "Tailândia", ja: "Japão", zh: "China", en: "EUA",
+  pt: "Brasil", hi: "Índia", tl: "Filipinas", id: "Indonésia", vi: "Vietnã",
+};
+function paisLabel(result) {
+  const cc = (result.origin_country && result.origin_country[0]) || "";
+  if (PAIS_POR_CODIGO[cc]) return PAIS_POR_CODIGO[cc];
+  return PAIS_POR_IDIOMA[result.original_language] || "";
+}
+
 // Resultado resumido da busca (sem nº de episódios — vem só nos detalhes).
+// Funciona para série (tv) e filme (movie).
 function toBrief(result) {
+  const isMovie = result.media_type === "movie" || (!result.first_air_date && !result.name && Boolean(result.title));
+  const date = result.first_air_date || result.release_date || "";
   return {
     tmdbId: result.id,
-    title: result.name || result.original_name || "Sem título",
-    year: result.first_air_date ? Number(result.first_air_date.slice(0, 4)) : "",
+    mediaType: isMovie ? "movie" : "tv",
+    title: result.name || result.title || result.original_name || result.original_title || "Sem título",
+    original: result.original_name || result.original_title || "",
+    year: date ? Number(date.slice(0, 4)) : "",
     rating: result.vote_average ? Number(result.vote_average.toFixed(1)) : "",
     cover: posterUrl(result.poster_path),
     backdrop: result.backdrop_path ? IMG_BACKDROP + result.backdrop_path : "",
     synopsis: result.overview || "",
+    origem: paisLabel(result),
   };
 }
 
-// Busca séries (doramas são TV). Ordena pelas mais populares com pôster primeiro.
+// Busca em SÉRIES + FILMES, em pt-BR e en-US (pega título traduzido e original).
 export async function searchDramas(query) {
-  const data = await tmdb("/search/tv", { query, include_adult: "false", page: "1" });
-  return (data.results || [])
+  const [pt, en] = await Promise.all([
+    tmdb("/search/multi", { query, include_adult: "false", page: "1", language: "pt-BR" }),
+    tmdb("/search/multi", { query, include_adult: "false", page: "1", language: "en-US" }).catch(() => ({ results: [] })),
+  ]);
+  const vistos = new Map();
+  for (const r of [...(pt.results || []), ...(en.results || [])]) {
+    if (r.media_type && r.media_type !== "tv" && r.media_type !== "movie") continue; // ignora "person"
+    if (!vistos.has(r.id)) vistos.set(r.id, r);
+  }
+  return [...vistos.values()]
     .map(toBrief)
     .sort((a, b) => (b.cover ? 1 : 0) - (a.cover ? 1 : 0));
 }
@@ -113,10 +143,27 @@ export async function getWatchProviders(tmdbId) {
 }
 
 // Detalhes completos (nº de episódios, gêneros). Chamado ao selecionar um resultado.
-export async function getDramaDetails(tmdbId) {
+// mediaType: "tv" (padrão) ou "movie".
+export async function getDramaDetails(tmdbId, mediaType = "tv") {
+  if (mediaType === "movie") {
+    const result = await tmdb(`/movie/${tmdbId}`);
+    return {
+      tmdbId: result.id,
+      mediaType: "movie",
+      title: result.title || result.original_title || "Sem título",
+      year: result.release_date ? Number(result.release_date.slice(0, 4)) : "",
+      episodes: 1, // filme = 1 "episódio"
+      runtime: result.runtime || 0,
+      genres: (result.genres || []).map((genre) => genre.name),
+      rating: result.vote_average ? Number(result.vote_average.toFixed(1)) : "",
+      cover: posterUrl(result.poster_path),
+      synopsis: result.overview || "",
+    };
+  }
   const result = await tmdb(`/tv/${tmdbId}`);
   return {
     tmdbId: result.id,
+    mediaType: "tv",
     title: result.name || result.original_name || "Sem título",
     year: result.first_air_date ? Number(result.first_air_date.slice(0, 4)) : "",
     episodes: result.number_of_episodes || 16,

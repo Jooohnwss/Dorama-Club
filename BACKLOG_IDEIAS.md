@@ -85,6 +85,13 @@ Roleta de date · tema do casal por dorama (compartilhado) · diário do casal c
 - [ ] 🟢 **Ranking de surtos** / 🟢 mural de memes/frases.
 - [ ] 🟢 **Melhorar troca entre vários clubes** + tela "meus clubes" mais clara.
 
+## 🔎 Busca (melhorada)
+- [x] ✅ **Buscar em séries + filmes** (`/search/multi`).
+- [x] ✅ **Vários idiomas** (pt-BR + en-US, merge/dedupe) e **aceita título original**.
+- [x] ✅ **Etiquetas** nos resultados (Filme/Série + país: Coreia, Tailândia, Japão…).
+- [x] ✅ **Adicionar manualmente** quando não encontra no TMDB.
+- [x] ✅ Detalhes de **filme** (runtime, 1 "episódio") além de série. *(commit Busca++)*
+
 ## 🎨 Experiência geral / polimento
 - [ ] 🟢 **Estados vazios mais bonitos** (ilustração + copy fofa).
 - [ ] 🟢 **Botões e cards mais consistentes** (design system leve).
