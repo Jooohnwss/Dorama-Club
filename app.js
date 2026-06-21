@@ -971,6 +971,7 @@ function render() {
     <div class="app shell${noCasal ? " couple-space" : ""}">
       ${noCasal ? coupleSidebarTemplate() : sidebarTemplate()}
       <main class="main">
+        ${state.couple ? `<div class="main-topbar">${spaceSwitchTemplate()}</div>` : ""}
         ${noCasal ? coupleSpaceView() : viewTemplate()}
       </main>
       ${modal ? modalTemplate() : ""}
@@ -1107,7 +1108,6 @@ function sidebarTemplate() {
       <nav class="nav">
         ${items.map(([key, label, ic]) => `<button class="${state.view === key ? "active" : ""}" data-view="${key}">${icon(ic)}${key === "club" && clubHasNews ? `<span class="nav-dot"></span>` : ""}<span class="nav-label">${label}</span></button>`).join("")}
       </nav>
-      ${spaceSwitchTemplate()}
       ${supabaseReady() ? `<button class="logout" data-logout>${icon("out")}<span>Sair</span></button>` : ""}
     </aside>
   `;
@@ -1118,10 +1118,17 @@ function sidebarTemplate() {
 function spaceSwitchTemplate() {
   if (!state.couple) return "";
   const couple = state.space === "couple";
+  const nomeCasal = state.couple.title || "Nós dois";
   return `
-    <div class="space-switch">
-      <button type="button" class="${!couple ? "on" : ""}" data-space-go="solo">${icon("home")}<span>Meu app</span></button>
-      <button type="button" class="${couple ? "on" : ""}" data-space-go="couple">${icon("heart")}<span>${esc(state.couple.title || "Nós dois")}</span></button>
+    <div class="space-switch" aria-label="Alternar espaço">
+      <button type="button" class="${!couple ? "on" : ""}" data-space-go="solo">
+        <span class="switch-ico">${icon("home")}</span>
+        <span class="switch-copy"><small>Pessoal</small><strong>Meu app</strong></span>
+      </button>
+      <button type="button" class="${couple ? "on" : ""}" data-space-go="couple">
+        <span class="switch-ico">${icon("heart")}</span>
+        <span class="switch-copy"><small>Casal</small><strong>${esc(nomeCasal)}</strong></span>
+      </button>
     </div>`;
 }
 

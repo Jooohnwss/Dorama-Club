@@ -192,6 +192,16 @@ button {
   min-width: 0;
 }
 
+.main-topbar {
+  position: sticky;
+  top: 14px;
+  z-index: 12;
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 18px;
+  pointer-events: none;
+}
+
 /* ---------- Welcome / Auth ---------- */
 .welcome {
   display: grid;
@@ -1231,44 +1241,79 @@ textarea:focus {
 /* ---------- Alternador Pessoal ↔ Nós dois (na sidebar, estilo app financeiro) ---------- */
 .space-switch {
   display: flex;
-  width: 100%;
-  gap: 4px;
-  margin: 4px 0 10px;
-  padding: 4px;
-  border-radius: 12px;
-  background: var(--cor-superficie-2);
-  border: 1px solid var(--cor-borda);
+  width: min(390px, 100%);
+  gap: 6px;
+  padding: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cor-borda) 86%, transparent);
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--cor-sombra) 30%, transparent);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
 }
 .space-switch button {
   flex: 1;
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 8px 6px;
-  border-radius: 9px;
+  justify-content: flex-start;
+  gap: 9px;
+  padding: 8px 12px 8px 8px;
+  border-radius: 999px;
   background: transparent;
   color: var(--cor-texto-suave);
   font-weight: 800;
-  font-size: 0.78rem;
+  text-align: left;
+  transition: background 0.18s, color 0.18s, transform 0.18s;
 }
-.space-switch button span {
+.space-switch button:hover {
+  color: var(--cor-texto);
+  transform: translateY(-1px);
+}
+.switch-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.switch-copy small {
+  color: inherit;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  opacity: 0.72;
+  text-transform: uppercase;
+}
+.switch-copy strong {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.82rem;
+  line-height: 1.1;
 }
-.space-switch button .ico {
-  width: 16px;
-  height: 16px;
+.switch-ico {
   flex: 0 0 auto;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--cor-superficie-2);
+}
+.switch-ico .ico {
+  width: 17px;
+  height: 17px;
 }
 .space-switch button.on {
   background: var(--cor-primaria);
   color: var(--cor-primaria-texto);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--cor-primaria) 35%, transparent);
 }
-.space-switch button.on .ico {
+.space-switch button.on .switch-ico {
+  background: color-mix(in srgb, var(--cor-primaria-texto) 18%, transparent);
+}
+.space-switch button.on .switch-ico .ico {
   stroke: var(--cor-primaria-texto);
 }
 
@@ -2739,12 +2784,29 @@ textarea:focus {
   /* No celular a sidebar vira barra inferior: o alternador não cabe lá.
      A troca de ambiente no celular é pelo Perfil (criar/abrir) e pelo
      "Voltar pro app" dentro do casal. */
-  .space-switch {
-    display: none;
-  }
-
   .main {
     padding: 14px;
+  }
+
+  .main-topbar {
+    position: sticky;
+    top: 8px;
+    justify-content: center;
+    margin: -2px 0 14px;
+  }
+
+  .space-switch {
+    width: 100%;
+    max-width: 430px;
+  }
+
+  .space-switch button {
+    padding: 7px 10px 7px 7px;
+  }
+
+  .switch-ico {
+    width: 30px;
+    height: 30px;
   }
 
   .nav {
