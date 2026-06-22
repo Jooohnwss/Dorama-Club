@@ -90,6 +90,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: a seção **🎁 Surpresas** do "Nós 🔥" — escrever um recadinho que só revela numa data
 - Sem isso: guardar/abrir surpresa dá erro (tabela `couple_surprises` não existe)
 
+### 1o. Rodar a migração 26 no Supabase (modo saudade — Nós 2.0 Fase 5)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/26 - modo-saudade.sql` e clicar em **Run**
+- Pra quê: o **Modo saudade** na aba Planos — dias sem se ver, mandar saudade e "pra quando a gente se ver"
+- Sem isso: marcar a última vez que se viram / mandar saudade / lista do reencontro dá erro
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

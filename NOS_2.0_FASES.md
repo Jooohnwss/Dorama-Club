@@ -116,16 +116,22 @@ Saldo atual = Σ (pontos do couple_points_ledger)
 > vale cumprido, 100/500/1000 pts…) — derivadas do ledger, com barra de progresso.
 > **Surpresas programadas** (`couple_surprises`, migração 25): recadinho/combinado que só revela numa
 > data — fica escondido até lá (🎁 → 💝), perfeito pra saudade à distância. Só texto, sem mídia.
-> Bônus: **"Acertar pra 0"** no card de saldo (lança um ajuste no extrato pra zerar saldo negativo herdado).
+> Bônus: o saldo herdou negativo de duplicações antigas → **auto-acerto único** ao abrir o 🔥 Nós
+> (lança um ajuste `adjust:zero-correction` no extrato e zera, sem botão e sem repetir).
 - ✅ **Missões** (diária/semanal), +pontos com resgate único.
 - ✅ `couple_achievements` virou **conquistas derivadas** (sem tabela; medalhas calculadas do extrato).
 - ✅ `couple_surprises` (surpresa programada, revela em data).
 - ↪️ **Perguntas do casal por categoria** (pontos com limite diário): o **quiz semanal** já cobre o
   essencial; perguntas abertas por categoria entram junto da Fase 5 (saudade) se fizerem falta.
 
-### Fase 5 — Modo saudade (à distância) 🟢/🗄️
-- Dias sem se ver + contagem pro próximo encontro (já temos o countdown).
-- Missões de saudade, "lista quando a gente se ver", mensagem de saudade.
+### Fase 5 — Modo saudade (à distância) ✅ **FEITO** (migração 26)
+> Na aba **Planos**: **dias sem te ver** (a partir de `last_met_date`), **mandar saudade** (recadinho
+> curto, `couple_saudade`, com histórico) e **"pra quando a gente se ver"** (`couple_reunion_list`,
+> com marcar feito). Chip de saudade no **painel** (atalho "mandar saudade →"). Só texto, sem mídia.
+> Reaproveita o countdown do próximo encontro que já existia.
+> Bônus de UX: a **navegação do casal agora persiste no refresh** (volta pra mesma aba, não pro início).
+- ✅ Dias sem se ver + contagem pro próximo encontro (countdown).
+- ✅ Mensagem de saudade + "lista pra quando a gente se ver".
 
 ### Fase 6 — Telegram (continua o brief `CASAL_DISTANCIA_PLANO.md`) 🛰️
 - `couple_telegram_events` (só metadados) + botões: Abrir Telegram / Enviei / Recebi / Concluir.

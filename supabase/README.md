@@ -34,6 +34,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 23 | `23 - clima-e-limite-do-dia.sql` | `couple_daily_checkins` (clima do dia + limite só de hoje) + RLS — Nós 2.0 Fase 2 | Casal/Nós 2.0 |
 | 24 | `24 - status-dos-resgates.sql` | Coluna `status` em `couple_reward_claims` (resgate com aceite: solicitado→aceito→cumprido / recusado / cancelado) — Nós 2.0 Fase 3 | Casal/Nós 2.0 |
 | 25 | `25 - surpresas-programadas.sql` | `couple_surprises` (recadinho/combinado que só revela numa data) + RLS — Nós 2.0 Fase 4 | Casal/Nós 2.0 |
+| 26 | `26 - modo-saudade.sql` | `couples.last_met_date` (dias sem se ver) + `couple_reunion_list` ("pra quando a gente se ver") + `couple_saudade` (recadinho de saudade) + RLS — Nós 2.0 Fase 5 | Casal/Distância |
 
 ## Convenção de nome
 

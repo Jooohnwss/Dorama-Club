@@ -99,6 +99,14 @@ import {
   addCoupleDate,
   setDateDone,
   deleteCoupleDate,
+  updateCoupleLastMet,
+  loadReunionList,
+  addReunionItem,
+  setReunionDone,
+  deleteReunionItem,
+  loadSaudade,
+  addSaudade,
+  deleteSaudade,
   loadCoupleDramas,
   addCoupleDrama,
   updateCoupleDrama,
@@ -503,7 +511,7 @@ let coupleDiary = [];
 let coupleAbout = {};
 let coupleLetters = [];
 let coupleLoading = false;
-let coupleSection = "inicio"; // seção interna do ambiente do casal
+let coupleSection = state.coupleSection || "inicio"; // seção interna do ambiente do casal (persistida)
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let coupleDiaryKind = "episodio"; // tipo de página do diário sendo criada
 let recadoIndex = Math.floor(Math.random() * 1000); // qual recadinho mostrar no topo
@@ -518,6 +526,8 @@ let coupleQuiz = []; // respostas do quiz da semana [{q,user_id,answer}]
 let coupleQuizFor = null; // "coupleId:week" já carregado (evita loop)
 let coupleWishlist = []; // lista de desejos (presentes/experiências)
 let coupleDates = []; // calendário de encontros virtuais
+let coupleReunion = []; // "pra quando a gente se ver" (modo saudade)
+let coupleSaudade = []; // recadinhos de saudade
 let planosFor = null; // casal cujos planos já carregamos (evita loop)
 // "Nós 🔥": loja privada de recompensas (só pra um casal específico).
 // Os e-mails não ficam em texto puro — só os hashes (djb2) deles.
@@ -939,6 +949,8 @@ function loadState() {
 }
 
 function saveState() {
+  // Mantém a navegação do casal entre refreshes (volta pra mesma aba, não pro início).
+  if (typeof coupleSection === "string") state.coupleSection = coupleSection;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -3054,6 +3066,13 @@ function couplePetMini() {
     </div>`;
 }
 
+// Chip de saudade no painel (dias sem se ver).
+function coupleSaudadeMini() {
+  const dias = diasSemVer();
+  if (dias === null || dias === 0) return "";
+  return `<div class="saudade-mini">💗 <strong>${dias}</strong> dia${dias === 1 ? "" : "s"} sem se ver <button class="recado-mini" type="button" data-couple-section="planos">mandar saudade →</button></div>`;
+}
+
 // Contagem regressiva pro próximo encontro presencial.
 function coupleCountdownTemplate() {
   const d = state.couple?.nextMeetDate;
@@ -3074,6 +3093,7 @@ function coupleInicioSection() {
     ${coupleRecadoTemplate()}
     ${coupleGreetingTemplate()}
     ${coupleCountdownTemplate()}
+    ${coupleSaudadeMini()}
     ${coupleProximoPasso()}
     ${coupleFocusCard()}
     ${couplePetMini()}
@@ -3498,19 +3518,6 @@ async function handleNosClaim(id) {
     toast("Resgatado! 🔥 Aguardando o aceite da sua pessoa.");
   } catch { toast("Não consegui resgatar."); }
 }
-async function handleAjusteSaldo() {
-  if (!state.couple) return;
-  const saldo = nosSaldo();
-  if (saldo >= 0) { toast("O saldo já está em dia. 💛"); return; }
-  const ok = await confirmar("Acertar o saldo pra 0?", { sub: `Lança um ajuste de +${-saldo} no extrato pra zerar o negativo (não some nada — fica registrado).`, ok: "Acertar" });
-  if (!ok) return;
-  try {
-    await lancarPontos({ points: -saldo, type: "refunded", reason: "ajuste de saldo (zerar negativo)", sourceType: "adjust", sourceId: `zero-${Date.now()}` });
-    coupleLedger = await loadPointsLedger(state.couple.id);
-    render();
-    toast("Pronto, saldo em 0. 💞");
-  } catch { toast("Não consegui acertar."); }
-}
 async function handleSurpresaCreate(e) {
   e.preventDefault();
   if (!state.couple) return;
@@ -3775,6 +3782,16 @@ async function loadNosData() {
   } catch {
     nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; coupleCheckins = []; coupleSurprises = [];
   }
+  // Auto-acerto único: o saldo herdou negativo de duplicações antigas (bug da lógica
+  // anterior). Zera UMA vez (source fixo = anti-dup nunca repete) — sem botão.
+  try {
+    const saldoAtual = coupleLedger.reduce((s, l) => s + Number(l.points || 0), 0);
+    const jaZerou = coupleLedger.some((l) => l.source_type === "adjust" && l.source_id === "zero-correction");
+    if (saldoAtual < 0 && !jaZerou) {
+      await lancarPontos({ points: -saldoAtual, type: "refunded", reason: "ajuste: zerar saldo negativo (duplicações antigas)", sourceType: "adjust", sourceId: "zero-correction" });
+      coupleLedger = await loadPointsLedger(state.couple.id);
+    }
+  } catch { /* ignore */ }
   nosFor = state.couple.id;
   render();
 }
@@ -4141,10 +4158,7 @@ function nosSection() {
     <section class="nos-saldo">
       <strong>${carregando ? "…" : saldo} pts</strong>
       <span>saldo do casal · acumulado ${acumulados}</span>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px">
-        <button class="recado-mini" type="button" data-extrato-open>📜 Ver extrato</button>
-        ${!carregando && saldo < 0 ? `<button class="recado-mini" type="button" data-ajuste-saldo>↺ Acertar pra 0</button>` : ""}
-      </div>
+      <button class="recado-mini" type="button" data-extrato-open style="margin-top:8px">📜 Ver extrato</button>
     </section>
 
     ${nosClimaHtml()}
@@ -4181,14 +4195,68 @@ function nosSection() {
 async function loadPlanosData() {
   if (!state.couple || !cloudOn()) return;
   try {
-    const [w, d] = await Promise.all([loadCoupleWishlist(state.couple.id), loadCoupleDates(state.couple.id)]);
+    const [w, d, rl, sd] = await Promise.all([
+      loadCoupleWishlist(state.couple.id),
+      loadCoupleDates(state.couple.id),
+      loadReunionList(state.couple.id),
+      loadSaudade(state.couple.id),
+    ]);
     coupleWishlist = w;
     coupleDates = d;
+    coupleReunion = rl;
+    coupleSaudade = sd;
   } catch {
-    coupleWishlist = []; coupleDates = [];
+    coupleWishlist = []; coupleDates = []; coupleReunion = []; coupleSaudade = [];
   }
   planosFor = state.couple.id;
   render();
+}
+
+// ---------- Fase 5: Modo saudade (namoro a distância) ----------
+function diasSemVer() {
+  const d = state.couple?.lastMetDate;
+  if (!d) return null;
+  const alvo = new Date(`${d}T00:00:00`);
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((hoje - alvo) / 86400000));
+}
+function coupleSaudadeTemplate() {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const dias = diasSemVer();
+  const ultima = coupleSaudade[0];
+  const reunionAbertos = coupleReunion.filter((r) => !r.done);
+  const reunionFeitos = coupleReunion.filter((r) => r.done);
+  const reunionCard = (r) => `
+    <article class="plano-item ${r.done ? "done" : ""}">
+      <span class="plano-emoji">${r.done ? "✅" : "📝"}</span>
+      <div class="plano-text"><strong>${esc(r.text)}</strong><small>${esc(nomeMembro(r.created_by))}${r.done ? " · ✓ feito" : ""}</small></div>
+      <div class="mini-actions"><button data-reunion-done="${r.id}:${r.done ? "0" : "1"}">${r.done ? "Reabrir" : "Já fizemos"}</button><button data-reunion-del="${r.id}">${icon("trash")}</button></div>
+    </article>`;
+  return `
+    <div class="section-title compact"><h2>💗 Modo saudade</h2></div>
+    <section class="saudade-box">
+      ${dias !== null
+        ? `<div class="saudade-dias"><strong>${dias}</strong><span>dia${dias === 1 ? "" : "s"} sem te ver 🥺</span></div>`
+        : `<p class="muted" style="margin:0 0 8px;font-size:.84rem">Marca a última vez que vocês se viram pra contar a saudade.</p>`}
+      <form id="couple-lastmet-form" class="search-bar" style="margin-top:8px">
+        <input name="lastmet" type="date" max="${hoje}" value="${esc(state.couple.lastMetDate || "")}" />
+        <button class="btn secondary" type="submit">Última vez que nos vimos</button>
+      </form>
+      <form id="couple-saudade-form" class="search-bar" style="margin-top:10px">
+        <input name="note" placeholder="Manda uma saudade… 💌" maxlength="140" />
+        <button class="btn" type="submit">Mandar saudade</button>
+      </form>
+      ${ultima ? `<p class="saudade-ultima">💌 <strong>${esc(nomeMembro(ultima.user_id))}</strong>: ${ultima.note ? esc(ultima.note) : "tô com saudade"} <span class="muted">· ${esc(timeAgo(ultima.created_at))}</span></p>` : ""}
+      ${coupleSaudade.length > 1 ? `<details class="saudade-mais"><summary>Saudades anteriores (${coupleSaudade.length})</summary>${coupleSaudade.slice(1).map((s) => `<div class="saudade-linha"><small>💌 ${esc(nomeMembro(s.user_id))}: ${s.note ? esc(s.note) : "saudade"} · ${esc(timeAgo(s.created_at))}</small><button class="recado-mini" type="button" data-saudade-del="${s.id}">${icon("trash")}</button></div>`).join("")}</details>` : ""}
+    </section>
+
+    <div class="section-title compact"><h2>📝 Pra quando a gente se ver</h2></div>
+    <form id="couple-reunion-form" class="search-bar">
+      <input name="text" placeholder="Um lugar, um date, um abraço demorado…" required />
+      <button class="btn secondary" type="submit">Adicionar</button>
+    </form>
+    ${reunionAbertos.length ? `<section class="plano-grid">${reunionAbertos.map(reunionCard).join("")}</section>` : `<div class="empty">Listem o que querem fazer quando se virem. 💕</div>`}
+    ${reunionFeitos.length ? `<div class="section-title compact"><h2>Já fizemos 💞</h2></div><section class="plano-grid">${reunionFeitos.map(reunionCard).join("")}</section>` : ""}`;
 }
 
 function couplePlanosSection() {
@@ -4221,6 +4289,8 @@ function couplePlanosSection() {
       </form>
       <p class="muted" style="margin:8px 0 0;font-size:.8rem">Vira a contagem regressiva no painel.</p>
     </section>
+
+    ${coupleSaudadeTemplate()}
 
     <div class="section-title compact"><h2>🗓️ Encontros virtuais</h2></div>
     <form id="couple-date-form" class="form-card form-grid">
@@ -5505,6 +5575,12 @@ function bindShell() {
   document.querySelectorAll("[data-del-date]").forEach((b) => listen(b, "click", () => handleDeleteDate(b.dataset.delDate)));
   document.querySelectorAll("[data-wish-done]").forEach((b) => listen(b, "click", () => handleWishDone(b.dataset.wishDone)));
   document.querySelectorAll("[data-del-wish]").forEach((b) => listen(b, "click", () => handleDeleteWish(b.dataset.delWish)));
+  listen(document.querySelector("#couple-lastmet-form"), "submit", handleLastMet);
+  listen(document.querySelector("#couple-saudade-form"), "submit", handleSaudade);
+  listen(document.querySelector("#couple-reunion-form"), "submit", handleReunionAdd);
+  document.querySelectorAll("[data-reunion-done]").forEach((b) => listen(b, "click", () => handleReunionDone(b.dataset.reunionDone)));
+  document.querySelectorAll("[data-reunion-del]").forEach((b) => listen(b, "click", () => handleReunionDel(b.dataset.reunionDel)));
+  document.querySelectorAll("[data-saudade-del]").forEach((b) => listen(b, "click", () => handleSaudadeDel(b.dataset.saudadeDel)));
   listen(document.querySelector("#couple-pinned-form"), "submit", handleCouplePinned);
   listen(document.querySelector("#couple-add-drama-form"), "submit", handleCoupleAddDrama);
   listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
@@ -5575,7 +5651,6 @@ function bindShell() {
   listen(document.querySelector("#nos-surpresa-form"), "submit", handleSurpresaCreate);
   document.querySelectorAll("[data-surp-del]").forEach((b) => listen(b, "click", () => handleSurpresaDel(b.dataset.surpDel)));
   document.querySelectorAll("[data-extrato-open]").forEach((b) => listen(b, "click", () => { extratoOpen = true; render(); }));
-  document.querySelectorAll("[data-ajuste-saldo]").forEach((b) => listen(b, "click", handleAjusteSaldo));
   document.querySelectorAll("[data-extrato-close]").forEach((b) => listen(b, "click", () => { extratoOpen = false; render(); }));
   document.querySelectorAll("[data-set-intensity]").forEach((b) => listen(b, "click", () => handleSetIntensity(b.dataset.setIntensity)));
   document.querySelectorAll("[data-desafio-done]").forEach((b) => listen(b, "click", () => handleDesafioDone(b.dataset.desafioDone)));
@@ -6041,6 +6116,7 @@ function mapCoupleRow(couple) {
     createdBy: couple.created_by || null,
     pinnedLetter: couple.pinned_letter || "",
     nextMeetDate: couple.next_meet_date || "",
+    lastMetDate: couple.last_met_date || "",
   };
 }
 
@@ -6075,6 +6151,7 @@ function leaveCoupleSpace() {
 
 function setCoupleSection(sec) {
   coupleSection = sec;
+  saveState();
   petReacao = "";
   coupleMemoryDraft = null;
   if (sec === "inicio") recadoIndex = Math.floor(Math.random() * 1000); // recadinho muda sempre
@@ -6190,6 +6267,55 @@ async function handleWishDone(raw) {
 }
 async function handleDeleteWish(id) {
   try { await deleteWishlist(id); coupleWishlist = coupleWishlist.filter((x) => x.id !== id); render(); } catch { toast("Não consegui apagar."); }
+}
+
+// ---- Modo saudade (Fase 5) ----
+async function handleLastMet(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const v = String(new FormData(event.currentTarget).get("lastmet") || "");
+  try {
+    await updateCoupleLastMet(state.couple.id, v || null);
+    state.couple.lastMetDate = v || "";
+    saveState();
+    render();
+    toast(v ? "Marcado 💗" : "Removido.");
+  } catch { toast("Não consegui salvar."); }
+}
+async function handleSaudade(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const note = String(new FormData(event.currentTarget).get("note") || "").trim();
+  try {
+    await addSaudade(state.couple.id, authUser.id, note);
+    coupleSaudade = await loadSaudade(state.couple.id);
+    event.target.reset();
+    render();
+    toast("Saudade enviada 💌");
+  } catch { toast("Não consegui enviar."); }
+}
+async function handleSaudadeDel(id) {
+  try { await deleteSaudade(id); coupleSaudade = coupleSaudade.filter((x) => x.id !== id); render(); } catch { toast("Não consegui apagar."); }
+}
+async function handleReunionAdd(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const text = String(new FormData(event.currentTarget).get("text") || "").trim();
+  if (!text) return;
+  try {
+    await addReunionItem(state.couple.id, authUser.id, text);
+    coupleReunion = await loadReunionList(state.couple.id);
+    event.target.reset();
+    render();
+    toast("Anotado 📝");
+  } catch { toast("Não consegui adicionar."); }
+}
+async function handleReunionDone(raw) {
+  const [id, v] = String(raw).split(":");
+  try { await setReunionDone(id, v === "1"); coupleReunion = await loadReunionList(state.couple.id); render(); } catch { toast("Não consegui atualizar."); }
+}
+async function handleReunionDel(id) {
+  try { await deleteReunionItem(id); coupleReunion = coupleReunion.filter((x) => x.id !== id); render(); } catch { toast("Não consegui apagar."); }
 }
 
 async function handleCouplePinned(event) {

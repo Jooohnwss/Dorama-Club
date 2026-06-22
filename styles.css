@@ -1646,6 +1646,40 @@ textarea:focus {
 .surpresa p { margin: 6px 0 4px; font-size: 0.9rem; white-space: pre-wrap; }
 .surpresa small { display: block; color: var(--cor-texto-suave); font-weight: 700; }
 
+/* Modo saudade (Fase 5) */
+.saudade-box {
+  padding: 14px; border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 30%, var(--cor-borda));
+  background: color-mix(in srgb, var(--cor-primaria) 8%, var(--cor-superficie));
+}
+.saudade-dias {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 4px;
+}
+.saudade-dias strong { font-size: 2rem; line-height: 1; color: var(--cor-primaria); }
+.saudade-dias span { font-weight: 800; color: var(--cor-texto-suave); }
+.saudade-ultima {
+  margin: 10px 0 0; padding: 8px 10px; border-radius: 12px;
+  background: color-mix(in srgb, var(--cor-superficie) 80%, transparent);
+  font-size: 0.9rem;
+}
+.saudade-mais { margin-top: 8px; }
+.saudade-mais summary { cursor: pointer; font-weight: 800; font-size: 0.82rem; color: var(--cor-texto-suave); }
+.saudade-linha {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 0; border-bottom: 1px solid var(--cor-borda);
+}
+.saudade-linha small { color: var(--cor-texto-suave); font-weight: 700; }
+.saudade-mini {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 12px; padding: 10px 14px; border-radius: 14px;
+  background: color-mix(in srgb, var(--cor-primaria) 10%, var(--cor-superficie));
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 28%, var(--cor-borda));
+  font-weight: 700;
+}
+.saudade-mini strong { color: var(--cor-primaria); font-size: 1.1rem; }
+.saudade-mini button { margin-left: auto; }
+
 /* Quiz do casal */
 .quiz-score {
   display: flex;

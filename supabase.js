@@ -452,6 +452,57 @@ export async function updateCoupleMeetDate(coupleId, date) {
   if (error) throw error;
 }
 
+export async function updateCoupleLastMet(coupleId, date) {
+  const { error } = await supabase.from("couples").update({ last_met_date: date || null }).eq("id", coupleId);
+  if (error) throw error;
+}
+
+// ---- Modo saudade (Fase 5) ----
+export async function loadReunionList(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_reunion_list")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+export async function addReunionItem(coupleId, userId, text) {
+  const { error } = await supabase.from("couple_reunion_list").insert({
+    couple_id: coupleId, created_by: userId, text,
+  });
+  if (error) throw error;
+}
+export async function setReunionDone(id, done) {
+  const { error } = await supabase.from("couple_reunion_list").update({ done }).eq("id", id);
+  if (error) throw error;
+}
+export async function deleteReunionItem(id) {
+  const { error } = await supabase.from("couple_reunion_list").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadSaudade(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_saudade")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return data || [];
+}
+export async function addSaudade(coupleId, userId, note) {
+  const { error } = await supabase.from("couple_saudade").insert({
+    couple_id: coupleId, user_id: userId, note: note || null,
+  });
+  if (error) throw error;
+}
+export async function deleteSaudade(id) {
+  const { error } = await supabase.from("couple_saudade").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function loadCouplePrefs(coupleId) {
   const { data, error } = await supabase.from("couple_member_prefs").select("user_id, max_intensity").eq("couple_id", coupleId);
   if (error) throw error;
