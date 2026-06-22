@@ -1576,6 +1576,57 @@ textarea:focus {
 .claim-status.done { background: color-mix(in srgb, #22c55e 22%, transparent); color: #15803d; }
 .claim-status.off { background: color-mix(in srgb, #ef4444 16%, transparent); color: #b91c1c; }
 
+/* Missões (Fase 4) */
+.missoes { display: grid; gap: 14px; }
+.miss-grupo { display: grid; gap: 8px; }
+.miss-tag {
+  font-size: 0.74rem; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--cor-texto-suave);
+}
+.missao {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+}
+.missao.feita { border-color: color-mix(in srgb, #22c55e 45%, var(--cor-borda)); }
+.missao.claimed { opacity: 0.72; }
+.miss-emoji { font-size: 1.3rem; }
+.miss-txt { flex: 1; min-width: 0; }
+.miss-txt strong { display: block; font-size: 0.92rem; }
+.miss-txt small { color: var(--cor-texto-suave); font-weight: 700; }
+.miss-acao .primary { background: var(--cor-primaria); color: #fff; border-color: transparent; }
+.miss-pts { font-weight: 800; font-size: 0.8rem; color: var(--cor-texto-suave); }
+.miss-done { font-weight: 900; font-size: 0.82rem; color: #15803d; }
+
+/* Conquistas (Fase 4) */
+.conquistas {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.conq {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 12px; border-radius: 16px; text-align: center;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 80%, transparent);
+  opacity: 0.62; filter: grayscale(0.4);
+}
+.conq.on {
+  opacity: 1; filter: none;
+  border-color: color-mix(in srgb, var(--cor-primaria) 45%, var(--cor-borda));
+  background: color-mix(in srgb, var(--cor-primaria) 10%, var(--cor-superficie));
+}
+.conq-emoji { font-size: 1.7rem; }
+.conq strong { font-size: 0.86rem; }
+.conq small { font-size: 0.72rem; color: var(--cor-texto-suave); font-weight: 700; }
+.conq-badge { margin-top: 2px; font-size: 0.72rem; font-weight: 900; color: var(--cor-primaria); }
+.conq-bar {
+  margin-top: 4px; height: 6px; border-radius: 999px; overflow: hidden;
+  background: color-mix(in srgb, var(--cor-texto-suave) 18%, transparent);
+}
+.conq-bar i { display: block; height: 100%; background: var(--cor-primaria); border-radius: 999px; }
+.conq-pct { font-size: 0.7rem; font-weight: 800; color: var(--cor-texto-suave); }
+
 /* Quiz do casal */
 .quiz-score {
   display: flex;

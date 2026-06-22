@@ -109,11 +109,17 @@ Saldo atual = Σ (pontos do couple_points_ledger)
 - Pontos descontados no resgate → **estorno** se cancelar/recusar. Recusar não pune.
 - *Pendente migração 24* (`couple_reward_claims.status`).
 
-### Fase 4 — Missões, surpresas, perguntas e conquistas 🗄️
-- `couple_missions` (diária/semanal: fofinha, saudade, dorama, flerte, Telegram…), +pontos.
-- `couple_surprises` (surpresa programada, revela em data).
-- **Perguntas do casal** por categoria (reaproveita o quiz; pode dar pontos com limite diário).
-- `couple_achievements` (medalhas: 1º desafio, 1ª cartinha, 7 dias de carinho, 1º vale cumprido…).
+### Fase 4 — Missões, surpresas, perguntas e conquistas 🟡 **EM ANDAMENTO** (sem migração)
+> **Feito:** **Missões** do dia/semana (clima, carinho, episódio / desafio, memória, quiz) —
+> derivadas do extrato; ao cumprir, aparece **Resgatar +N** (bônus único por período, `mission:<key>:<periodo>`,
+> anti-dup). **Conquistas/medalhas** (14 badges: 1ª maratona, diário cheio, cartas de amor, aventureiros,
+> sincronia, vale cumprido, 100/500/1000 pts…) — também derivadas do ledger, com barra de progresso.
+> **Pendente (migração 25):** `couple_surprises` (surpresa programada, revela em data) e perguntas do
+> casal por categoria com pontos (hoje já existe o quiz semanal).
+- ✅ **Missões** (diária/semanal), +pontos com resgate único.
+- ✅ `couple_achievements` virou **conquistas derivadas** (sem tabela; medalhas calculadas do extrato).
+- 🗄️ `couple_surprises` (surpresa programada, revela em data).
+- 🗄️ **Perguntas do casal** por categoria (além do quiz semanal; pontos com limite diário).
 
 ### Fase 5 — Modo saudade (à distância) 🟢/🗄️
 - Dias sem se ver + contagem pro próximo encontro (já temos o countdown).

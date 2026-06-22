@@ -3494,6 +3494,16 @@ async function handleNosClaim(id) {
     toast("Resgatado! 🔥 Aguardando o aceite da sua pessoa.");
   } catch { toast("Não consegui resgatar."); }
 }
+async function handleMissionClaim(raw) {
+  const [key, period, bonus] = String(raw).split(":");
+  if (!state.couple) return;
+  try {
+    await ganharPontos(Number(bonus) || 0, `missão: ${key}`, "mission", `${key}:${period}`);
+    coupleLedger = await loadPointsLedger(state.couple.id);
+    render();
+    toast(`Missão cumprida! +${bonus} 💞`);
+  } catch { toast("Não consegui resgatar a missão."); }
+}
 async function handleNosDeleteReward(id) {
   const ok = await confirmar("Apagar esse vale?", { ok: "Apagar", danger: true });
   if (!ok) return;
@@ -3843,6 +3853,114 @@ function nosFeitosHtml() {
   return `<section class="nos-feitos"><span class="muted" style="font-weight:800;font-size:.78rem">Feitos recentes</span>${itens}</section>`;
 }
 
+// ---------- Fase 4: missões (do dia/semana) ----------
+function isoDia(d) { return new Date(d).toISOString().slice(0, 10); }
+function hojeISO() { return new Date().toISOString().slice(0, 10); }
+function semanaDe(d) {
+  const dt = new Date(d);
+  const inicio = new Date(dt.getFullYear(), 0, 1);
+  const semana = Math.ceil(((dt - inicio) / 86400000 + inicio.getDay() + 1) / 7);
+  return `${dt.getFullYear()}-W${semana}`;
+}
+// quantas ações de um tipo aconteceram hoje / nesta semana (pelo extrato)
+function ledgerHoje(type) {
+  const t = hojeISO();
+  return coupleLedger.filter((l) => l.source_type === type && isoDia(l.created_at) === t).length;
+}
+function ledgerSemana(type) {
+  const w = semanaDe(new Date());
+  return coupleLedger.filter((l) => l.source_type === type && semanaDe(l.created_at) === w).length;
+}
+const MISSOES_DIA = [
+  { key: "checkin", emoji: "🌤️", nome: "Clima do dia", desc: "Marque como você está hoje", bonus: 2, feita: () => ledgerHoje("checkin") >= 1 },
+  { key: "carinho", emoji: "💌", nome: "Mande um carinho", desc: "Uma cartinha ou recadinho hoje", bonus: 3, feita: () => ledgerHoje("letter") >= 1 },
+  { key: "ep", emoji: "🎬", nome: "Um episódio juntos", desc: "Avancem um episódio hoje", bonus: 3, feita: () => ledgerHoje("ep") >= 1 },
+];
+const MISSOES_SEMANA = [
+  { key: "desafio", emoji: "🔥", nome: "Um desafio", desc: "Concluam um desafio nesta semana", bonus: 6, feita: () => ledgerSemana("challenge") >= 1 },
+  { key: "memoria", emoji: "📸", nome: "Guardem uma memória", desc: "Uma página no diário", bonus: 4, feita: () => ledgerSemana("memory") >= 1 },
+  { key: "quiz", emoji: "❓", nome: "Quiz do casal", desc: "Respondam o quiz da semana", bonus: 4, feita: () => ledgerSemana("quiz") >= 1 },
+];
+function missaoFeitaResgatada(key, periodo) {
+  return coupleLedger.some((l) => l.source_type === "mission" && l.source_id === `${key}:${periodo}`);
+}
+function missaoCard(m, periodo) {
+  const feita = m.feita();
+  const resgatada = missaoFeitaResgatada(m.key, periodo);
+  let acao;
+  if (resgatada) acao = `<span class="miss-done">✓ +${m.bonus}</span>`;
+  else if (feita) acao = `<button class="primary" data-mission="${m.key}:${periodo}:${m.bonus}">Resgatar +${m.bonus}</button>`;
+  else acao = `<span class="miss-pts">+${m.bonus} pts</span>`;
+  return `
+    <article class="missao ${feita ? "feita" : ""} ${resgatada ? "claimed" : ""}">
+      <span class="miss-emoji">${feita ? "✅" : m.emoji}</span>
+      <div class="miss-txt"><strong>${esc(m.nome)}</strong><small>${esc(m.desc)}</small></div>
+      <div class="miss-acao">${acao}</div>
+    </article>`;
+}
+function nosMissoesHtml() {
+  const hoje = hojeISO();
+  const wk = semanaDe(new Date());
+  return `
+    <div class="section-title compact"><h2>🎯 Missões</h2><span class="muted" style="font-size:.8rem">do dia & da semana</span></div>
+    <section class="missoes">
+      <div class="miss-grupo"><span class="miss-tag">Hoje</span>${MISSOES_DIA.map((m) => missaoCard(m, hoje)).join("")}</div>
+      <div class="miss-grupo"><span class="miss-tag">Essa semana</span>${MISSOES_SEMANA.map((m) => missaoCard(m, wk)).join("")}</div>
+    </section>`;
+}
+
+// ---------- Fase 4: conquistas (derivadas do extrato) ----------
+const REFUND_OF = { memory: "memory_refund", letter: "letter_refund", challenge: "challenge_undo" };
+function acaoCount(type) {
+  const pos = coupleLedger.filter((l) => l.source_type === type).length;
+  const ref = REFUND_OF[type] ? coupleLedger.filter((l) => l.source_type === REFUND_OF[type]).length : 0;
+  return Math.max(0, pos - ref);
+}
+function nosConquistas() {
+  const eps = acaoCount("ep");
+  const mems = acaoCount("memory");
+  const cartas = acaoCount("letter");
+  const desafios = acaoCount("challenge");
+  const checkins = coupleLedger.filter((l) => l.source_type === "checkin").length;
+  const sync = coupleLedger.filter((l) => l.source_type === "checkin_bonus").length;
+  const valesCumpridos = nosClaims.filter((c) => (c.status || (c.used ? "cumprido" : "")) === "cumprido").length;
+  const acc = nosPontosAcumulados();
+  return [
+    { emoji: "🎬", nome: "Primeira maratona", desc: "1º episódio assistido junto", cur: eps, alvo: 1 },
+    { emoji: "🍿", nome: "Maratonistas", desc: "10 episódios juntos", cur: eps, alvo: 10 },
+    { emoji: "📸", nome: "Primeira memória", desc: "1ª página no diário", cur: mems, alvo: 1 },
+    { emoji: "📔", nome: "Diário cheio", desc: "10 memórias guardadas", cur: mems, alvo: 10 },
+    { emoji: "💌", nome: "Primeira cartinha", desc: "1ª cartinha ou recadinho", cur: cartas, alvo: 1 },
+    { emoji: "✍️", nome: "Cartas de amor", desc: "5 cartinhas", cur: cartas, alvo: 5 },
+    { emoji: "😏", nome: "Primeiro desafio", desc: "1º desafio concluído", cur: desafios, alvo: 1 },
+    { emoji: "🔥", nome: "Aventureiros", desc: "10 desafios", cur: desafios, alvo: 10 },
+    { emoji: "🌤️", nome: "Clima em dia", desc: "1º check-in do clima", cur: checkins, alvo: 1 },
+    { emoji: "💞", nome: "Sincronia", desc: "os dois no mesmo dia", cur: sync, alvo: 1 },
+    { emoji: "🎁", nome: "Vale cumprido", desc: "1 vale realizado", cur: valesCumpridos, alvo: 1 },
+    { emoji: "⭐", nome: "100 pontos", desc: "100 pontos acumulados", cur: acc, alvo: 100 },
+    { emoji: "🏆", nome: "500 pontos", desc: "500 pontos acumulados", cur: acc, alvo: 500 },
+    { emoji: "👑", nome: "Lendários", desc: "1000 pontos acumulados", cur: acc, alvo: 1000 },
+  ];
+}
+function nosConquistasHtml() {
+  const lista = nosConquistas();
+  const feitas = lista.filter((c) => c.cur >= c.alvo).length;
+  return `
+    <div class="section-title compact"><h2>🏅 Conquistas</h2><span class="muted" style="font-size:.8rem">${feitas}/${lista.length}</span></div>
+    <section class="conquistas">
+      ${lista.map((c) => {
+        const ok = c.cur >= c.alvo;
+        const pct = Math.min(100, Math.round((c.cur / c.alvo) * 100));
+        return `<article class="conq ${ok ? "on" : ""}">
+          <span class="conq-emoji">${ok ? c.emoji : "🔒"}</span>
+          <strong>${esc(c.nome)}</strong>
+          <small>${esc(c.desc)}</small>
+          ${ok ? `<span class="conq-badge">conquistado!</span>` : `<div class="conq-bar"><i style="width:${pct}%"></i></div><span class="conq-pct">${c.cur}/${c.alvo}</span>`}
+        </article>`;
+      }).join("")}
+    </section>`;
+}
+
 // Progressão: categorias por pontos acumulados + catálogo desbloqueável por saldo.
 function nosProgressaoHtml() {
   const acumulados = nosPontosAcumulados();
@@ -3947,7 +4065,9 @@ function nosSection() {
     ${limitesHtml}
     ${desafioHtml}
     ${nosFeitosHtml()}
+    ${nosMissoesHtml()}
     ${progHtml}
+    ${nosConquistasHtml()}
 
     <div class="section-title compact"><h2>Criar um vale</h2></div>
     <form id="nos-create-form" class="form-card form-grid">
@@ -5364,6 +5484,7 @@ function bindShell() {
   document.querySelectorAll("[data-nos-used]").forEach((b) => listen(b, "click", () => handleNosClaimUsed(b.dataset.nosUsed)));
   document.querySelectorAll("[data-nos-del-claim]").forEach((b) => listen(b, "click", () => handleNosDeleteClaim(b.dataset.nosDelClaim)));
   document.querySelectorAll("[data-claim-status]").forEach((b) => listen(b, "click", () => handleClaimStatus(b.dataset.claimStatus)));
+  document.querySelectorAll("[data-mission]").forEach((b) => listen(b, "click", () => handleMissionClaim(b.dataset.mission)));
   document.querySelectorAll("[data-extrato-open]").forEach((b) => listen(b, "click", () => { extratoOpen = true; render(); }));
   document.querySelectorAll("[data-extrato-close]").forEach((b) => listen(b, "click", () => { extratoOpen = false; render(); }));
   document.querySelectorAll("[data-set-intensity]").forEach((b) => listen(b, "click", () => handleSetIntensity(b.dataset.setIntensity)));
