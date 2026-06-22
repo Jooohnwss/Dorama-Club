@@ -72,6 +72,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: o **saldo de pontos** do "Nós 🔥" passa a vir de um **extrato real** (começa em 0, sem duplicar)
 - Sem isso: o saldo aparece 0 e nada é registrado (ganhar/gastar pontos dá erro)
 
+### 1l. Rodar a migração 23 no Supabase (clima + limite do dia — Nós 2.0)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/23 - clima-e-limite-do-dia.sql` e clicar em **Run**
+- Pra quê: **check-in do clima do dia** + **limite só de hoje** (Fase 2 do Nós 2.0)
+- Sem isso: registrar clima/limite do dia dá erro (tabela não existe)
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

@@ -82,8 +82,11 @@ import {
   saveCouplePref,
   loadCoupleChallenges,
   addCoupleChallengeLog,
+  deleteCoupleChallengeLog,
   loadPointsLedger,
   addPointsLedger,
+  loadCoupleCheckins,
+  upsertCoupleCheckin,
   loadCoupleWishlist,
   addCoupleWishlist,
   setWishlistDone,
@@ -521,6 +524,7 @@ let nosClaims = [];
 let couplePrefs = []; // [{user_id, max_intensity}]
 let coupleChallenges = []; // log de desafios concluídos
 let coupleLedger = []; // extrato de pontos (Nós 2.0)
+let coupleCheckins = []; // check-ins de hoje (clima + limite do dia)
 let nosFor = null;
 let nosUnlocked = false; // destravado nesta sessão (após o PIN)
 let desafioIdx = 0; // pra "outro desafio"
@@ -3387,12 +3391,11 @@ async function handleCatDone(key) {
   }
   const pts = PONTOS.desafio[d.nivel] || 5;
   try {
-    await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: d.nivel });
-    const hoje = new Date().toISOString().slice(0, 10);
-    await ganharPontos(pts, `desafio: ${d.nome}`, "challenge", `${key}:${hoje}`);
+    const logId = await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: d.nivel });
+    await ganharPontos(pts, `desafio: ${d.nome}`, "challenge", logId || `${key}:${Date.now()}`);
     coupleChallenges = await loadCoupleChallenges(state.couple.id);
     render();
-    toast(`Concluído! +${pts} pts 🎯`);
+    toast(`Concluído! +${pts} pts 🎯 (dá pra desfazer)`);
   } catch { toast("Não consegui registrar."); }
 }
 async function handleDesafioDone(raw) {
@@ -3401,14 +3404,55 @@ async function handleDesafioDone(raw) {
   const n = Number(nivel) || 1;
   const pts = PONTOS.desafio[n] || 5;
   try {
-    await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: n });
-    const hoje = new Date().toISOString().slice(0, 10);
-    await ganharPontos(pts, "desafio concluído", "challenge", `${key}:${hoje}`);
+    const logId = await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: n });
+    await ganharPontos(pts, "desafio concluído", "challenge", logId || `${key}:${Date.now()}`);
     coupleChallenges = await loadCoupleChallenges(state.couple.id);
     desafioIdx += 1; // já mostra o próximo
     render();
-    toast(`Desafio concluído! +${pts} pts 🎯`);
+    toast(`Desafio concluído! +${pts} pts 🎯 (dá pra desfazer)`);
   } catch { toast("Não consegui registrar."); }
+}
+
+// Desfazer um desafio concluído (estorna os pontos).
+async function handleUndoChallenge(raw) {
+  const [id, intensity] = String(raw).split(":");
+  const ok = await confirmar("Desfazer esse desafio?", { sub: "Os pontos ganhos são estornados.", ok: "Desfazer", danger: true });
+  if (!ok) return;
+  try {
+    await deleteCoupleChallengeLog(id);
+    await estornarPontos(-(PONTOS.desafio[Number(intensity)] || 5), "desafio desfeito", "challenge_undo", id);
+    coupleChallenges = coupleChallenges.filter((c) => c.id !== id);
+    coupleLedger = await loadPointsLedger(state.couple.id);
+    render();
+    toast("Desfeito. Pontos estornados.");
+  } catch { toast("Não consegui desfazer."); }
+}
+
+async function handleCheckin(mood) {
+  if (!state.couple) return;
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    await upsertCoupleCheckin(state.couple.id, authUser.id, day, { mood });
+    await ganharPontos(PONTOS.checkin, "check-in do clima", "checkin", `${authUser.id}:${day}`);
+    coupleCheckins = await loadCoupleCheckins(state.couple.id, day);
+    // Bônus quando os dois fazem check-in no mesmo dia.
+    if (coupleMembers.length >= 2 && coupleMembers.every((m) => coupleCheckins.some((c) => c.user_id === m.user_id))) {
+      await ganharPontos(PONTOS.checkinBonus, "os dois fizeram check-in", "checkin_bonus", day);
+    }
+    coupleLedger = await loadPointsLedger(state.couple.id);
+    render();
+    toast("Clima registrado 💞");
+  } catch { toast("Não consegui registrar."); }
+}
+async function handleDayLimit(n) {
+  if (!state.couple) return;
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    await upsertCoupleCheckin(state.couple.id, authUser.id, day, { dayLimit: Number(n) });
+    coupleCheckins = await loadCoupleCheckins(state.couple.id, day);
+    render();
+    toast("Limite de hoje salvo 🔐");
+  } catch { toast("Não consegui salvar."); }
 }
 
 async function handleNosCreate(event) {
@@ -3501,7 +3545,7 @@ function nosResumoExtrato() {
 }
 
 // Valor por ação (tabela do brief, versão "lenta").
-const PONTOS = { ep: 5, memoria: 3, cartinha: 6, quiz: 2, desafio: { 1: 5, 2: 8, 3: 12, 4: 18, 5: 25, 6: 35 } };
+const PONTOS = { ep: 5, memoria: 3, cartinha: 6, quiz: 2, checkin: 1, checkinBonus: 2, desafio: { 1: 5, 2: 8, 3: 12, 4: 18, 5: 25, 6: 35 } };
 
 async function lancarPontos(entry) {
   if (!state.couple || !cloudOn()) return;
@@ -3578,7 +3622,7 @@ function desafioUnlocked(key) {
 }
 // Pode ATUAR no desafio agora? (categoria liberada por pontos + consentimento + 18+ p/ 4-6 + desbloqueado se pago)
 function desafioDisponivel(d) {
-  if (d.nivel > intensidadePermitida()) return false;
+  if (d.nivel > intensidadePermitidaHoje()) return false; // respeita o limite de HOJE
   if (!nivelLiberadoPorPontos(d.nivel)) return false;
   if (d.nivel >= 4 && !adulto18Ok()) return false;
   return d.custo === 0 || desafioUnlocked(d.key);
@@ -3589,6 +3633,33 @@ function desafioDoDia() {
   const hoje = new Date().toISOString().slice(0, 10);
   const seed = [...hoje].reduce((a, c) => a + c.charCodeAt(0), 0) + desafioIdx;
   return pool[seed % pool.length];
+}
+
+// ---------- Clima do dia + limite do dia (Fase 2) ----------
+const MOODS_DIA = [
+  { key: "carinho", e: "🥰", l: "Quero carinho" },
+  { key: "conversar", e: "💬", l: "Quero conversar" },
+  { key: "brincar", e: "😜", l: "Quero brincar" },
+  { key: "flertar", e: "😏", l: "Quero flertar" },
+  { key: "ousado", e: "🔥", l: "Quero algo ousado" },
+  { key: "chamada", e: "📞", l: "Quero chamada" },
+  { key: "saudade", e: "🥺", l: "Matando saudade" },
+  { key: "cansado", e: "😴", l: "Cansado(a), algo leve" },
+  { key: "surpresa", e: "🎁", l: "Quero surpresa" },
+];
+function meuCheckin() { return coupleCheckins.find((c) => c.user_id === authUser?.id); }
+function checkinDe(uid) { return coupleCheckins.find((c) => c.user_id === uid); }
+// Limite de HOJE: se a pessoa marcou um limite do dia, vale ele; senão, o fixo.
+function limiteDeHoje(uid) {
+  const ci = checkinDe(uid);
+  if (ci && ci.day_limit) return Number(ci.day_limit);
+  return prefMax(uid) || 1;
+}
+function intensidadePermitidaHoje() {
+  const eu = limiteDeHoje(authUser?.id);
+  const parceira = coupleMembers.find((m) => m.user_id !== authUser?.id);
+  const dela = parceira ? limiteDeHoje(parceira.user_id) : 1;
+  return Math.min(eu, dela);
 }
 function nosPinSalvo() {
   try { return localStorage.getItem(NOS_PIN_KEY) || ""; } catch { return ""; }
@@ -3602,20 +3673,22 @@ function nomeMembro(uid) {
 async function loadNosData() {
   if (!state.couple || !casalPrivadoOn()) return;
   try {
-    const [r, c, p, ch, led] = await Promise.all([
+    const [r, c, p, ch, led, ci] = await Promise.all([
       loadCoupleRewards(state.couple.id),
       loadCoupleClaims(state.couple.id),
       loadCouplePrefs(state.couple.id),
       loadCoupleChallenges(state.couple.id),
       loadPointsLedger(state.couple.id),
+      loadCoupleCheckins(state.couple.id, new Date().toISOString().slice(0, 10)),
     ]);
     nosRewards = r;
     nosClaims = c;
     couplePrefs = p;
     coupleChallenges = ch;
     coupleLedger = led;
+    coupleCheckins = ci;
   } catch {
-    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = [];
+    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; coupleCheckins = [];
   }
   nosFor = state.couple.id;
   render();
@@ -3649,6 +3722,40 @@ function nosRewardCard(r) {
         </div>
       </div>
     </article>`;
+}
+
+function nosClimaHtml() {
+  const meu = meuCheckin();
+  const parceira = coupleMembers.find((m) => m.user_id !== authUser?.id);
+  const dela = parceira ? checkinDe(parceira.user_id) : null;
+  const nomeP = parceira ? (parceira.name || parceira.nickname || "sua pessoa").split(" ")[0] : "sua pessoa";
+  const moodLabel = (k) => { const m = MOODS_DIA.find((x) => x.key === k); return m ? `${m.e} ${m.l}` : "—"; };
+  const meuLimite = limiteDeHoje(authUser?.id);
+  const niveisVis = NIVEIS.filter((x) => x.n <= 3 || adulto18Ok());
+  return `
+    <div class="section-title compact"><h2>Clima de hoje 🌡️</h2></div>
+    <section class="form-card">
+      <div class="nivel-pick">
+        ${MOODS_DIA.map((m) => `<button class="nivel-opt ${meu?.mood === m.key ? "on" : ""}" type="button" data-checkin="${m.key}">${m.e} ${esc(m.l)}</button>`).join("")}
+      </div>
+      <small class="muted" style="display:block;margin-top:10px">Você: <strong>${meu ? moodLabel(meu.mood) : "—"}</strong> · ${esc(nomeP)}: <strong>${dela ? moodLabel(dela.mood) : "ainda não respondeu"}</strong></small>
+      <p class="muted" style="margin:14px 0 6px;font-weight:800;font-size:.92rem">Hoje eu topo até:</p>
+      <div class="nivel-pick">
+        ${niveisVis.map((x) => `<button class="nivel-opt ${meuLimite === x.n ? "on" : ""}" type="button" data-day-limit="${x.n}">${x.emoji} ${esc(x.nome)}</button>`).join("")}
+      </div>
+      <small class="muted" style="display:block;margin-top:8px">Vale o menor dos dois hoje. (Seu limite fixo fica em "Seus limites".)</small>
+    </section>`;
+}
+
+// Desafios feitos recentemente — com opção de DESFAZER (estorna pontos).
+function nosFeitosHtml() {
+  if (!coupleChallenges.length) return "";
+  const itens = coupleChallenges.slice(0, 5).map((c) => {
+    const cat = DESAFIOS_CAT.find((d) => d.key === c.challenge_key);
+    const nome = cat ? cat.nome : (c.challenge_key || "desafio");
+    return `<div class="feito-item"><small>✓ ${esc(nome)} · ${esc(timeAgo(c.created_at))}</small><button class="recado-mini" type="button" data-undo-challenge="${c.id}:${c.intensity || 1}">Desfazer</button></div>`;
+  }).join("");
+  return `<section class="nos-feitos"><span class="muted" style="font-weight:800;font-size:.78rem">Feitos recentes</span>${itens}</section>`;
 }
 
 // Progressão: categorias por pontos acumulados + catálogo desbloqueável por saldo.
@@ -3765,8 +3872,10 @@ function nosSection() {
     </section>
     ${coupleLedger.length ? `<section class="nos-extrato"><span class="muted" style="font-weight:800;font-size:.78rem">Extrato recente</span>${extratoRecente}</section>` : `<div class="empty">Saldo começa em 0. Ganhem pontos assistindo eps, guardando memórias, cartinhas, respondendo o quiz e fazendo desafios. 💞</div>`}
 
+    ${nosClimaHtml()}
     ${limitesHtml}
     ${desafioHtml}
+    ${nosFeitosHtml()}
     ${progHtml}
 
     <div class="section-title compact"><h2>Criar um vale</h2></div>
@@ -5189,6 +5298,9 @@ function bindShell() {
   listen(document.querySelector("[data-adulto18-off]"), "click", () => handleAdulto18(false));
   document.querySelectorAll("[data-unlock-desafio]").forEach((b) => listen(b, "click", () => handleUnlockDesafio(b.dataset.unlockDesafio)));
   document.querySelectorAll("[data-cat-done]").forEach((b) => listen(b, "click", () => handleCatDone(b.dataset.catDone)));
+  document.querySelectorAll("[data-undo-challenge]").forEach((b) => listen(b, "click", () => handleUndoChallenge(b.dataset.undoChallenge)));
+  document.querySelectorAll("[data-checkin]").forEach((b) => listen(b, "click", () => handleCheckin(b.dataset.checkin)));
+  document.querySelectorAll("[data-day-limit]").forEach((b) => listen(b, "click", () => handleDayLimit(b.dataset.dayLimit)));
   listen(document.querySelector("#couple-add-cat"), "change", (e) => { coupleAddCatSel = e.target.value; });
   listen(document.querySelector("#couple-search-form"), "submit", runCoupleSearch);
   document.querySelectorAll("[data-couple-add-tmdb]").forEach((button) => {
@@ -6232,7 +6344,7 @@ async function handleLeaveCouple() {
     couplePet = null;
     coupleQuiz = [];
     coupleQuizFor = null;
-    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; nosFor = null; nosUnlocked = false;
+    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; coupleCheckins = []; nosFor = null; nosUnlocked = false;
     coupleWishlist = []; coupleDates = []; planosFor = null;
     state.space = "solo"; // volta pro app normal
     saveState();

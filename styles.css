@@ -1477,6 +1477,22 @@ textarea:focus {
 .ext-line span.pos { color: #2fa86a; }
 .ext-line span.neg { color: #e0566b; }
 .ext-line small { color: var(--cor-texto-suave); }
+.nos-feitos {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+}
+.feito-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.feito-item small { color: var(--cor-texto-suave); }
 .nos-presets {
   display: flex;
   flex-wrap: wrap;

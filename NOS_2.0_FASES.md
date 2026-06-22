@@ -91,7 +91,10 @@ Saldo atual = Σ (pontos do couple_points_ledger)
 - **Aceite antes de cumprir** (ler descrição completa → aceitar/remarcar/recusar).
 - *Meta:* progressão real, "difícil e viciante", com consentimento blindado.
 
-### Fase 2 — Clima do dia + limite do dia + desafio inteligente 🗄️
+### Fase 2 — Clima do dia + limite do dia + desafio inteligente ✅ **FEITO** (migração 23)
+> `couple_daily_checkins`: cada um marca o **clima** (+1 pt; +2 bônus se os dois no mesmo dia) e o
+> **limite só de hoje** (1–6). O desafio do dia respeita o **menor limite de HOJE** dos dois.
+> Bônus: **desfazer desafio concluído** (estorna pontos) — resolve o "cliquei sem querer".
 - `couple_daily_checkins` (cada um marca o clima; +pontos; bônus se os dois no mesmo dia).
 - **Limite do dia** (override do limite fixo) em `couple_consent_history`.
 - **Desafio do dia** passa a considerar: menor limite + clima + histórico + nível liberado.

@@ -399,6 +399,25 @@ export async function saveCouplePinnedLetter(coupleId, texto) {
   if (error) throw error;
 }
 
+// ---------- CLIMA / LIMITE DO DIA (Nós 2.0 Fase 2) ----------
+export async function loadCoupleCheckins(coupleId, day) {
+  const { data, error } = await supabase
+    .from("couple_daily_checkins")
+    .select("user_id, mood, day_limit, day")
+    .eq("couple_id", coupleId)
+    .eq("day", day);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function upsertCoupleCheckin(coupleId, userId, day, fields) {
+  const row = { couple_id: coupleId, user_id: userId, day };
+  if (fields.mood !== undefined) row.mood = fields.mood;
+  if (fields.dayLimit !== undefined) row.day_limit = fields.dayLimit;
+  const { error } = await supabase.from("couple_daily_checkins").upsert(row, { onConflict: "couple_id,user_id,day" });
+  if (error) throw error;
+}
+
 // ---------- LEDGER DE PONTOS (Nós 2.0) ----------
 export async function loadPointsLedger(coupleId) {
   const { data, error } = await supabase
@@ -460,12 +479,18 @@ export async function loadCoupleChallenges(coupleId) {
 }
 
 export async function addCoupleChallengeLog(coupleId, userId, entry) {
-  const { error } = await supabase.from("couple_challenge_log").insert({
+  const { data, error } = await supabase.from("couple_challenge_log").insert({
     couple_id: coupleId,
     challenge_key: entry.key,
     intensity: Number(entry.intensity) || 1,
     done_by: userId,
-  });
+  }).select("id").single();
+  if (error) throw error;
+  return data?.id || null;
+}
+
+export async function deleteCoupleChallengeLog(id) {
+  const { error } = await supabase.from("couple_challenge_log").delete().eq("id", id);
   if (error) throw error;
 }
 
