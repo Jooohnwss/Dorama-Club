@@ -3626,15 +3626,31 @@ const NOS_PRESETS = [
 ];
 
 // Saldo e pontos vêm do EXTRATO (ledger), não de cálculo solto.
+// Marco de recomeço: a maior data entre as linhas "reset". Tudo ANTES dela é
+// ignorado (resíduo do bug antigo de duplicação). Saldo/acumulado contam só dali.
+function nosBaselineTs() {
+  let ts = 0;
+  for (const l of coupleLedger) {
+    if (l.source_type === "reset") {
+      const t = new Date(l.created_at).getTime();
+      if (t > ts) ts = t;
+    }
+  }
+  return ts;
+}
+function nosLedgerValido() {
+  const base = nosBaselineTs();
+  return coupleLedger.filter((l) => l.source_type !== "reset" && new Date(l.created_at).getTime() > base);
+}
 function nosSaldo() {
-  return coupleLedger.reduce((s, l) => s + Number(l.points || 0), 0);
+  return nosLedgerValido().reduce((s, l) => s + Number(l.points || 0), 0);
 }
 function nosPontosAcumulados() {
-  return coupleLedger.filter((l) => l.type === "earned").reduce((s, l) => s + Number(l.points || 0), 0);
+  return nosLedgerValido().filter((l) => l.type === "earned").reduce((s, l) => s + Number(l.points || 0), 0);
 }
 function nosResumoExtrato() {
   let ganhos = 0, gastos = 0, perdas = 0, estornos = 0;
-  for (const l of coupleLedger) {
+  for (const l of nosLedgerValido()) {
     const p = Number(l.points || 0);
     if (l.type === "earned") ganhos += p;
     else if (l.type === "spent") gastos += p;
@@ -3802,13 +3818,13 @@ async function loadNosData() {
   } catch {
     nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; coupleCheckins = []; coupleSurprises = [];
   }
-  // Auto-acerto único: o saldo herdou negativo de duplicações antigas (bug da lógica
-  // anterior). Zera UMA vez (source fixo = anti-dup nunca repete) — sem botão.
+  // Recomeço único do zero: o extrato herdou lançamentos fantasma do bug antigo
+  // de duplicação. Marca UMA linha de baseline (source fixo = anti-dup não repete);
+  // saldo e acumulado passam a contar só do baseline pra frente (0/0 limpo).
   try {
-    const saldoAtual = coupleLedger.reduce((s, l) => s + Number(l.points || 0), 0);
-    const jaZerou = coupleLedger.some((l) => l.source_type === "adjust" && l.source_id === "zero-correction");
-    if (saldoAtual < 0 && !jaZerou) {
-      await lancarPontos({ points: -saldoAtual, type: "refunded", reason: "ajuste: zerar saldo negativo (duplicações antigas)", sourceType: "adjust", sourceId: "zero-correction" });
+    const jaResetou = coupleLedger.some((l) => l.source_type === "reset" && l.source_id === "baseline-1");
+    if (!jaResetou) {
+      await lancarPontos({ points: 0, type: "adjust", reason: "recomeço do zero (limpeza do bug antigo)", sourceType: "reset", sourceId: "baseline-1" });
       coupleLedger = await loadPointsLedger(state.couple.id);
     }
   } catch { /* ignore */ }
@@ -3888,7 +3904,7 @@ function nosClaimCard(c) {
 function extratoModalTemplate() {
   if (!extratoOpen) return "";
   const ext = nosResumoExtrato();
-  const linhas = coupleLedger.slice(0, 50).map((l) => `
+  const linhas = nosLedgerValido().slice(0, 50).map((l) => `
     <div class="ext-line"><span class="${Number(l.points) >= 0 ? "pos" : "neg"}">${Number(l.points) > 0 ? "+" : ""}${l.points}</span><small>${esc(l.reason || l.type)} · ${esc(timeAgo(l.created_at))}</small></div>`).join("") || `<div class="empty">Sem lançamentos ainda. Comecem a ganhar pontos! 💞</div>`;
   return `
     <div class="modal ui-modal">
