@@ -1454,6 +1454,7 @@ textarea:focus {
 }
 .nos-saldo strong { font-size: 2rem; }
 .nos-saldo span { font-weight: 800; }
+.nos-saldo-sub { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.78rem; margin-top: 2px; }
 .nos-extrato {
   display: grid;
   gap: 4px;

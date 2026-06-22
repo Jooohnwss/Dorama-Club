@@ -533,6 +533,8 @@ let planosFor = null; // casal cujos planos já carregamos (evita loop)
 // Os e-mails não ficam em texto puro — só os hashes (djb2) deles.
 const NOS_HASHES = ["7mtvr7", "obnuib"];
 const NOS_PIN_KEY = "dorama-club-nos-pin";
+const NOS_UNLOCK_KEY = "dorama-club-nos-unlock"; // carimbo de quando destravou
+const NOS_UNLOCK_MS = 20 * 60 * 1000; // segue destravado por 20 min (mesmo no refresh)
 let nosRewards = [];
 let nosClaims = [];
 let couplePrefs = []; // [{user_id, max_intensity}]
@@ -541,7 +543,7 @@ let coupleLedger = []; // extrato de pontos (Nós 2.0)
 let coupleCheckins = []; // check-ins de hoje (clima + limite do dia)
 let coupleSurprises = []; // surpresas programadas (revela em data)
 let nosFor = null;
-let nosUnlocked = false; // destravado nesta sessão (após o PIN)
+let nosUnlocked = nosUnlockValido(); // destravado (segue valendo por 20 min, mesmo no refresh)
 let desafioIdx = 0; // pra "outro desafio"
 let extratoOpen = false; // popup do extrato de pontos
 
@@ -3371,12 +3373,13 @@ async function handleNosSetPin(event) {
   if (pin.length < 3) { toast("PIN muito curto (mín. 3)."); return; }
   try { localStorage.setItem(NOS_PIN_KEY, pin); } catch { /* ignore */ }
   nosUnlocked = true;
+  marcarNosUnlock();
   render();
 }
 function handleNosEnterPin(event) {
   event.preventDefault();
   const pin = String(new FormData(event.currentTarget).get("pin") || "").trim();
-  if (pin === nosPinSalvo()) { nosUnlocked = true; render(); }
+  if (pin === nosPinSalvo()) { nosUnlocked = true; marcarNosUnlock(); render(); }
   else toast("PIN incorreto.");
 }
 async function handleSetIntensity(n) {
@@ -3760,6 +3763,16 @@ function intensidadePermitidaHoje() {
 }
 function nosPinSalvo() {
   try { return localStorage.getItem(NOS_PIN_KEY) || ""; } catch { return ""; }
+}
+// Continua destravado por 20 min após digitar o PIN (sobrevive ao refresh).
+function nosUnlockValido() {
+  try {
+    const ts = Number(localStorage.getItem(NOS_UNLOCK_KEY) || 0);
+    return ts > 0 && Date.now() - ts < NOS_UNLOCK_MS;
+  } catch { return false; }
+}
+function marcarNosUnlock() {
+  try { localStorage.setItem(NOS_UNLOCK_KEY, String(Date.now())); } catch { /* ignore */ }
 }
 function nomeMembro(uid) {
   if (uid === authUser?.id) return "você";
@@ -4164,7 +4177,8 @@ function nosSection() {
     <div class="section-title"><h2>🔥 Nós</h2><span class="muted" style="font-size:.8rem">só de vocês dois</span></div>
     <section class="nos-saldo">
       <strong>${carregando ? "…" : saldo} pts</strong>
-      <span>saldo do casal · acumulado ${acumulados}</span>
+      <span>pra gastar agora</span>
+      <small class="nos-saldo-sub">${acumulados} ganhos no total · sobem de nível 🔓</small>
     </section>
 
     ${nosClimaHtml()}
@@ -6762,6 +6776,7 @@ async function handleLeaveCouple() {
     coupleQuiz = [];
     coupleQuizFor = null;
     nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; coupleCheckins = []; nosFor = null; nosUnlocked = false;
+    try { localStorage.removeItem(NOS_UNLOCK_KEY); } catch { /* ignore */ }
     coupleWishlist = []; coupleDates = []; planosFor = null;
     state.space = "solo"; // volta pro app normal
     saveState();
