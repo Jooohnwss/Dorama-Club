@@ -133,7 +133,10 @@ Saldo atual = Σ (pontos do couple_points_ledger)
 - ✅ Dias sem se ver + contagem pro próximo encontro (countdown).
 - ✅ Mensagem de saudade + "lista pra quando a gente se ver".
 
-### Fase 6 — Telegram (continua o brief `CASAL_DISTANCIA_PLANO.md`) 🟡 **PARTE LEVE FEITA** (migração 27)
+### Fase 6 — Telegram (continua o brief `CASAL_DISTANCIA_PLANO.md`) ✅ **FEITO** (migração 27)
+> **Decisão (2026-06-22):** o **bot foi descartado de propósito** — o Telegram serve pra *mandar o
+> prêmio/conteúdo*, não pra receber aviso. Notificação automática não faz falta. A parte leve já
+> entrega tudo: abrir o chat + ciclo Enviei/Recebi/Concluímos. Sem infra, sem bot.
 > **Feito (parte leve, sem infra):** `couples.telegram_link` (link do chat de vocês, salvo em Ajustes)
 > + painel **"💌 Continuar no Telegram"** no 🔥 Nós com botão **Abrir Telegram** e o ciclo
 > **📤 Enviei / 📥 Recebi / ✅ Concluímos** (`couple_telegram_events`, só metadados; "Concluímos" dá
@@ -141,7 +144,7 @@ Saldo atual = Σ (pontos do couple_points_ledger)
 > **Pendente (parte pesada, opcional):** bot no @BotFather (token) + Edge Function (webhook) pra
 > **notificações reais** ("sua pessoa te mandou algo 💌"). Precisa de você criar o bot + deploy da function.
 - ✅ `couple_telegram_events` (só metadados) + botões: Abrir Telegram / Enviei / Recebi / Concluímos.
-- 🗄️ Depois (se valer): bot @BotFather + Edge Function (webhook) pra notificações reais.
+- ❌ Bot @BotFather + Edge Function (descartado — não agrega; Telegram é o canal do prêmio).
 
 ---
 
