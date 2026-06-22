@@ -494,16 +494,24 @@ let couplePet = null; // mascote do casal (linha de couple_pet)
 let petReacao = ""; // mensagem transitória do pet ao cuidar
 let coupleQuiz = []; // respostas do quiz da semana [{q,user_id,answer}]
 let coupleQuizFor = null; // "coupleId:week" já carregado (evita loop)
-// "Nós 🔥": loja privada de recompensas (só pra você e a Abikeila)
-const NOS_EMAILS = ["jonatas.w.silva.w@gmail.com", "abikeila_2001@outlook.com"];
+// "Nós 🔥": loja privada de recompensas (só pra um casal específico).
+// Os e-mails não ficam em texto puro — só os hashes (djb2) deles.
+const NOS_HASHES = ["7mtvr7", "obnuib"];
 const NOS_PIN_KEY = "dorama-club-nos-pin";
 let nosRewards = [];
 let nosClaims = [];
 let nosFor = null;
 let nosUnlocked = false; // destravado nesta sessão (após o PIN)
 
+function djb2(s) {
+  let h = 5381;
+  s = String(s || "").toLowerCase().trim();
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
 function casalPrivadoOn() {
-  return cloudOn() && state.couple && NOS_EMAILS.includes(String(authUser?.email || "").toLowerCase());
+  return cloudOn() && state.couple && NOS_HASHES.includes(djb2(authUser?.email));
 }
 // Favoritos especiais (aba Perfil).
 let favoritos = [];
@@ -2579,7 +2587,7 @@ function coupleGreetingTemplate() {
 
 async function handleCoupleSetName() {
   if (!state.couple) return;
-  const nome = await perguntar("Nome do casal", state.couple.title || "", { ok: "Salvar", placeholder: "Jonatas & Abikeila" });
+  const nome = await perguntar("Nome do casal", state.couple.title || "", { ok: "Salvar", placeholder: "Ex.: Você & seu amor" });
   if (nome == null) return;
   const novo = String(nome).trim();
   try {
@@ -3611,7 +3619,7 @@ function coupleProfileSection() {
     : `<section class="form-card">
         <p class="muted" style="margin:0 0 12px">Um cantinho privado só de vocês dois — doramas vistos juntos, memórias, cartinhas, dates, um pet e um tema só de vocês. Crie e mande o código pra sua pessoa.</p>
         <form id="create-couple-form" class="form-grid">
-          <div class="field full"><label for="couple-title">Nome do casal</label><input id="couple-title" name="title" placeholder="Jonatas & meu amor" /></div>
+          <div class="field full"><label for="couple-title">Nome do casal</label><input id="couple-title" name="title" placeholder="Ex.: Você & seu amor" /></div>
           <div class="actions field full"><button class="btn" type="submit">Criar nosso espaço 💕</button></div>
         </form>
       </section>`;

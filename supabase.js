@@ -753,10 +753,18 @@ export async function clubCompatibility(clubId) {
 }
 
 // ---------- ADMIN ----------
-export const ADMIN_EMAILS = ["jonatas.w.silva.w@gmail.com", "abikeila_2001@outlook.com"];
+// E-mails dos admins não ficam em texto puro — só os hashes (djb2).
+const ADMIN_HASHES = ["7mtvr7", "obnuib"];
+
+function djb2(s) {
+  let h = 5381;
+  s = String(s || "").toLowerCase().trim();
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
 
 export function isAdminEmail(email) {
-  return ADMIN_EMAILS.includes(String(email || "").toLowerCase());
+  return ADMIN_HASHES.includes(djb2(email));
 }
 
 export async function adminOverview() {
