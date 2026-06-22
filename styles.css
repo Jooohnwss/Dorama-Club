@@ -1297,6 +1297,39 @@ textarea:focus {
   background: color-mix(in srgb, var(--cor-primaria) 22%, transparent);
 }
 
+/* Nível do casal (chip na saudação) */
+.couple-level {
+  flex: 0 0 auto;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cor-primaria) 16%, transparent);
+  color: var(--cor-primaria);
+  font-weight: 850;
+  font-size: 0.8rem;
+}
+
+/* Planos: wishlist + calendário */
+.plano-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.plano-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+}
+.plano-emoji { font-size: 1.6rem; flex: 0 0 auto; }
+.plano-text { flex: 1; min-width: 0; }
+.plano-text strong { display: block; }
+.plano-text small { color: var(--cor-texto-suave); font-weight: 700; }
+.plano-item.done { opacity: 0.6; }
+.plano-item.done .plano-text strong { text-decoration: line-through; }
+
 /* Contagem regressiva pro encontro (painel) */
 .couple-countdown {
   display: flex;

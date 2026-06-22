@@ -441,6 +441,47 @@ export async function addCoupleChallengeLog(coupleId, userId, entry) {
   if (error) throw error;
 }
 
+// ---------- PLANOS DO CASAL (wishlist + calendário) ----------
+export async function loadCoupleWishlist(coupleId) {
+  const { data, error } = await supabase.from("couple_wishlist").select("*").eq("couple_id", coupleId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+export async function addCoupleWishlist(coupleId, userId, item) {
+  const { error } = await supabase.from("couple_wishlist").insert({
+    couple_id: coupleId, title: item.title, kind: item.kind || "presente", wanted_by: userId,
+  });
+  if (error) throw error;
+}
+export async function setWishlistDone(id, done) {
+  const { error } = await supabase.from("couple_wishlist").update({ done }).eq("id", id);
+  if (error) throw error;
+}
+export async function deleteWishlist(id) {
+  const { error } = await supabase.from("couple_wishlist").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadCoupleDates(coupleId) {
+  const { data, error } = await supabase.from("couple_dates").select("*").eq("couple_id", coupleId).order("when_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+export async function addCoupleDate(coupleId, userId, date) {
+  const { error } = await supabase.from("couple_dates").insert({
+    couple_id: coupleId, title: date.title, kind: date.kind || "chamada", when_at: date.whenAt || null, created_by: userId,
+  });
+  if (error) throw error;
+}
+export async function setDateDone(id, done) {
+  const { error } = await supabase.from("couple_dates").update({ done }).eq("id", id);
+  if (error) throw error;
+}
+export async function deleteCoupleDate(id) {
+  const { error } = await supabase.from("couple_dates").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ---------- RECOMPENSAS DO CASAL ("Nós 🔥") ----------
 export async function loadCoupleRewards(coupleId) {
   const { data, error } = await supabase

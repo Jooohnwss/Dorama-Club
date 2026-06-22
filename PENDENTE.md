@@ -60,6 +60,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: **contagem regressiva** do próximo encontro + **limites/consentimento** por pessoa + **desafios** (só metadados)
 - Sem isso: salvar a data do encontro, os limites ou concluir desafio dá erro
 
+### 1j. Rodar a migração 21 no Supabase (planos: wishlist + calendário)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/21 - planos-do-casal.sql` e clicar em **Run**
+- Pra quê: a aba **Planos** (wishlist de presentes/experiências + calendário de encontros virtuais)
+- Sem isso: adicionar item da wishlist ou agendar encontro dá erro
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

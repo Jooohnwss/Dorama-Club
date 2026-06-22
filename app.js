@@ -82,6 +82,14 @@ import {
   saveCouplePref,
   loadCoupleChallenges,
   addCoupleChallengeLog,
+  loadCoupleWishlist,
+  addCoupleWishlist,
+  setWishlistDone,
+  deleteWishlist,
+  loadCoupleDates,
+  addCoupleDate,
+  setDateDone,
+  deleteCoupleDate,
   loadCoupleDramas,
   addCoupleDrama,
   updateCoupleDrama,
@@ -499,6 +507,9 @@ let couplePet = null; // mascote do casal (linha de couple_pet)
 let petReacao = ""; // mensagem transitória do pet ao cuidar
 let coupleQuiz = []; // respostas do quiz da semana [{q,user_id,answer}]
 let coupleQuizFor = null; // "coupleId:week" já carregado (evita loop)
+let coupleWishlist = []; // lista de desejos (presentes/experiências)
+let coupleDates = []; // calendário de encontros virtuais
+let planosFor = null; // casal cujos planos já carregamos (evita loop)
 // "Nós 🔥": loja privada de recompensas (só pra um casal específico).
 // Os e-mails não ficam em texto puro — só os hashes (djb2) deles.
 const NOS_HASHES = ["7mtvr7", "obnuib"];
@@ -651,6 +662,7 @@ const ICONS = {
   refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 7"/><path d="M21 3v4h-4"/>',
   compass: '<circle cx="12" cy="12" r="9"/><polygon points="16 8 13 13 8 16 11 11 16 8"/>',
   medal: '<circle cx="12" cy="9" r="6"/><path d="M8.5 13.5L7 22l5-3 5 3-1.5-8.5"/>',
+  calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
   paw: '<circle cx="7" cy="9" r="1.6"/><circle cx="12" cy="7" r="1.6"/><circle cx="17" cy="9" r="1.6"/><path d="M8.5 14c1.5-2 5.5-2 7 0 1.2 1.6.2 3.6-1.8 3.8-1 .1-1.7-.5-2.7-.5s-1.7.6-2.7.5C6.3 17.6 5.3 15.6 6.5 14z"/>',
 };
 
@@ -1183,6 +1195,7 @@ function coupleSidebarTemplate() {
     ["assistindo", "Assistindo", "play"],
     ["diario", "Diário", "lists"],
     ["sobre", "Sobre nós", "heart"],
+    ["planos", "Planos", "calendar"],
     ["diversao", "Diversão", "dice"],
     ...(casalPrivadoOn() ? [["nos", "Nós 🔥", "heart"]] : []),
     ["ajustes", "Ajustes", "paint"],
@@ -2576,10 +2589,19 @@ function coupleTimelineTemplate() {
 }
 
 // Saudação compacta do painel (no lugar do hero gigante).
+// Nível do casal, derivado da atividade (a cada 100 pts sobe um nível).
+function casalNivel() {
+  const eps = coupleDramas.reduce((s, d) => s + Number(d.current_episode || 0), 0);
+  const pts = eps * 2 + coupleDiary.length * 10 + coupleLetters.length * 6;
+  const nivel = Math.floor(pts / 100) + 1;
+  return { nivel, pts, falta: nivel * 100 - pts, pct: Math.round(((pts % 100) / 100) * 100) };
+}
+
 function coupleGreetingTemplate() {
   const nome = (state.couple?.title || "").trim();
   const names = coupleMembers.map((m) => m.name || m.nickname).filter(Boolean).join(" & ");
   const sozinho = coupleMembers.length < 2;
+  const lv = casalNivel();
   return `
     <div class="couple-greeting">
       <div class="couple-greeting-text">
@@ -2588,6 +2610,7 @@ function coupleGreetingTemplate() {
           ? (names ? `<span>${esc(names)}</span>` : "")
           : `<span>Vocês ainda não têm nome. Bora batizar o casal?</span>`}
       </div>
+      <span class="couple-level" title="Faltam ${lv.falta} pts pro nível ${lv.nivel + 1}">🏆 Nível ${lv.nivel}</span>
       ${nome ? "" : `<button class="btn ghost couple-greeting-btn" type="button" data-couple-name>Definir nome</button>`}
       ${sozinho ? `<span class="couple-greeting-wait">💌 Falta sua pessoa entrar — código em <strong>Ajustes</strong></span>` : ""}
     </div>`;
@@ -3076,14 +3099,6 @@ function coupleAjustesSection() {
       <span class="muted">Use só quando for chamar sua pessoa para o espaço certo.</span>
       <strong>${esc(state.couple.code || "")}</strong>
       <div class="actions" style="margin-top:12px"><button class="btn secondary" type="button" data-copy-couple-code>${icon("share")} Copiar código</button></div>
-    </section>
-    <div class="section-title"><h2>⏳ Próximo encontro</h2></div>
-    <section class="form-card">
-      <form id="couple-meet-form" class="search-bar">
-        <input name="meet" type="date" value="${esc(state.couple.nextMeetDate || "")}" />
-        <button class="btn secondary" type="submit">Salvar contagem</button>
-      </form>
-      <p class="muted" style="margin:10px 0 0;font-size:.82rem">Aparece como contagem regressiva no painel. Deixe vazio pra tirar.</p>
     </section>
     <div class="section-title"><h2>💌 Cartinha fixa do topo</h2></div>
     <section class="form-card">
@@ -3598,6 +3613,70 @@ function nosSection() {
     <section class="nos-claims">${claimsHtml}</section>`;
 }
 
+// ---------- Planos: wishlist + calendário de encontros ----------
+async function loadPlanosData() {
+  if (!state.couple || !cloudOn()) return;
+  try {
+    const [w, d] = await Promise.all([loadCoupleWishlist(state.couple.id), loadCoupleDates(state.couple.id)]);
+    coupleWishlist = w;
+    coupleDates = d;
+  } catch {
+    coupleWishlist = []; coupleDates = [];
+  }
+  planosFor = state.couple.id;
+  render();
+}
+
+function couplePlanosSection() {
+  const carregando = planosFor !== state.couple.id;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const dateEmoji = { chamada: "📞", filme: "🎬", jogo: "🎮", outro: "✨" };
+  const wishEmoji = { presente: "🎁", experiencia: "✨" };
+  const proximos = coupleDates.filter((d) => !d.done && (!d.when_at || d.when_at >= hoje));
+  const passados = coupleDates.filter((d) => d.done || (d.when_at && d.when_at < hoje));
+  const dateCard = (d) => `
+    <article class="plano-item ${d.done ? "done" : ""}">
+      <span class="plano-emoji">${dateEmoji[d.kind] || "✨"}</span>
+      <div class="plano-text"><strong>${esc(d.title)}</strong><small>${d.when_at ? esc(formatDateShort(d.when_at)) : "sem data"}${d.done ? " · ✓ feito" : ""}</small></div>
+      <div class="mini-actions"><button data-date-done="${d.id}:${d.done ? "0" : "1"}">${d.done ? "Reabrir" : "Feito"}</button><button data-del-date="${d.id}">${icon("trash")}</button></div>
+    </article>`;
+  const wishCard = (w) => `
+    <article class="plano-item ${w.done ? "done" : ""}">
+      <span class="plano-emoji">${wishEmoji[w.kind] || "🎁"}</span>
+      <div class="plano-text"><strong>${esc(w.title)}</strong><small>${esc(nomeMembro(w.wanted_by))} quer${w.done ? " · ✓ realizado" : ""}</small></div>
+      <div class="mini-actions"><button data-wish-done="${w.id}:${w.done ? "0" : "1"}">${w.done ? "Reabrir" : "Realizado"}</button><button data-del-wish="${w.id}">${icon("trash")}</button></div>
+    </article>`;
+
+  return `
+    <div class="section-title"><h2>📅 Planos de vocês</h2></div>
+    <section class="form-card">
+      <label style="display:block;font-weight:800;margin-bottom:8px">⏳ Próximo encontro presencial</label>
+      <form id="couple-meet-form" class="search-bar">
+        <input name="meet" type="date" value="${esc(state.couple.nextMeetDate || "")}" />
+        <button class="btn secondary" type="submit">Salvar contagem</button>
+      </form>
+      <p class="muted" style="margin:8px 0 0;font-size:.8rem">Vira a contagem regressiva no painel.</p>
+    </section>
+
+    <div class="section-title compact"><h2>🗓️ Encontros virtuais</h2></div>
+    <form id="couple-date-form" class="form-card form-grid">
+      <div class="field"><label>O quê?</label><input name="title" placeholder="Assistir o ep 5 juntos…" required /></div>
+      <div class="field"><label>Tipo</label><select name="kind"><option value="chamada">📞 Chamada</option><option value="filme">🎬 Assistir junto</option><option value="jogo">🎮 Jogar</option><option value="outro">✨ Outro</option></select></div>
+      <div class="field"><label>Quando</label><input name="whenAt" type="date" /></div>
+      <div class="actions field full"><button class="btn" type="submit">${icon("add")} Agendar</button></div>
+    </form>
+    ${proximos.length ? `<section class="plano-grid">${proximos.map(dateCard).join("")}</section>` : `<div class="empty">${carregando ? "Carregando…" : "Nada agendado. Marquem o próximo date virtual. 💕"}</div>`}
+    ${passados.length ? `<div class="section-title compact"><h2>Já rolaram</h2></div><section class="plano-grid">${passados.map(dateCard).join("")}</section>` : ""}
+
+    <div class="section-title compact"><h2>🎁 Wishlist de vocês</h2></div>
+    <form id="couple-wish-form" class="search-bar">
+      <select name="kind"><option value="presente">🎁 Presente</option><option value="experiencia">✨ Experiência</option></select>
+      <input name="title" placeholder="O que você quer ganhar/fazer…" required />
+      <button class="btn secondary" type="submit">Adicionar</button>
+    </form>
+    ${coupleWishlist.length ? `<section class="plano-grid">${coupleWishlist.map(wishCard).join("")}</section>` : `<div class="empty">${carregando ? "Carregando…" : "Listem presentes e experiências que vocês querem. 🎁"}</div>`}`;
+}
+
 function coupleDiversaoSection() {
   return `
     <div class="section-title"><h2>Diversão do casal</h2></div>
@@ -3677,7 +3756,7 @@ function coupleTemaSection() {
 function coupleSectionTabs() {
   const secoes = [
     ["inicio", "Painel"], ["assistindo", "Assistindo"], ["diario", "Diário"],
-    ["sobre", "Sobre nós"], ["diversao", "Diversão"],
+    ["sobre", "Sobre nós"], ["planos", "Planos"], ["diversao", "Diversão"],
     ...(casalPrivadoOn() ? [["nos", "Nós 🔥"]] : []),
     ["ajustes", "Ajustes"],
   ];
@@ -3696,6 +3775,7 @@ function coupleSpaceView() {
     case "pet": conteudo = couplePetSection(); break;
     case "certificados": conteudo = coupleCertificadosSection(); break;
     case "tema": conteudo = coupleTemaSection(); break;
+    case "planos": conteudo = couplePlanosSection(); break;
     case "diversao": conteudo = coupleDiversaoSection(); break;
     case "nos": conteudo = casalPrivadoOn() ? nosSection() : coupleInicioSection(); break;
     case "ajustes": conteudo = coupleAjustesSection(); break;
@@ -4855,6 +4935,12 @@ function bindShell() {
   listen(document.querySelector("#join-couple-form"), "submit", handleJoinCouple);
   listen(document.querySelector("#couple-capa-form"), "submit", handleCoupleCapa);
   listen(document.querySelector("#couple-meet-form"), "submit", handleMeetDate);
+  listen(document.querySelector("#couple-date-form"), "submit", handleAddDate);
+  listen(document.querySelector("#couple-wish-form"), "submit", handleAddWish);
+  document.querySelectorAll("[data-date-done]").forEach((b) => listen(b, "click", () => handleDateDone(b.dataset.dateDone)));
+  document.querySelectorAll("[data-del-date]").forEach((b) => listen(b, "click", () => handleDeleteDate(b.dataset.delDate)));
+  document.querySelectorAll("[data-wish-done]").forEach((b) => listen(b, "click", () => handleWishDone(b.dataset.wishDone)));
+  document.querySelectorAll("[data-del-wish]").forEach((b) => listen(b, "click", () => handleDeleteWish(b.dataset.delWish)));
   listen(document.querySelector("#couple-pinned-form"), "submit", handleCouplePinned);
   listen(document.querySelector("#couple-add-drama-form"), "submit", handleCoupleAddDrama);
   listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
@@ -5017,6 +5103,7 @@ function bindShell() {
   if (state.space === "couple" && state.couple && coupleSection === "certificados" && coupleFor === state.couple.id && coupleRuntimesFor !== state.couple.id) loadCoupleRuntimes();
   if (state.space === "couple" && state.couple && coupleSection === "diversao" && coupleFor === state.couple.id && coupleQuizFor !== `${state.couple.id}:${semanaAtual()}`) loadCoupleQuizData();
   if (state.space === "couple" && state.couple && coupleSection === "nos" && casalPrivadoOn() && coupleFor === state.couple.id && nosFor !== state.couple.id) loadNosData();
+  if (state.space === "couple" && state.couple && coupleSection === "planos" && coupleFor === state.couple.id && planosFor !== state.couple.id) loadPlanosData();
   if (state.view === "profile" && casaisFor !== (authUser?.id || "_")) loadCasaisData();
   if (state.view === "profile" && favoritosFor !== (authUser?.id || "_")) loadFavoritosData();
 }
@@ -5488,6 +5575,45 @@ async function handleMeetDate(event) {
   }
 }
 
+async function handleAddDate(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const d = Object.fromEntries(new FormData(event.currentTarget));
+  if (!String(d.title || "").trim()) return;
+  try {
+    await addCoupleDate(state.couple.id, authUser.id, { title: d.title, kind: d.kind, whenAt: d.whenAt });
+    coupleDates = await loadCoupleDates(state.couple.id);
+    render();
+    toast("Agendado 💕");
+  } catch { toast("Não consegui agendar."); }
+}
+async function handleDateDone(raw) {
+  const [id, v] = String(raw).split(":");
+  try { await setDateDone(id, v === "1"); coupleDates = await loadCoupleDates(state.couple.id); render(); } catch { toast("Não consegui atualizar."); }
+}
+async function handleDeleteDate(id) {
+  try { await deleteCoupleDate(id); coupleDates = coupleDates.filter((x) => x.id !== id); render(); } catch { toast("Não consegui apagar."); }
+}
+async function handleAddWish(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const d = Object.fromEntries(new FormData(event.currentTarget));
+  if (!String(d.title || "").trim()) return;
+  try {
+    await addCoupleWishlist(state.couple.id, authUser.id, { title: d.title, kind: d.kind });
+    coupleWishlist = await loadCoupleWishlist(state.couple.id);
+    render();
+    toast("Na wishlist 🎁");
+  } catch { toast("Não consegui adicionar."); }
+}
+async function handleWishDone(raw) {
+  const [id, v] = String(raw).split(":");
+  try { await setWishlistDone(id, v === "1"); coupleWishlist = await loadCoupleWishlist(state.couple.id); render(); } catch { toast("Não consegui atualizar."); }
+}
+async function handleDeleteWish(id) {
+  try { await deleteWishlist(id); coupleWishlist = coupleWishlist.filter((x) => x.id !== id); render(); } catch { toast("Não consegui apagar."); }
+}
+
 async function handleCouplePinned(event) {
   event.preventDefault();
   if (!state.couple) return;
@@ -5922,6 +6048,7 @@ async function handleLeaveCouple() {
     coupleQuiz = [];
     coupleQuizFor = null;
     nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; nosFor = null; nosUnlocked = false;
+    coupleWishlist = []; coupleDates = []; planosFor = null;
     state.space = "solo"; // volta pro app normal
     saveState();
     aplicarTemaAmbiente(); // restaura o tema pessoal

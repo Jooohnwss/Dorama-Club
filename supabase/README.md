@@ -29,6 +29,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 18 | `18 - quiz-do-casal.sql` | Tabela `couple_quiz_answers` (resposta por pessoa/semana/pergunta) + RLS: quiz de compatibilidade semanal | Casal |
 | 19 | `19 - recompensas-do-casal.sql` | Tabelas `couple_rewards` + `couple_reward_claims` + RLS: loja privada de vales/recompensas ("Nós 🔥") | Casal |
 | 20 | `20 - distancia-desafios-e-limites.sql` | `couples.next_meet_date` (countdown) + `couple_member_prefs` (intensidade/consentimento) + `couple_challenge_log` (desafios, só metadados) + RLS | Casal/Distância |
+| 21 | `21 - planos-do-casal.sql` | `couple_wishlist` (presentes/experiências) + `couple_dates` (calendário de encontros virtuais) + RLS | Casal/Distância |
 
 ## Convenção de nome
 

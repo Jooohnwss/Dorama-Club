@@ -95,10 +95,13 @@ Tudo isso é **dentro do nosso app**, sem depender de bot:
 1. **Contagem regressiva** pro próximo encontro (campo + card no painel). ✅ FEITO (migração 20)
 2. **Limites & consentimento por pessoa** (intensidade máx.) — a base de tudo. ✅ FEITO (migração 20, em "Nós 🔥")
 3. **Desafios diários** com níveis (respeitando o MENOR limite dos dois). ✅ FEITO (migração 20, em "Nós 🔥")
-4. **Wishlist compartilhada** de presentes/experiências (com "quem quer" e "feito"). 🗄️ a fazer
-5. **Calendário de encontros virtuais** (agendar + lembrar dentro do app). 🗄️ a fazer
-6. **Níveis/level** derivados dos pontos que já existem. 🟢 a fazer
+4. **Wishlist compartilhada** de presentes/experiências (com "quem quer" e "feito"). ✅ FEITO (migração 21, aba "Planos")
+5. **Calendário de encontros virtuais** (agendar + marcar feito). ✅ FEITO (migração 21, aba "Planos")
+6. **Níveis/level** derivados dos pontos. ✅ FEITO (chip "🏆 Nível X" no painel)
 7. **Deep link pro Telegram** nos desafios que pedem mídia. 🟢 a fazer (Fase 2)
+
+> **Fase 1 concluída.** Próximo é a **Fase 2 (Telegram)**: bot @BotFather + Edge Function (webhook) +
+> `telegram_link`, e os deep links nos desafios.
 
 ## 🗺️ Roadmap (fases)
 
