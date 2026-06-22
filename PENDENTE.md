@@ -66,6 +66,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: a aba **Planos** (wishlist de presentes/experiências + calendário de encontros virtuais)
 - Sem isso: adicionar item da wishlist ou agendar encontro dá erro
 
+### 1k. Rodar a migração 22 no Supabase (ledger de pontos — Nós 2.0)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/22 - ledger-de-pontos-do-casal.sql` e clicar em **Run**
+- Pra quê: o **saldo de pontos** do "Nós 🔥" passa a vir de um **extrato real** (começa em 0, sem duplicar)
+- Sem isso: o saldo aparece 0 e nada é registrado (ganhar/gastar pontos dá erro)
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

@@ -30,6 +30,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 19 | `19 - recompensas-do-casal.sql` | Tabelas `couple_rewards` + `couple_reward_claims` + RLS: loja privada de vales/recompensas ("Nós 🔥") | Casal |
 | 20 | `20 - distancia-desafios-e-limites.sql` | `couples.next_meet_date` (countdown) + `couple_member_prefs` (intensidade/consentimento) + `couple_challenge_log` (desafios, só metadados) + RLS | Casal/Distância |
 | 21 | `21 - planos-do-casal.sql` | `couple_wishlist` (presentes/experiências) + `couple_dates` (calendário de encontros virtuais) + RLS | Casal/Distância |
+| 22 | `22 - ledger-de-pontos-do-casal.sql` | `couple_points_ledger` (extrato de pontos: saldo = Σ, anti-duplicação por fonte) — base do "Nós 2.0" | Casal/Nós 2.0 |
 
 ## Convenção de nome
 

@@ -63,7 +63,11 @@ Saldo atual = Σ (pontos do couple_points_ledger)
 
 ## 📦 Fases
 
-### Fase 0 — Ledger de pontos (a fundação) 🗄️ **← começar aqui**
+### Fase 0 — Ledger de pontos (a fundação) ✅ **FEITO** (migração 22)
+> Decisão: **saldo começa do zero** (sem backfill). Saldo/acumulados vêm do extrato.
+> Já hooka: episódio junto (+5), memória (+3), cartinha/recado (+6), pergunta do quiz (+2),
+> desafio (+5/8/12 por nível); gasto no resgate de vale; estorno ao cancelar resgate / apagar
+> memória / apagar cartinha. Card de saldo + extrato recente no "Nós 🔥".
 - Migração: `couple_points_ledger` (+ índice/único anti-dup).
 - `saldo()` e `pontosAcumulados()` passam a ler o ledger (substituem `nosPontosGanhos`/`nosGastos`).
 - **Hooks de ganho** (com anti-dup por source): episódio assistido junto, memória, cartinha,

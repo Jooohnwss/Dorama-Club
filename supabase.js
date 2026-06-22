@@ -399,6 +399,34 @@ export async function saveCouplePinnedLetter(coupleId, texto) {
   if (error) throw error;
 }
 
+// ---------- LEDGER DE PONTOS (Nós 2.0) ----------
+export async function loadPointsLedger(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_points_ledger")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+// Lança uma linha no extrato. Anti-duplicação: ignora se (fonte) já existe.
+export async function addPointsLedger(coupleId, userId, entry) {
+  const { error } = await supabase.from("couple_points_ledger").upsert(
+    {
+      couple_id: coupleId,
+      user_id: userId,
+      points: Number(entry.points) || 0,
+      type: entry.type || "earned",
+      reason: entry.reason || null,
+      source_type: entry.sourceType || "",
+      source_id: String(entry.sourceId ?? ""),
+    },
+    { onConflict: "couple_id,source_type,source_id", ignoreDuplicates: true },
+  );
+  if (error) throw error;
+}
+
 // ---------- À DISTÂNCIA: encontro, limites e desafios ----------
 export async function updateCoupleMeetDate(coupleId, date) {
   const { error } = await supabase.from("couples").update({ next_meet_date: date || null }).eq("id", coupleId);
@@ -520,15 +548,16 @@ export async function loadCoupleClaims(coupleId) {
 }
 
 export async function addCoupleClaim(coupleId, userId, reward) {
-  const { error } = await supabase.from("couple_reward_claims").insert({
+  const { data, error } = await supabase.from("couple_reward_claims").insert({
     couple_id: coupleId,
     reward_id: reward.id,
     title: reward.title,
     kind: reward.kind || "fofo",
     cost: Number(reward.cost) || 0,
     claimed_by: userId,
-  });
+  }).select("id").single();
   if (error) throw error;
+  return data?.id || null;
 }
 
 export async function setClaimUsed(id, used) {
@@ -634,7 +663,7 @@ export async function loadCoupleDiary(coupleId) {
 }
 
 export async function addCoupleDiary(coupleId, userId, entry) {
-  const { error } = await supabase.from("couple_diary").insert({
+  const { data, error } = await supabase.from("couple_diary").insert({
     couple_id: coupleId,
     kind: entry.kind || "episodio",
     tmdb_id: entry.tmdbId ?? null,
@@ -653,8 +682,9 @@ export async function addCoupleDiary(coupleId, userId, entry) {
     who_raged: entry.whoRaged || null,
     comment: entry.comment || null,
     author_id: userId,
-  });
+  }).select("id").single();
   if (error) throw error;
+  return data?.id || null;
 }
 
 export async function deleteCoupleDiary(id) {
@@ -693,13 +723,14 @@ export async function loadCoupleLetters(coupleId) {
 }
 
 export async function addCoupleLetter(coupleId, userId, letter) {
-  const { error } = await supabase.from("couple_letters").insert({
+  const { data, error } = await supabase.from("couple_letters").insert({
     couple_id: coupleId,
     kind: letter.kind || "memoria",
     body: letter.body,
     author_id: userId,
-  });
+  }).select("id").single();
   if (error) throw error;
+  return data?.id || null;
 }
 
 export async function deleteCoupleLetter(id) {

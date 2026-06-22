@@ -1419,6 +1419,29 @@ textarea:focus {
 }
 .nos-saldo strong { font-size: 2rem; }
 .nos-saldo span { font-weight: 800; }
+.nos-extrato {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+}
+.ext-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.ext-line span {
+  flex: 0 0 auto;
+  width: 48px;
+  font-weight: 850;
+  font-size: 0.92rem;
+}
+.ext-line span.pos { color: #2fa86a; }
+.ext-line span.neg { color: #e0566b; }
+.ext-line small { color: var(--cor-texto-suave); }
 .nos-presets {
   display: flex;
   flex-wrap: wrap;

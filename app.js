@@ -82,6 +82,8 @@ import {
   saveCouplePref,
   loadCoupleChallenges,
   addCoupleChallengeLog,
+  loadPointsLedger,
+  addPointsLedger,
   loadCoupleWishlist,
   addCoupleWishlist,
   setWishlistDone,
@@ -518,6 +520,7 @@ let nosRewards = [];
 let nosClaims = [];
 let couplePrefs = []; // [{user_id, max_intensity}]
 let coupleChallenges = []; // log de desafios concluídos
+let coupleLedger = []; // extrato de pontos (Nós 2.0)
 let nosFor = null;
 let nosUnlocked = false; // destravado nesta sessão (após o PIN)
 let desafioIdx = 0; // pra "outro desafio"
@@ -3315,7 +3318,9 @@ async function handleQuizAnswer(raw) {
   // Não deixa trocar depois de responder.
   if (coupleQuiz.some((a) => a.q === q && a.user_id === authUser.id)) return;
   try {
-    await saveCoupleQuizAnswer(state.couple.id, authUser.id, semanaAtual(), q, oi);
+    const week = semanaAtual();
+    await saveCoupleQuizAnswer(state.couple.id, authUser.id, week, q, oi);
+    await ganharPontos(PONTOS.quiz, "pergunta do casal", "quiz", `${week}:${q}`);
     coupleQuiz = [...coupleQuiz, { q, user_id: authUser.id, answer: oi }];
     render();
   } catch {
@@ -3353,12 +3358,16 @@ function handleDesafioOutro() {
 async function handleDesafioDone(raw) {
   if (!state.couple) return;
   const [key, nivel] = String(raw).split(":");
+  const n = Number(nivel) || 1;
+  const pts = PONTOS.desafio[n] || 5;
   try {
-    await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: Number(nivel) || 1 });
+    await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: n });
+    const hoje = new Date().toISOString().slice(0, 10);
+    await ganharPontos(pts, "desafio concluído", "challenge", `${key}:${hoje}`);
     coupleChallenges = await loadCoupleChallenges(state.couple.id);
     desafioIdx += 1; // já mostra o próximo
     render();
-    toast("Desafio concluído! +8 pts 🎯");
+    toast(`Desafio concluído! +${pts} pts 🎯`);
   } catch { toast("Não consegui registrar."); }
 }
 
@@ -3392,7 +3401,8 @@ async function handleNosClaim(id) {
   const ok = await confirmar(`Resgatar “${r.title}”?`, { sub: `Vai custar ${r.cost} pts.`, ok: "Resgatar 🔥" });
   if (!ok) return;
   try {
-    await addCoupleClaim(state.couple.id, authUser.id, r);
+    const claimId = await addCoupleClaim(state.couple.id, authUser.id, r);
+    await gastarPontos(Number(r.cost || 0), `vale: ${r.title}`, "claim", claimId || `${r.id}:${Date.now()}`);
     nosClaims = await loadCoupleClaims(state.couple.id);
     render();
     toast("Resgatado! 🔥 Sua pessoa vai ver.");
@@ -3410,7 +3420,13 @@ async function handleNosClaimUsed(raw) {
 async function handleNosDeleteClaim(id) {
   const ok = await confirmar("Apagar esse resgate? Os pontos voltam.", { ok: "Apagar", danger: true });
   if (!ok) return;
-  try { await deleteCoupleClaim(id); nosClaims = nosClaims.filter((c) => c.id !== id); render(); } catch { toast("Não consegui apagar."); }
+  const claim = nosClaims.find((c) => c.id === id);
+  try {
+    await deleteCoupleClaim(id);
+    if (claim) await estornarPontos(Number(claim.cost || 0), "resgate cancelado", "claim_refund", id);
+    nosClaims = nosClaims.filter((c) => c.id !== id);
+    render();
+  } catch { toast("Não consegui apagar."); }
 }
 
 // ---------- "Nós 🔥": loja privada de recompensas ----------
@@ -3425,9 +3441,43 @@ const NOS_PRESETS = [
   { title: "Vale uma surpresa sua 😏", kind: "picante", cost: 25 },
 ];
 
-function nosPontosGanhos() {
-  const eps = coupleDramas.reduce((s, d) => s + Number(d.current_episode || 0), 0);
-  return eps * 2 + coupleDiary.length * 10 + coupleLetters.length * 6 + coupleChallenges.length * 8;
+// Saldo e pontos vêm do EXTRATO (ledger), não de cálculo solto.
+function nosSaldo() {
+  return coupleLedger.reduce((s, l) => s + Number(l.points || 0), 0);
+}
+function nosPontosAcumulados() {
+  return coupleLedger.filter((l) => l.type === "earned").reduce((s, l) => s + Number(l.points || 0), 0);
+}
+function nosResumoExtrato() {
+  let ganhos = 0, gastos = 0, perdas = 0, estornos = 0;
+  for (const l of coupleLedger) {
+    const p = Number(l.points || 0);
+    if (l.type === "earned") ganhos += p;
+    else if (l.type === "spent") gastos += p;
+    else if (l.type === "lost") perdas += p;
+    else if (l.type === "refunded") estornos += p;
+  }
+  return { ganhos, gastos, perdas, estornos };
+}
+
+// Valor por ação (tabela do brief, versão "lenta").
+const PONTOS = { ep: 5, memoria: 3, cartinha: 6, quiz: 2, desafio: { 1: 5, 2: 8, 3: 12 } };
+
+async function lancarPontos(entry) {
+  if (!state.couple || !cloudOn()) return;
+  try {
+    await addPointsLedger(state.couple.id, authUser.id, entry);
+    if (casalPrivadoOn() && nosFor === state.couple.id) coupleLedger = await loadPointsLedger(state.couple.id);
+  } catch { /* ignore */ }
+}
+function ganharPontos(points, reason, sourceType, sourceId) {
+  return lancarPontos({ points: Math.abs(points), type: "earned", reason, sourceType, sourceId });
+}
+function gastarPontos(points, reason, sourceType, sourceId) {
+  return lancarPontos({ points: -Math.abs(points), type: "spent", reason, sourceType, sourceId });
+}
+function estornarPontos(points, reason, sourceType, sourceId) {
+  return lancarPontos({ points, type: "refunded", reason, sourceType, sourceId });
 }
 
 // ---------- Desafios à distância (intensidade configurável + consentimento) ----------
@@ -3466,12 +3516,6 @@ function desafioDoDia() {
   const seed = [...hoje].reduce((a, c) => a + c.charCodeAt(0), 0) + desafioIdx;
   return pool[seed % pool.length];
 }
-function nosGastos() {
-  return nosClaims.reduce((s, c) => s + Number(c.cost || 0), 0);
-}
-function nosSaldo() {
-  return Math.max(0, nosPontosGanhos() - nosGastos());
-}
 function nosPinSalvo() {
   try { return localStorage.getItem(NOS_PIN_KEY) || ""; } catch { return ""; }
 }
@@ -3484,18 +3528,20 @@ function nomeMembro(uid) {
 async function loadNosData() {
   if (!state.couple || !casalPrivadoOn()) return;
   try {
-    const [r, c, p, ch] = await Promise.all([
+    const [r, c, p, ch, led] = await Promise.all([
       loadCoupleRewards(state.couple.id),
       loadCoupleClaims(state.couple.id),
       loadCouplePrefs(state.couple.id),
       loadCoupleChallenges(state.couple.id),
+      loadPointsLedger(state.couple.id),
     ]);
     nosRewards = r;
     nosClaims = c;
     couplePrefs = p;
     coupleChallenges = ch;
+    coupleLedger = led;
   } catch {
-    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = [];
+    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = [];
   }
   nosFor = state.couple.id;
   render();
@@ -3582,13 +3628,19 @@ function nosSection() {
            </section>`
         : `<div class="empty">Sem desafio pra esse nível agora.</div>`}`;
 
+  const ext = nosResumoExtrato();
+  const acumulados = nosPontosAcumulados();
+  const extratoRecente = coupleLedger.slice(0, 6).map((l) => `
+    <div class="ext-line"><span class="${Number(l.points) >= 0 ? "pos" : "neg"}">${Number(l.points) > 0 ? "+" : ""}${l.points}</span><small>${esc(l.reason || l.type)}</small></div>`).join("");
+
   return `
     <div class="section-title"><h2>🔥 Nós</h2><span class="muted" style="font-size:.8rem">só de vocês dois</span></div>
     <section class="nos-saldo">
       <strong>${carregando ? "…" : saldo} pts</strong>
-      <span>de vocês pra gastar</span>
-      <small class="muted">Ganham pontos assistindo, guardando memórias, cartinhas e fazendo desafios. 💞</small>
+      <span>saldo do casal</span>
+      <small class="muted">Acumulado: ${acumulados} pts · Ganhos +${ext.ganhos} · Gastos ${ext.gastos} · Estornos ${ext.estornos >= 0 ? "+" : ""}${ext.estornos}</small>
     </section>
+    ${coupleLedger.length ? `<section class="nos-extrato"><span class="muted" style="font-weight:800;font-size:.78rem">Extrato recente</span>${extratoRecente}</section>` : `<div class="empty">Saldo começa em 0. Ganhem pontos assistindo eps, guardando memórias, cartinhas, respondendo o quiz e fazendo desafios. 💞</div>`}
 
     ${limitesHtml}
     ${desafioHtml}
@@ -5879,9 +5931,11 @@ function handleCoupleMemory(id) {
 async function handleCouplePlusEp(id) {
   const drama = coupleDramas.find((d) => d.id === id);
   if (!drama) return;
-  const patch = patchEpisodioCasal(drama, Number(drama.current_episode || 0) + 1);
+  const novoEp = Number(drama.current_episode || 0) + 1;
+  const patch = patchEpisodioCasal(drama, novoEp);
   try {
     await updateCoupleDrama(id, patch);
+    await ganharPontos(PONTOS.ep, "episódio junto", "ep", `${id}:${novoEp}`);
     coupleDramas = await loadCoupleDramas(state.couple.id);
     render();
     if (patch.status === "watched") toast("Completaram! Foi pros finalizados 🎉");
@@ -5918,7 +5972,7 @@ async function handleCoupleDiary(event) {
     return;
   }
   try {
-    await addCoupleDiary(state.couple.id, authUser.id, {
+    const memId = await addCoupleDiary(state.couple.id, authUser.id, {
       kind: data.kind || "episodio",
       tmdbId: drama?.tmdb_id,
       dramaTitle: titulo || "",
@@ -5936,6 +5990,7 @@ async function handleCoupleDiary(event) {
       whoRaged: data.whoRaged,
       comment: data.comment,
     });
+    if (memId) await ganharPontos(PONTOS.memoria, "memória no diário", "memory", memId);
     coupleMemoryDraft = null;
     coupleDiary = await loadCoupleDiary(state.couple.id);
     render();
@@ -5970,7 +6025,8 @@ async function handleCoupleLetter(event) {
   const body = String(data.body || "").trim();
   if (!state.couple || !body) return;
   try {
-    await addCoupleLetter(state.couple.id, authUser.id, { kind: data.kind, body });
+    const lid = await addCoupleLetter(state.couple.id, authUser.id, { kind: data.kind, body });
+    if (lid) await ganharPontos(PONTOS.cartinha, "cartinha", "letter", lid);
     event.currentTarget.reset();
     coupleLetters = await loadCoupleLetters(state.couple.id);
     render();
@@ -5988,7 +6044,8 @@ async function handleCoupleRecado() {
   const body = String(texto).trim();
   if (!body) return;
   try {
-    await addCoupleLetter(state.couple.id, authUser.id, { kind: "recado", body });
+    const lid = await addCoupleLetter(state.couple.id, authUser.id, { kind: "recado", body });
+    if (lid) await ganharPontos(PONTOS.cartinha, "recadinho", "letter", lid);
     coupleLetters = await loadCoupleLetters(state.couple.id);
     recadoIndex = 0; // recém-criado fica em primeiro (lista vem do mais novo)
     render();
@@ -6047,7 +6104,7 @@ async function handleLeaveCouple() {
     couplePet = null;
     coupleQuiz = [];
     coupleQuizFor = null;
-    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; nosFor = null; nosUnlocked = false;
+    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; nosFor = null; nosUnlocked = false;
     coupleWishlist = []; coupleDates = []; planosFor = null;
     state.space = "solo"; // volta pro app normal
     saveState();
@@ -6077,6 +6134,7 @@ async function handleDeleteCoupleDiary(id) {
   if (!ok) return;
   try {
     await deleteCoupleDiary(id);
+    await estornarPontos(-PONTOS.memoria, "memória apagada", "memory_refund", id);
     coupleDiary = coupleDiary.filter((d) => d.id !== id);
     render();
     toast("Memória apagada.");
@@ -6090,6 +6148,7 @@ async function handleDeleteCoupleLetter(id) {
   if (!ok) return;
   try {
     await deleteCoupleLetter(id);
+    await estornarPontos(-PONTOS.cartinha, "cartinha apagada", "letter_refund", id);
     coupleLetters = coupleLetters.filter((l) => l.id !== id);
     render();
     toast("Cartinha apagada.");
