@@ -3153,7 +3153,14 @@ function coupleAjustesSection() {
       <p class="muted" style="margin:0 0 10px">Primeira vez aqui? Veja como usar o cantinho de vocês.</p>
       <div class="actions" style="margin:0"><button class="btn ghost" type="button" data-open-couple-tutorial>Como funciona o Nós dois</button></div>
     </section>
-    ${coupleTemaSection()}`;
+    ${casalPrivadoOn() ? `
+    <div class="section-title"><h2>📜 Extrato de pontos</h2></div>
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 10px">O histórico de pontos do 🔥 Nós (ganhos, gastos e estornos).</p>
+      <div class="actions" style="margin:0"><button class="btn secondary" type="button" data-extrato-open>Ver extrato</button></div>
+    </section>` : ""}
+    ${coupleTemaSection()}
+    ${extratoModalTemplate()}`;
 }
 
 // ---------- Bingo do episódio (joguinho do casal, local) ----------
@@ -4158,7 +4165,6 @@ function nosSection() {
     <section class="nos-saldo">
       <strong>${carregando ? "…" : saldo} pts</strong>
       <span>saldo do casal · acumulado ${acumulados}</span>
-      <button class="recado-mini" type="button" data-extrato-open style="margin-top:8px">📜 Ver extrato</button>
     </section>
 
     ${nosClimaHtml()}
@@ -4187,8 +4193,7 @@ function nosSection() {
     ${picantes.length ? `<section class="nos-grid">${picantes.map(nosRewardCard).join("")}</section>` : `<div class="empty">Criem o primeiro vale picante. 😏</div>`}
 
     <div class="section-title compact"><h2>Resgatados</h2></div>
-    <section class="nos-claims">${claimsHtml}</section>
-    ${extratoModalTemplate()}`;
+    <section class="nos-claims">${claimsHtml}</section>`;
 }
 
 // ---------- Planos: wishlist + calendário de encontros ----------
@@ -5755,7 +5760,7 @@ function bindShell() {
   if (state.space === "couple" && state.couple && coupleFor !== state.couple.id) loadCoupleData();
   if (state.space === "couple" && state.couple && coupleSection === "certificados" && coupleFor === state.couple.id && coupleRuntimesFor !== state.couple.id) loadCoupleRuntimes();
   if (state.space === "couple" && state.couple && coupleSection === "diversao" && coupleFor === state.couple.id && coupleQuizFor !== `${state.couple.id}:${semanaAtual()}`) loadCoupleQuizData();
-  if (state.space === "couple" && state.couple && coupleSection === "nos" && casalPrivadoOn() && coupleFor === state.couple.id && nosFor !== state.couple.id) loadNosData();
+  if (state.space === "couple" && state.couple && (coupleSection === "nos" || coupleSection === "ajustes") && casalPrivadoOn() && coupleFor === state.couple.id && nosFor !== state.couple.id) loadNosData();
   if (state.space === "couple" && state.couple && coupleSection === "planos" && coupleFor === state.couple.id && planosFor !== state.couple.id) loadPlanosData();
   if (state.view === "profile" && casaisFor !== (authUser?.id || "_")) loadCasaisData();
   if (state.view === "profile" && favoritosFor !== (authUser?.id || "_")) loadFavoritosData();
