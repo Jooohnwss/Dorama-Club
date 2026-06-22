@@ -96,6 +96,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: o **Modo saudade** na aba Planos — dias sem se ver, mandar saudade e "pra quando a gente se ver"
 - Sem isso: marcar a última vez que se viram / mandar saudade / lista do reencontro dá erro
 
+### 1p. Rodar a migração 27 no Supabase (Telegram do casal — Nós 2.0 Fase 6)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/27 - telegram-do-casal.sql` e clicar em **Run**
+- Pra quê: o **link do Telegram** de vocês + o ciclo "Enviei/Recebi/Concluímos" no 🔥 Nós (só metadados; conteúdo íntimo fica fora do app)
+- Sem isso: salvar o link ou marcar evento do Telegram dá erro
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

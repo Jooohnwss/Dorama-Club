@@ -1681,6 +1681,22 @@ textarea:focus {
 .saudade-mini strong { color: var(--cor-primaria); font-size: 1.1rem; }
 .saudade-mini button { margin-left: auto; }
 
+/* Telegram do casal (Fase 6) */
+.tg-box {
+  padding: 14px; border-radius: 18px;
+  border: 1px solid color-mix(in srgb, #229ED9 35%, var(--cor-borda));
+  background: color-mix(in srgb, #229ED9 8%, var(--cor-superficie));
+}
+.tg-box .btn { width: 100%; justify-content: center; }
+.tg-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.tg-actions .btn { flex: 1; min-width: 0; white-space: nowrap; }
+.tg-events { margin-top: 10px; display: grid; gap: 4px; }
+.tg-event {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 0; border-bottom: 1px solid var(--cor-borda);
+}
+.tg-event small { color: var(--cor-texto-suave); font-weight: 700; }
+
 /* Quiz do casal */
 .quiz-score {
   display: flex;

@@ -457,6 +457,33 @@ export async function updateCoupleLastMet(coupleId, date) {
   if (error) throw error;
 }
 
+// ---- Telegram do casal (Fase 6) ----
+export async function updateCoupleTelegram(coupleId, link) {
+  const { error } = await supabase.from("couples").update({ telegram_link: link || null }).eq("id", coupleId);
+  if (error) throw error;
+}
+export async function loadTelegramEvents(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_telegram_events")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return data || [];
+}
+export async function addTelegramEvent(coupleId, userId, kind, note) {
+  const { data, error } = await supabase.from("couple_telegram_events").insert({
+    couple_id: coupleId, user_id: userId, kind: kind || "done", note: note || null,
+  }).select("id").single();
+  if (error) throw error;
+  return data?.id || null;
+}
+export async function deleteTelegramEvent(id) {
+  const { error } = await supabase.from("couple_telegram_events").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ---- Modo saudade (Fase 5) ----
 export async function loadReunionList(coupleId) {
   const { data, error } = await supabase

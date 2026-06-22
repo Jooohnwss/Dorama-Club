@@ -133,9 +133,15 @@ Saldo atual = Σ (pontos do couple_points_ledger)
 - ✅ Dias sem se ver + contagem pro próximo encontro (countdown).
 - ✅ Mensagem de saudade + "lista pra quando a gente se ver".
 
-### Fase 6 — Telegram (continua o brief `CASAL_DISTANCIA_PLANO.md`) 🛰️
-- `couple_telegram_events` (só metadados) + botões: Abrir Telegram / Enviei / Recebi / Concluir.
-- Depois: bot @BotFather + Edge Function (webhook) + `telegram_link` pra notificações reais.
+### Fase 6 — Telegram (continua o brief `CASAL_DISTANCIA_PLANO.md`) 🟡 **PARTE LEVE FEITA** (migração 27)
+> **Feito (parte leve, sem infra):** `couples.telegram_link` (link do chat de vocês, salvo em Ajustes)
+> + painel **"💌 Continuar no Telegram"** no 🔥 Nós com botão **Abrir Telegram** e o ciclo
+> **📤 Enviei / 📥 Recebi / ✅ Concluímos** (`couple_telegram_events`, só metadados; "Concluímos" dá
+> +pontos, anti-dup, com estorno ao apagar). **Conteúdo íntimo nunca passa pelo app** — fica só no Telegram.
+> **Pendente (parte pesada, opcional):** bot no @BotFather (token) + Edge Function (webhook) pra
+> **notificações reais** ("sua pessoa te mandou algo 💌"). Precisa de você criar o bot + deploy da function.
+- ✅ `couple_telegram_events` (só metadados) + botões: Abrir Telegram / Enviei / Recebi / Concluímos.
+- 🗄️ Depois (se valer): bot @BotFather + Edge Function (webhook) pra notificações reais.
 
 ---
 

@@ -100,6 +100,10 @@ import {
   setDateDone,
   deleteCoupleDate,
   updateCoupleLastMet,
+  updateCoupleTelegram,
+  loadTelegramEvents,
+  addTelegramEvent,
+  deleteTelegramEvent,
   loadReunionList,
   addReunionItem,
   setReunionDone,
@@ -542,6 +546,7 @@ let coupleChallenges = []; // log de desafios concluídos
 let coupleLedger = []; // extrato de pontos (Nós 2.0)
 let coupleCheckins = []; // check-ins de hoje (clima + limite do dia)
 let coupleSurprises = []; // surpresas programadas (revela em data)
+let coupleTgEvents = []; // eventos do Telegram (só metadados)
 let nosFor = null;
 let nosUnlocked = nosUnlockValido(); // destravado (segue valendo por 20 min, mesmo no refresh)
 let desafioIdx = 0; // pra "outro desafio"
@@ -3156,6 +3161,13 @@ function coupleAjustesSection() {
       <div class="actions" style="margin:0"><button class="btn ghost" type="button" data-open-couple-tutorial>Como funciona o Nós dois</button></div>
     </section>
     ${casalPrivadoOn() ? `
+    <div class="section-title"><h2>💌 Telegram de vocês</h2></div>
+    <section class="form-card">
+      <form id="couple-telegram-form" class="form-grid">
+        <div class="field full"><label>Link do chat/grupo de vocês no Telegram (ex.: https://t.me/...). O conteúdo íntimo fica só lá, fora do app.</label><input name="telegram" value="${esc(state.couple.telegramLink || "")}" placeholder="https://t.me/seu_usuario" /></div>
+        <div class="actions field full"><button class="btn secondary" type="submit">Salvar link</button></div>
+      </form>
+    </section>
     <div class="section-title"><h2>📜 Extrato de pontos</h2></div>
     <section class="form-card">
       <p class="muted" style="margin:0 0 10px">O histórico de pontos do 🔥 Nós (ganhos, gastos e estornos).</p>
@@ -3552,6 +3564,31 @@ async function handleSurpresaDel(id) {
     render();
   } catch { toast("Não consegui apagar."); }
 }
+async function handleTgEvent(kind) {
+  if (!state.couple) return;
+  try {
+    const id = await addTelegramEvent(state.couple.id, authUser.id, kind, null);
+    if (kind === "done") await ganharPontos(PONTOS.telegram, "momento no Telegram", "telegram", id || `tg:${Date.now()}`);
+    coupleTgEvents = await loadTelegramEvents(state.couple.id);
+    if (kind === "done") coupleLedger = await loadPointsLedger(state.couple.id);
+    render();
+    toast(kind === "done" ? `Concluído! +${PONTOS.telegram} 💞` : kind === "sent" ? "Marcado: enviei 📤" : "Marcado: recebi 📥");
+  } catch { toast("Não consegui registrar."); }
+}
+async function handleTgDel(raw) {
+  const [id, kind] = String(raw).split(":");
+  if (!state.couple) return;
+  try {
+    await deleteTelegramEvent(id);
+    // Se era um "concluímos" que pontuou, estorna (anti-dup por fonte).
+    if (kind === "done") {
+      await estornarPontos(-PONTOS.telegram, "momento do Telegram desfeito", "telegram_undo", id);
+      coupleLedger = await loadPointsLedger(state.couple.id);
+    }
+    coupleTgEvents = coupleTgEvents.filter((e) => e.id !== id);
+    render();
+  } catch { toast("Não consegui apagar."); }
+}
 async function handleMissionClaim(raw) {
   const [key, period, bonus] = String(raw).split(":");
   if (!state.couple) return;
@@ -3661,7 +3698,7 @@ function nosResumoExtrato() {
 }
 
 // Valor por ação (tabela do brief, versão "lenta").
-const PONTOS = { ep: 5, memoria: 3, cartinha: 6, quiz: 2, checkin: 1, checkinBonus: 2, desafio: { 1: 5, 2: 8, 3: 12, 4: 18, 5: 25, 6: 35 } };
+const PONTOS = { ep: 5, memoria: 3, cartinha: 6, quiz: 2, checkin: 1, checkinBonus: 2, telegram: 4, desafio: { 1: 5, 2: 8, 3: 12, 4: 18, 5: 25, 6: 35 } };
 
 async function lancarPontos(entry) {
   if (!state.couple || !cloudOn()) return;
@@ -3799,7 +3836,7 @@ function nomeMembro(uid) {
 async function loadNosData() {
   if (!state.couple || !casalPrivadoOn()) return;
   try {
-    const [r, c, p, ch, led, ci, su] = await Promise.all([
+    const [r, c, p, ch, led, ci, su, tg] = await Promise.all([
       loadCoupleRewards(state.couple.id),
       loadCoupleClaims(state.couple.id),
       loadCouplePrefs(state.couple.id),
@@ -3807,6 +3844,7 @@ async function loadNosData() {
       loadPointsLedger(state.couple.id),
       loadCoupleCheckins(state.couple.id, new Date().toISOString().slice(0, 10)),
       loadCoupleSurprises(state.couple.id),
+      loadTelegramEvents(state.couple.id),
     ]);
     nosRewards = r;
     nosClaims = c;
@@ -3815,8 +3853,9 @@ async function loadNosData() {
     coupleLedger = led;
     coupleCheckins = ci;
     coupleSurprises = su;
+    coupleTgEvents = tg;
   } catch {
-    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; coupleCheckins = []; coupleSurprises = [];
+    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; coupleCheckins = []; coupleSurprises = []; coupleTgEvents = [];
   }
   // Recomeço único do zero: o extrato herdou lançamentos fantasma do bug antigo
   // de duplicação. Marca UMA linha de baseline (source fixo = anti-dup não repete);
@@ -4078,6 +4117,27 @@ function nosSurpresasHtml() {
     ${!coupleSurprises.length ? `<div class="empty">Nenhuma surpresa guardada ainda. Que tal a primeira? 💝</div>` : ""}`;
 }
 
+// ---------- Fase 6: Telegram (conteúdo íntimo fora do app) ----------
+const TG_KIND = { sent: "📤 enviei", received: "📥 recebi", done: "✅ concluímos" };
+function nosTelegramHtml() {
+  const link = state.couple?.telegramLink || "";
+  const eventos = coupleTgEvents.slice(0, 6);
+  return `
+    <div class="section-title compact"><h2>💌 Continuar no Telegram</h2><span class="muted" style="font-size:.8rem">conteúdo fora do app</span></div>
+    <section class="tg-box">
+      <p class="muted" style="margin:0 0 10px;font-size:.84rem">Foto, vídeo e áudio íntimo ficam <strong>só no Telegram</strong>, nunca no app. Aqui vocês só abrem o chat e marcam o ciclo (sem conteúdo).</p>
+      ${link
+        ? `<a class="btn" href="${esc(link)}" target="_blank" rel="noopener">${icon("share")} Abrir o Telegram de vocês</a>`
+        : `<div class="empty">Configurem o link do Telegram em <strong>Ajustes</strong> pra liberar o botão. 💬</div>`}
+      <div class="tg-actions">
+        <button class="btn ghost" type="button" data-tg-event="sent">📤 Enviei</button>
+        <button class="btn ghost" type="button" data-tg-event="received">📥 Recebi</button>
+        <button class="btn" type="button" data-tg-event="done">✅ Concluímos (+${PONTOS.telegram})</button>
+      </div>
+      ${eventos.length ? `<div class="tg-events">${eventos.map((e) => `<div class="tg-event"><small>${TG_KIND[e.kind] || esc(e.kind)} · ${esc(nomeMembro(e.user_id))} · ${esc(timeAgo(e.created_at))}</small><button class="recado-mini" type="button" data-tg-del="${e.id}:${esc(e.kind)}">${icon("trash")}</button></div>`).join("")}</div>` : ""}
+    </section>`;
+}
+
 function nosConquistasHtml() {
   const lista = nosConquistas();
   const feitas = lista.filter((c) => c.cur >= c.alvo).length;
@@ -4204,6 +4264,7 @@ function nosSection() {
     ${nosMissoesHtml()}
     ${progHtml}
     ${nosSurpresasHtml()}
+    ${nosTelegramHtml()}
     ${nosConquistasHtml()}
 
     <div class="section-title compact"><h2>Criar um vale</h2></div>
@@ -5617,6 +5678,7 @@ function bindShell() {
   document.querySelectorAll("[data-reunion-del]").forEach((b) => listen(b, "click", () => handleReunionDel(b.dataset.reunionDel)));
   document.querySelectorAll("[data-saudade-del]").forEach((b) => listen(b, "click", () => handleSaudadeDel(b.dataset.saudadeDel)));
   listen(document.querySelector("#couple-pinned-form"), "submit", handleCouplePinned);
+  listen(document.querySelector("#couple-telegram-form"), "submit", handleTelegramSave);
   listen(document.querySelector("#couple-add-drama-form"), "submit", handleCoupleAddDrama);
   listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
   listen(document.querySelector("#couple-letter-form"), "submit", handleCoupleLetter);
@@ -5685,6 +5747,8 @@ function bindShell() {
   document.querySelectorAll("[data-mission]").forEach((b) => listen(b, "click", () => handleMissionClaim(b.dataset.mission)));
   listen(document.querySelector("#nos-surpresa-form"), "submit", handleSurpresaCreate);
   document.querySelectorAll("[data-surp-del]").forEach((b) => listen(b, "click", () => handleSurpresaDel(b.dataset.surpDel)));
+  document.querySelectorAll("[data-tg-event]").forEach((b) => listen(b, "click", () => handleTgEvent(b.dataset.tgEvent)));
+  document.querySelectorAll("[data-tg-del]").forEach((b) => listen(b, "click", () => handleTgDel(b.dataset.tgDel)));
   document.querySelectorAll("[data-extrato-open]").forEach((b) => listen(b, "click", () => { extratoOpen = true; render(); }));
   document.querySelectorAll("[data-extrato-close]").forEach((b) => listen(b, "click", () => { extratoOpen = false; render(); }));
   document.querySelectorAll("[data-set-intensity]").forEach((b) => listen(b, "click", () => handleSetIntensity(b.dataset.setIntensity)));
@@ -6152,6 +6216,7 @@ function mapCoupleRow(couple) {
     pinnedLetter: couple.pinned_letter || "",
     nextMeetDate: couple.next_meet_date || "",
     lastMetDate: couple.last_met_date || "",
+    telegramLink: couple.telegram_link || "",
   };
 }
 
@@ -6250,6 +6315,19 @@ async function handleCoupleCapa(event) {
   }
 }
 
+async function handleTelegramSave(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  let link = String(new FormData(event.currentTarget).get("telegram") || "").trim();
+  if (link && !/^https?:\/\//i.test(link)) link = `https://${link.replace(/^@/, "t.me/")}`;
+  try {
+    await updateCoupleTelegram(state.couple.id, link || null);
+    state.couple.telegramLink = link || "";
+    saveState();
+    render();
+    toast(link ? "Link do Telegram salvo 💌" : "Link removido.");
+  } catch { toast("Não consegui salvar."); }
+}
 async function handleMeetDate(event) {
   event.preventDefault();
   if (!state.couple) return;
