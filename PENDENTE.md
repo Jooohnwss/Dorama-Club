@@ -48,12 +48,11 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: o **quiz de compatibilidade semanal** (cada um responde 4 perguntas; revela quando os dois respondem)
 - Sem isso: o quiz não salva/carrega (tabela `couple_quiz_answers` não existe)
 
-### 1h. Rodar a migração 19 no Supabase (recompensas "Nós 🔥")
+### 1h. ~~Rodar a migração 19 no Supabase (recompensas "Nós 🔥")~~ ✅ FEITO
 - Onde: painel do Supabase → **SQL Editor** → New query
 - O quê: colar o conteúdo de `supabase/19 - recompensas-do-casal.sql` e clicar em **Run**
 - Pra quê: a **loja privada de vales/recompensas** (aba "Nós 🔥", só pra vocês dois)
-- Sem isso: criar/resgatar vale dá erro (tabelas não existem)
-- Obs.: a aba só aparece logado como **você ou a Abikeila** (lista de e-mails no código) + PIN local
+- Status: você confirmou que já rodou a migração 19. A aba só aparece pros 2 e-mails (hash) + PIN local.
 
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
