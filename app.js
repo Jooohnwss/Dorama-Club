@@ -84,6 +84,7 @@ import {
   updateCoupleMeetDate,
   loadCouplePrefs,
   saveCouplePref,
+  saveCoupleTelegram,
   loadCoupleChallenges,
   addCoupleChallengeLog,
   deleteCoupleChallengeLog,
@@ -3161,11 +3162,11 @@ function coupleAjustesSection() {
       <div class="actions" style="margin:0"><button class="btn ghost" type="button" data-open-couple-tutorial>Como funciona o Nós dois</button></div>
     </section>
     ${casalPrivadoOn() ? `
-    <div class="section-title"><h2>💌 Telegram de vocês</h2></div>
+    <div class="section-title"><h2>💌 Seu Telegram</h2></div>
     <section class="form-card">
       <form id="couple-telegram-form" class="form-grid">
-        <div class="field full"><label>Link do chat/grupo de vocês no Telegram (ex.: https://t.me/...). O conteúdo íntimo fica só lá, fora do app.</label><input name="telegram" value="${esc(state.couple.telegramLink || "")}" placeholder="https://t.me/seu_usuario" /></div>
-        <div class="actions field full"><button class="btn secondary" type="submit">Salvar link</button></div>
+        <div class="field full"><label>Seu número (com DDI, ex.: +55 11 9...) ou @usuário do Telegram. Fica só no banco, privado — nunca no código. A outra pessoa usa isso pra abrir conversa com você.</label><input name="telegram" value="${esc(meuTelegram())}" placeholder="+55 11 90000-0000 ou @seu_user" /></div>
+        <div class="actions field full"><button class="btn secondary" type="submit">Salvar meu Telegram</button></div>
       </form>
     </section>
     <div class="section-title"><h2>📜 Extrato de pontos</h2></div>
@@ -4119,16 +4120,36 @@ function nosSurpresasHtml() {
 
 // ---------- Fase 6: Telegram (conteúdo íntimo fora do app) ----------
 const TG_KIND = { sent: "📤 enviei", received: "📥 recebi", done: "✅ concluímos" };
+// Monta o link do Telegram a partir de número (com DDI), @usuário ou link pronto.
+function tgLink(raw) {
+  if (!raw) return "";
+  const v = String(raw).trim();
+  if (/^https?:\/\//i.test(v)) return v;
+  if (v.startsWith("@")) return `https://t.me/${v.slice(1)}`;
+  const num = v.replace(/[\s\-().]/g, "");
+  if (/^\+?\d{8,15}$/.test(num)) return `https://t.me/${num.startsWith("+") ? num : "+" + num}`;
+  return `https://t.me/${v.replace(/^@/, "")}`;
+}
+function meuTelegram() {
+  return couplePrefs.find((p) => p.user_id === authUser?.id)?.telegram || "";
+}
+function parceiroTelegram() {
+  const parc = coupleMembers.find((m) => m.user_id !== authUser?.id);
+  if (!parc) return { nome: "sua pessoa", contato: "" };
+  const pref = couplePrefs.find((p) => p.user_id === parc.user_id);
+  return { nome: nomeMembro(parc.user_id), contato: pref?.telegram || "" };
+}
 function nosTelegramHtml() {
-  const link = state.couple?.telegramLink || "";
+  const parc = parceiroTelegram();
+  const link = tgLink(parc.contato);
   const eventos = coupleTgEvents.slice(0, 6);
   return `
     <div class="section-title compact"><h2>💌 Continuar no Telegram</h2><span class="muted" style="font-size:.8rem">conteúdo fora do app</span></div>
     <section class="tg-box">
       <p class="muted" style="margin:0 0 10px;font-size:.84rem">Foto, vídeo e áudio íntimo ficam <strong>só no Telegram</strong>, nunca no app. Aqui vocês só abrem o chat e marcam o ciclo (sem conteúdo).</p>
       ${link
-        ? `<a class="btn" href="${esc(link)}" target="_blank" rel="noopener">${icon("share")} Abrir o Telegram de vocês</a>`
-        : `<div class="empty">Configurem o link do Telegram em <strong>Ajustes</strong> pra liberar o botão. 💬</div>`}
+        ? `<a class="btn" href="${esc(link)}" target="_blank" rel="noopener">${icon("share")} Abrir conversa com ${esc(parc.nome)} 💬</a>`
+        : `<div class="empty">${parc.contato ? "" : `Falta o Telegram d${parc.nome === "sua pessoa" ? "a sua pessoa" : "e " + esc(parc.nome)}. ` }Cada um cadastra o seu em <strong>Ajustes</strong> pra liberar o botão. 💬</div>`}
       <div class="tg-actions">
         <button class="btn ghost" type="button" data-tg-event="sent">📤 Enviei</button>
         <button class="btn ghost" type="button" data-tg-event="received">📥 Recebi</button>
@@ -6318,14 +6339,12 @@ async function handleCoupleCapa(event) {
 async function handleTelegramSave(event) {
   event.preventDefault();
   if (!state.couple) return;
-  let link = String(new FormData(event.currentTarget).get("telegram") || "").trim();
-  if (link && !/^https?:\/\//i.test(link)) link = `https://${link.replace(/^@/, "t.me/")}`;
+  const contato = String(new FormData(event.currentTarget).get("telegram") || "").trim();
   try {
-    await updateCoupleTelegram(state.couple.id, link || null);
-    state.couple.telegramLink = link || "";
-    saveState();
+    await saveCoupleTelegram(state.couple.id, authUser.id, contato || null);
+    couplePrefs = await loadCouplePrefs(state.couple.id);
     render();
-    toast(link ? "Link do Telegram salvo 💌" : "Link removido.");
+    toast(contato ? "Seu Telegram salvo 💌" : "Telegram removido.");
   } catch { toast("Não consegui salvar."); }
 }
 async function handleMeetDate(event) {

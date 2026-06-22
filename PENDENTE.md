@@ -102,6 +102,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: o **link do Telegram** de vocês + o ciclo "Enviei/Recebi/Concluímos" no 🔥 Nós (só metadados; conteúdo íntimo fica fora do app)
 - Sem isso: salvar o link ou marcar evento do Telegram dá erro
 
+### 1q. Rodar a migração 28 no Supabase (Telegram por pessoa)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/28 - telegram-por-pessoa.sql` e clicar em **Run**
+- Pra quê: cada um cadastra o **próprio** Telegram nos Ajustes; o botão abre a conversa com o outro
+- Sem isso: salvar o Telegram pessoal dá erro (coluna não existe). **Privado no banco, nunca no código.**
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

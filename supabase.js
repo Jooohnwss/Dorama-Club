@@ -531,9 +531,19 @@ export async function deleteSaudade(id) {
 }
 
 export async function loadCouplePrefs(coupleId) {
-  const { data, error } = await supabase.from("couple_member_prefs").select("user_id, max_intensity").eq("couple_id", coupleId);
+  const { data, error } = await supabase.from("couple_member_prefs").select("user_id, max_intensity, telegram").eq("couple_id", coupleId);
   if (error) throw error;
   return data || [];
+}
+
+export async function saveCoupleTelegram(coupleId, userId, telegram) {
+  const { error } = await supabase.from("couple_member_prefs").upsert({
+    couple_id: coupleId,
+    user_id: userId,
+    telegram: telegram || null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "couple_id,user_id" });
+  if (error) throw error;
 }
 
 export async function saveCouplePref(coupleId, userId, maxIntensity) {

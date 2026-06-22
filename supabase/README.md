@@ -36,6 +36,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 25 | `25 - surpresas-programadas.sql` | `couple_surprises` (recadinho/combinado que só revela numa data) + RLS — Nós 2.0 Fase 4 | Casal/Nós 2.0 |
 | 26 | `26 - modo-saudade.sql` | `couples.last_met_date` (dias sem se ver) + `couple_reunion_list` ("pra quando a gente se ver") + `couple_saudade` (recadinho de saudade) + RLS — Nós 2.0 Fase 5 | Casal/Distância |
 | 27 | `27 - telegram-do-casal.sql` | `couples.telegram_link` + `couple_telegram_events` (só metadados: enviei/recebi/concluímos) + RLS — Nós 2.0 Fase 6 (conteúdo íntimo fora do app) | Casal/Nós 2.0 |
+| 28 | `28 - telegram-por-pessoa.sql` | `couple_member_prefs.telegram` (cada um guarda o próprio contato; o botão abre a conversa com o outro). Privado no banco, nunca no código | Casal/Nós 2.0 |
 
 ## Convenção de nome
 
