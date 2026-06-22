@@ -553,6 +553,7 @@ let nosUnlocked = nosUnlockValido(); // destravado (segue valendo por 20 min, me
 let desafioIdx = 0; // pra "outro desafio"
 let extratoOpen = false; // popup do extrato de pontos
 let missoesOpen = false; // popup das missões
+let desafiosOpen = false; // popup com todos os níveis/desafios
 
 function djb2(s) {
   let h = 5381;
@@ -4231,18 +4232,21 @@ function parceiroTelegram() {
 function nosTelegramHtml() {
   const parc = parceiroTelegram();
   const link = tgLink(parc.contato);
-  const eventos = coupleTgEvents.slice(0, 6);
+  const eventos = coupleTgEvents.slice(0, 4);
+  const planeIco = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M21.7 3.3 2.9 10.6c-.9.4-.9 1.6 0 1.9l4.6 1.5 1.8 5.4c.3.8 1.3 1 1.9.4l2.5-2.4 4.6 3.4c.6.5 1.5.2 1.7-.6l3.3-15.5c.2-.9-.7-1.7-1.6-1.4ZM9.7 13.7l9-7.4-7.5 8.3v3.1l-1.5-4Z"/></svg>`;
   return `
-    <div class="section-title compact"><h2>💌 Continuar no Telegram</h2><span class="muted" style="font-size:.8rem">conteúdo fora do app</span></div>
     <section class="tg-box">
-      <p class="muted" style="margin:0 0 10px;font-size:.84rem">Foto, vídeo e áudio íntimo ficam <strong>só no Telegram</strong>, nunca no app. Aqui vocês só abrem o chat e marcam o ciclo (sem conteúdo).</p>
+      <div class="tg-top">
+        <span class="tg-logo">${planeIco}</span>
+        <div class="tg-head"><strong>Continuar no Telegram</strong><small>o conteúdo íntimo fica só lá, nunca no app</small></div>
+      </div>
       ${link
-        ? `<a class="btn" href="${esc(link)}" target="_blank" rel="noopener">${icon("share")} Abrir conversa com ${esc(parc.nome)} 💬</a>`
-        : `<div class="empty">${parc.contato ? "" : `Falta o Telegram d${parc.nome === "sua pessoa" ? "a sua pessoa" : "e " + esc(parc.nome)}. ` }Cada um cadastra o seu em <strong>Ajustes</strong> pra liberar o botão. 💬</div>`}
-      <div class="tg-actions">
-        <button class="btn ghost" type="button" data-tg-event="sent">📤 Enviei</button>
-        <button class="btn ghost" type="button" data-tg-event="received">📥 Recebi</button>
-        <button class="btn" type="button" data-tg-event="done">✅ Concluímos (+${PONTOS.telegram})</button>
+        ? `<a class="tg-open" href="${esc(link)}" target="_blank" rel="noopener">${planeIco} Abrir conversa com ${esc(parc.nome)}</a>`
+        : `<div class="tg-empty">${parc.contato ? "" : `Falta o Telegram d${parc.nome === "sua pessoa" ? "a sua pessoa" : "e " + esc(parc.nome)}. ` }Cada um cadastra o seu em <strong>Ajustes</strong>. 💬</div>`}
+      <div class="tg-chips">
+        <button class="tg-chip" type="button" data-tg-event="sent">📤 Enviei</button>
+        <button class="tg-chip" type="button" data-tg-event="received">📥 Recebi</button>
+        <button class="tg-chip done" type="button" data-tg-event="done">✅ Concluímos <b>+${PONTOS.telegram}</b></button>
       </div>
       ${eventos.length ? `<div class="tg-events">${eventos.map((e) => `<div class="tg-event"><small>${TG_KIND[e.kind] || esc(e.kind)} · ${esc(nomeMembro(e.user_id))} · ${esc(timeAgo(e.created_at))}</small><button class="recado-mini" type="button" data-tg-del="${e.id}:${esc(e.kind)}">${icon("trash")}</button></div>`).join("")}</div>` : ""}
     </section>`;
@@ -4267,41 +4271,55 @@ function nosConquistasHtml() {
     </section>`;
 }
 
-// Progressão: categorias por pontos acumulados + catálogo desbloqueável por saldo.
-function nosProgressaoHtml() {
+// Bloco de um nível (catálogo desbloqueável). Reusado inline e no popup.
+function nosNivelBloco(niv) {
   const acumulados = nosPontosAcumulados();
   const saldo = nosSaldo();
   const permitida = intensidadePermitida();
-  // Nível atual = o maior liberado por pontos.
-  const atual = [...NIVEIS].reverse().find((x) => acumulados >= x.req) || NIVEIS[0];
-  const proximo = NIVEIS.find((x) => x.req > acumulados);
-
-  const blocos = NIVEIS.map((niv) => {
-    const liberadoPontos = acumulados >= niv.req;
-    const precisa18 = niv.n >= 4;
-    const bloqueado18 = precisa18 && !adulto18Ok();
-    const desafios = DESAFIOS_CAT.filter((d) => d.nivel === niv.n);
-    if (!liberadoPontos) {
-      return `<div class="prog-cat locked"><span class="prog-cat-head">🔒 ${niv.emoji} ${esc(niv.nome)}</span><small>Faltam ${niv.req - acumulados} pts acumulados</small></div>`;
+  const liberadoPontos = acumulados >= niv.req;
+  const bloqueado18 = niv.n >= 4 && !adulto18Ok();
+  const desafios = DESAFIOS_CAT.filter((d) => d.nivel === niv.n);
+  if (!liberadoPontos) {
+    return `<div class="prog-cat locked"><span class="prog-cat-head">🔒 ${niv.emoji} ${esc(niv.nome)}</span><small>Faltam ${niv.req - acumulados} pts acumulados</small></div>`;
+  }
+  if (bloqueado18) {
+    return `<div class="prog-cat locked"><span class="prog-cat-head">🔞 ${niv.emoji} ${esc(niv.nome)}</span><small>Liberem o conteúdo adulto (18+) no clima</small></div>`;
+  }
+  const cards = desafios.map((d) => {
+    const unlocked = d.custo === 0 || desafioUnlocked(d.key);
+    const noConsent = d.nivel > permitida;
+    if (!unlocked) {
+      const podePagar = saldo >= d.custo && !noConsent;
+      return `<div class="cat-desafio locked"><strong>🔒 ${esc(d.nome)}</strong><div class="cat-foot"><span class="nos-cost">${d.custo} pts</span><button class="btn ghost" type="button" data-unlock-desafio="${d.key}" ${podePagar ? "" : "disabled"}>${noConsent ? "fora do limite" : "Desbloquear"}</button></div></div>`;
     }
-    if (bloqueado18) {
-      return `<div class="prog-cat locked"><span class="prog-cat-head">🔞 ${niv.emoji} ${esc(niv.nome)}</span><small>Liberem o conteúdo adulto (18+) nos limites</small></div>`;
-    }
-    const cards = desafios.map((d) => {
-      const unlocked = d.custo === 0 || desafioUnlocked(d.key);
-      const noConsent = d.nivel > permitida;
-      if (!unlocked) {
-        const podePagar = saldo >= d.custo && !noConsent;
-        return `<div class="cat-desafio locked"><strong>🔒 ${esc(d.nome)}</strong><div class="cat-foot"><span class="nos-cost">${d.custo} pts</span><button class="btn ghost" type="button" data-unlock-desafio="${d.key}" ${podePagar ? "" : "disabled"}>${noConsent ? "fora do limite" : "Desbloquear"}</button></div></div>`;
-      }
-      return `<div class="cat-desafio"><strong>${esc(d.nome)}</strong><small class="muted">${esc(d.desc)}</small><div class="cat-foot"><button class="btn" type="button" data-cat-done="${d.key}" ${noConsent ? "disabled" : ""}>${noConsent ? "fora do limite" : "Concluímos 💞"}</button></div></div>`;
-    }).join("");
-    return `<div class="prog-cat"><span class="prog-cat-head">${niv.emoji} ${esc(niv.nome)}</span><div class="cat-grid">${cards}</div></div>`;
+    return `<div class="cat-desafio"><strong>${esc(d.nome)}</strong><small class="muted">${esc(d.desc)}</small><div class="cat-foot"><button class="btn" type="button" data-cat-done="${d.key}" ${noConsent ? "disabled" : ""}>${noConsent ? "fora do limite" : "Concluímos 💞"}</button></div></div>`;
   }).join("");
-
+  return `<div class="prog-cat"><span class="prog-cat-head">${niv.emoji} ${esc(niv.nome)}</span><div class="cat-grid">${cards}</div></div>`;
+}
+// Progressão: mostra os níveis JÁ liberados aqui; o resto (bloqueados) vai pro popup.
+function nosProgressaoHtml() {
+  const acumulados = nosPontosAcumulados();
+  const liberados = NIVEIS.filter((niv) => acumulados >= niv.req && !(niv.n >= 4 && !adulto18Ok()));
+  const inline = liberados.length ? liberados : [NIVEIS[0]];
+  const restantes = NIVEIS.length - inline.length;
   return `
     <div class="section-title compact"><h2>🏆 Evolução & desafios</h2><span class="muted" style="font-size:.8rem">desbloqueiem com pontos</span></div>
-    ${blocos}`;
+    ${inline.map(nosNivelBloco).join("")}
+    <button class="nos-tile" type="button" data-desafios-open>
+      <span class="tile-ico">🗺️</span>
+      <span class="tile-main"><strong>Todos os níveis</strong><small>${restantes > 0 ? `+${restantes} nível${restantes > 1 ? "is" : ""} pra desbloquear` : "ver os 6 níveis"}</small></span>
+      <span class="tile-go">›</span>
+    </button>`;
+}
+function desafiosModalTemplate() {
+  if (!desafiosOpen) return "";
+  return `
+    <div class="modal ui-modal">
+      <section class="modal-card ui-card" style="width:min(460px,100%);max-height:84vh;overflow:auto">
+        <div class="modal-head"><div><h2 style="margin:0">🗺️ Níveis & desafios</h2><p class="muted" style="margin:4px 0 0">Quanto mais íntimo, mais caro 🔓</p></div><button class="close" type="button" data-desafios-close>×</button></div>
+        ${NIVEIS.map(nosNivelBloco).join("")}
+      </section>
+    </div>`;
 }
 
 function nosSection() {
@@ -4344,7 +4362,8 @@ function nosSection() {
     ${nosConquistasHtml()}
     ${nosTelegramHtml()}
 
-    ${missoesModalTemplate()}`;
+    ${missoesModalTemplate()}
+    ${desafiosModalTemplate()}`;
 }
 
 // ---------- Planos: wishlist + calendário de encontros ----------
@@ -5813,6 +5832,8 @@ function bindShell() {
   document.querySelectorAll("[data-extrato-close]").forEach((b) => listen(b, "click", () => { extratoOpen = false; render(); }));
   document.querySelectorAll("[data-missoes-open]").forEach((b) => listen(b, "click", () => { missoesOpen = true; render(); }));
   document.querySelectorAll("[data-missoes-close]").forEach((b) => listen(b, "click", () => { missoesOpen = false; render(); }));
+  document.querySelectorAll("[data-desafios-open]").forEach((b) => listen(b, "click", () => { desafiosOpen = true; render(); }));
+  document.querySelectorAll("[data-desafios-close]").forEach((b) => listen(b, "click", () => { desafiosOpen = false; render(); }));
   document.querySelectorAll("[data-set-intensity]").forEach((b) => listen(b, "click", () => handleSetIntensity(b.dataset.setIntensity)));
   document.querySelectorAll("[data-desafio-done]").forEach((b) => listen(b, "click", () => handleDesafioDone(b.dataset.desafioDone)));
   listen(document.querySelector("[data-desafio-outro]"), "click", handleDesafioOutro);

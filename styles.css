@@ -1770,17 +1770,46 @@ textarea:focus {
 
 /* Telegram do casal (Fase 6) */
 .tg-box {
-  padding: 14px; border-radius: 18px;
-  border: 1px solid color-mix(in srgb, #229ED9 35%, var(--cor-borda));
-  background: color-mix(in srgb, #229ED9 8%, var(--cor-superficie));
+  padding: 16px; border-radius: 20px; margin-bottom: 8px;
+  border: 1px solid color-mix(in srgb, #229ED9 30%, var(--cor-borda));
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, #229ED9 16%, transparent), transparent 55%),
+    color-mix(in srgb, #229ED9 6%, var(--cor-superficie));
 }
-.tg-box .btn { width: 100%; justify-content: center; }
-.tg-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-.tg-actions .btn { flex: 1; min-width: 0; white-space: nowrap; }
-.tg-events { margin-top: 10px; display: grid; gap: 4px; }
+.tg-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.tg-logo {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, #2aabee, #229ED9);
+  box-shadow: 0 6px 14px -6px #229ED9;
+}
+.tg-head { display: flex; flex-direction: column; line-height: 1.25; }
+.tg-head strong { font-size: 1rem; }
+.tg-head small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.78rem; }
+.tg-open {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 13px; border-radius: 14px; font-weight: 850; font-size: 0.95rem;
+  color: #fff; text-decoration: none;
+  background: linear-gradient(135deg, #2aabee, #229ED9);
+  box-shadow: 0 8px 18px -8px #229ED9;
+}
+.tg-open:active { transform: scale(0.99); }
+.tg-empty {
+  padding: 12px; border-radius: 12px; text-align: center; font-weight: 700; font-size: 0.84rem;
+  color: var(--cor-texto-suave); background: color-mix(in srgb, var(--cor-superficie-2) 60%, transparent);
+}
+.tg-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.tg-chip {
+  flex: 1; min-width: 0; white-space: nowrap;
+  padding: 9px 10px; border-radius: 12px; font-weight: 800; font-size: 0.82rem;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); color: var(--cor-texto);
+}
+.tg-chip.done { border-color: transparent; color: #fff; background: linear-gradient(135deg, #22c55e, #16a34a); }
+.tg-chip.done b { font-weight: 900; }
+.tg-events { margin-top: 12px; display: grid; gap: 4px; }
 .tg-event {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 4px 0; border-bottom: 1px solid var(--cor-borda);
+  padding: 5px 0; border-bottom: 1px solid var(--cor-borda);
 }
 .tg-event small { color: var(--cor-texto-suave); font-weight: 700; }
 
