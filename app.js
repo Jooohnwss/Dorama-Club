@@ -552,6 +552,7 @@ let nosFor = null;
 let nosUnlocked = nosUnlockValido(); // destravado (segue valendo por 20 min, mesmo no refresh)
 let desafioIdx = 0; // pra "outro desafio"
 let extratoOpen = false; // popup do extrato de pontos
+let missoesOpen = false; // popup das missões
 
 function djb2(s) {
   let h = 5381;
@@ -3955,26 +3956,48 @@ function extratoModalTemplate() {
     </div>`;
 }
 
+// Clima + limites num card só (antes ficavam duplicados em dois cards).
 function nosClimaHtml() {
   const meu = meuCheckin();
   const parceira = coupleMembers.find((m) => m.user_id !== authUser?.id);
   const dela = parceira ? checkinDe(parceira.user_id) : null;
   const nomeP = parceira ? (parceira.name || parceira.nickname || "sua pessoa").split(" ")[0] : "sua pessoa";
   const moodLabel = (k) => { const m = MOODS_DIA.find((x) => x.key === k); return m ? `${m.e} ${m.l}` : "—"; };
-  const meuLimite = limiteDeHoje(authUser?.id);
-  const niveisVis = NIVEIS.filter((x) => x.n <= 3 || adulto18Ok());
+  const limiteHoje = limiteDeHoje(authUser?.id);
+  const fixo = prefMax(authUser?.id);
+  const adulto = adulto18Ok();
+  const niveisVis = NIVEIS.filter((x) => x.n <= 3 || adulto);
+  const permitida = intensidadePermitida();
+  const nomeLimite = (n) => (NIVEIS.find((x) => x.n === n) || {}).nome || "";
   return `
-    <div class="section-title compact"><h2>Clima de hoje 🌡️</h2></div>
-    <section class="form-card">
-      <div class="nivel-pick">
+    <div class="section-title compact"><h2>Clima & limites de hoje 🌡️</h2></div>
+    <section class="form-card nos-clima">
+      <div class="nivel-pick mood-pick">
         ${MOODS_DIA.map((m) => `<button class="nivel-opt ${meu?.mood === m.key ? "on" : ""}" type="button" data-checkin="${m.key}">${m.e} ${esc(m.l)}</button>`).join("")}
       </div>
-      <small class="muted" style="display:block;margin-top:10px">Você: <strong>${meu ? moodLabel(meu.mood) : "—"}</strong> · ${esc(nomeP)}: <strong>${dela ? moodLabel(dela.mood) : "ainda não respondeu"}</strong></small>
-      <p class="muted" style="margin:14px 0 6px;font-weight:800;font-size:.92rem">Hoje eu topo até:</p>
-      <div class="nivel-pick">
-        ${niveisVis.map((x) => `<button class="nivel-opt ${meuLimite === x.n ? "on" : ""}" type="button" data-day-limit="${x.n}">${x.emoji} ${esc(x.nome)}</button>`).join("")}
+      <div class="clima-status">
+        <span>Você <strong>${meu ? moodLabel(meu.mood) : "—"}</strong></span>
+        <span>${esc(nomeP)} <strong>${dela ? moodLabel(dela.mood) : "esperando…"}</strong></span>
       </div>
-      <small class="muted" style="display:block;margin-top:8px">Vale o menor dos dois hoje. (Seu limite fixo fica em "Seus limites".)</small>
+
+      <p class="clima-h">Hoje eu topo até:</p>
+      <div class="nivel-pick">
+        ${niveisVis.map((x) => `<button class="nivel-opt ${limiteHoje === x.n ? "on" : ""}" type="button" data-day-limit="${x.n}">${x.emoji} ${esc(x.nome)}</button>`).join("")}
+      </div>
+      ${fixo
+        ? `<div class="clima-combina">💞 Vocês combinam até <strong>${esc(nomeLimite(permitida))}</strong> <small>(vale o menor dos dois)</small></div>`
+        : `<div class="clima-combina warn">Defina seu limite fixo abaixo pra liberar os desafios.</div>`}
+
+      <details class="clima-fixo">
+        <summary>⚙️ Limite fixo & conteúdo adulto</summary>
+        <p class="muted" style="margin:8px 0;font-size:.82rem">O limite fixo é o seu padrão. O "hoje eu topo até" lá em cima vale só pra hoje.</p>
+        <div class="nivel-pick sm">
+          ${niveisVis.map((x) => `<button class="nivel-opt ${fixo === x.n ? "on" : ""}" type="button" data-set-intensity="${x.n}">${x.emoji} ${esc(x.nome)}</button>`).join("")}
+        </div>
+        ${!adulto
+          ? `<button class="btn ghost" type="button" data-adulto18 style="margin-top:10px">🔞 Liberar conteúdo adulto (18+)</button>`
+          : `<small class="muted" style="display:block;margin-top:10px">🔞 Adulto liberado neste aparelho. <button class="linkish" type="button" data-adulto18-off>esconder</button></small>`}
+      </details>
     </section>`;
 }
 
@@ -4034,15 +4057,78 @@ function missaoCard(m, periodo) {
       <div class="miss-acao">${acao}</div>
     </article>`;
 }
-function nosMissoesHtml() {
+// Missões viram um "tile" compacto que abre um popup (ocupavam muito espaço).
+function nosMissoesResumoHtml() {
+  const hoje = hojeISO();
+  const wk = semanaDe(new Date());
+  const all = [...MISSOES_DIA.map((m) => ({ m, p: hoje })), ...MISSOES_SEMANA.map((m) => ({ m, p: wk }))];
+  const feitas = all.filter(({ m }) => m.feita()).length;
+  const resgatar = all.filter(({ m, p }) => m.feita() && !missaoFeitaResgatada(m.key, p)).length;
+  return `
+    <button class="nos-tile" type="button" data-missoes-open>
+      <span class="tile-ico">🎯</span>
+      <span class="tile-main"><strong>Missões</strong><small>${feitas}/${all.length} cumpridas${resgatar ? ` · ${resgatar} pra resgatar 🎁` : ""}</small></span>
+      ${resgatar ? `<span class="tile-badge">${resgatar}</span>` : `<span class="tile-go">›</span>`}
+    </button>`;
+}
+function missoesModalTemplate() {
+  if (!missoesOpen) return "";
   const hoje = hojeISO();
   const wk = semanaDe(new Date());
   return `
-    <div class="section-title compact"><h2>🎯 Missões</h2><span class="muted" style="font-size:.8rem">do dia & da semana</span></div>
-    <section class="missoes">
-      <div class="miss-grupo"><span class="miss-tag">Hoje</span>${MISSOES_DIA.map((m) => missaoCard(m, hoje)).join("")}</div>
-      <div class="miss-grupo"><span class="miss-tag">Essa semana</span>${MISSOES_SEMANA.map((m) => missaoCard(m, wk)).join("")}</div>
+    <div class="modal ui-modal">
+      <section class="modal-card ui-card" style="width:min(440px,100%);max-height:82vh;overflow:auto">
+        <div class="modal-head"><div><h2 style="margin:0">🎯 Missões</h2><p class="muted" style="margin:4px 0 0">Cumpram e resguem o bônus 🎁</p></div><button class="close" type="button" data-missoes-close>×</button></div>
+        <div class="missoes">
+          <div class="miss-grupo"><span class="miss-tag">Hoje</span>${MISSOES_DIA.map((m) => missaoCard(m, hoje)).join("")}</div>
+          <div class="miss-grupo"><span class="miss-tag">Essa semana</span>${MISSOES_SEMANA.map((m) => missaoCard(m, wk)).join("")}</div>
+        </div>
+      </section>
+    </div>`;
+}
+
+// Topo do "Nós": saldo + nível + barra de progresso (vira o cabeçalho do dashboard).
+function nosHeroHtml() {
+  const saldo = nosSaldo();
+  const acumulados = nosPontosAcumulados();
+  const carregando = nosFor !== state.couple.id;
+  const atual = [...NIVEIS].reverse().find((x) => acumulados >= x.req) || NIVEIS[0];
+  const proximo = NIVEIS.find((x) => x.req > acumulados);
+  const pct = proximo ? Math.min(100, Math.round((acumulados / proximo.req) * 100)) : 100;
+  return `
+    <section class="nos-hero">
+      <div class="nos-hero-top">
+        <div class="nh-saldo"><strong>${carregando ? "…" : saldo}</strong><span>pts pra gastar</span></div>
+        <div class="nh-nivel"><span class="nh-emoji">${atual.emoji}</span><span class="nh-lvl">Nível ${atual.n}</span><small>${esc(atual.nome)}</small></div>
+      </div>
+      <div class="nos-hero-bar"><i style="width:${pct}%"></i></div>
+      <small class="nos-hero-sub">${proximo ? `${acumulados} / ${proximo.req} pts pro nível ${proximo.n} · ${esc(proximo.nome)}` : `nível máximo 👑 · ${acumulados} acumulados`}</small>
     </section>`;
+}
+
+// Loja de vales — o destaque do "Nós".
+function nosValesHtml() {
+  const fofos = nosRewards.filter((r) => r.kind !== "picante");
+  const picantes = nosRewards.filter((r) => r.kind === "picante");
+  const claimsHtml = nosClaims.length ? nosClaims.map(nosClaimCard).join("") : "";
+  return `
+    <div class="section-title"><h2>🎟️ Loja de vales</h2><span class="muted" style="font-size:.8rem">o melhor daqui 😏</span></div>
+    <details class="nos-criar">
+      <summary>＋ Criar um vale</summary>
+      <form id="nos-create-form" class="form-grid" style="margin-top:12px">
+        <div class="field full"><label>O que vale?</label><input name="title" placeholder="Vale um nude, vale uma massagem…" required /></div>
+        <div class="field"><label>Categoria</label><select name="kind"><option value="fofo">💕 Fofo</option><option value="picante">🔥 Picante</option></select></div>
+        <div class="field"><label>Custo (pontos)</label><input name="cost" type="number" min="1" value="15" /></div>
+        <div class="actions field full"><button class="btn" type="submit">${icon("add")} Criar vale</button></div>
+      </form>
+      <div class="nos-presets">${NOS_PRESETS.map((p, i) => `<button class="nos-preset ${p.kind}" type="button" data-nos-preset="${i}">${esc(p.title)} · ${p.cost}pts</button>`).join("")}</div>
+    </details>
+
+    <div class="vales-head">💕 Fofos</div>
+    ${fofos.length ? `<section class="nos-grid">${fofos.map(nosRewardCard).join("")}</section>` : `<div class="empty">Criem o primeiro vale fofo 💕</div>`}
+    <div class="vales-head">🔥 Picantes</div>
+    ${picantes.length ? `<section class="nos-grid">${picantes.map(nosRewardCard).join("")}</section>` : `<div class="empty">Criem o primeiro vale picante 😏</div>`}
+    ${claimsHtml ? `<div class="vales-head">📋 Resgatados</div><section class="nos-claims">${claimsHtml}</section>` : ""}`;
 }
 
 // ---------- Fase 4: conquistas (derivadas do extrato) ----------
@@ -4105,16 +4191,19 @@ function nosSurpresasHtml() {
   const abertas = coupleSurprises.filter((s) => s.reveal_date <= hojeStr).reverse();
   const minDate = hojeStr;
   return `
-    <div class="section-title compact"><h2>🎁 Surpresas</h2><span class="muted" style="font-size:.8rem">abrem na data</span></div>
-    <p class="muted" style="margin:-6px 0 10px;font-size:.82rem">Escreva um recadinho/combinado que só revela no dia marcado. Fica escondido até lá — sem mídia, só o texto de vocês.</p>
-    <form id="nos-surpresa-form" class="form-card form-grid">
-      <div class="field"><label>Rótulo (discreto)</label><input name="title" placeholder="Pra quando bater saudade…" maxlength="60" /></div>
-      <div class="field"><label>Abre em</label><input name="reveal_date" type="date" min="${minDate}" required /></div>
-      <div class="field full"><label>O que revela</label><textarea name="message" rows="2" placeholder="Escreva a surpresa…" required></textarea></div>
-      <div class="actions field full"><button class="btn" type="submit">${icon("add")} Guardar surpresa 🤫</button></div>
-    </form>
+    <div class="section-title compact"><h2>🎁 Surpresas</h2><span class="muted" style="font-size:.8rem">abrem na data 🤫</span></div>
+    <details class="nos-criar">
+      <summary>＋ Guardar uma surpresa</summary>
+      <p class="muted" style="margin:10px 0;font-size:.82rem">Um recadinho que só revela no dia marcado. Fica escondido até lá — só texto, sem mídia.</p>
+      <form id="nos-surpresa-form" class="form-grid">
+        <div class="field"><label>Rótulo (discreto)</label><input name="title" placeholder="Pra quando bater saudade…" maxlength="60" /></div>
+        <div class="field"><label>Abre em</label><input name="reveal_date" type="date" min="${minDate}" required /></div>
+        <div class="field full"><label>O que revela</label><textarea name="message" rows="2" placeholder="Escreva a surpresa…" required></textarea></div>
+        <div class="actions field full"><button class="btn" type="submit">${icon("add")} Guardar 🤫</button></div>
+      </form>
+    </details>
     ${fechadas.length ? `<section class="surpresas">${fechadas.map(surpresaCard).join("")}</section>` : ""}
-    ${abertas.length ? `<div class="muted" style="font-weight:800;font-size:.78rem;margin:10px 0 6px">Já reveladas</div><section class="surpresas">${abertas.map(surpresaCard).join("")}</section>` : ""}
+    ${abertas.length ? `<div class="vales-head" style="font-size:.82rem">💝 Já reveladas</div><section class="surpresas">${abertas.map(surpresaCard).join("")}</section>` : ""}
     ${!coupleSurprises.length ? `<div class="empty">Nenhuma surpresa guardada ainda. Que tal a primeira? 💝</div>` : ""}`;
 }
 
@@ -4211,101 +4300,51 @@ function nosProgressaoHtml() {
   }).join("");
 
   return `
-    <div class="section-title compact"><h2>🏆 Evolução de vocês</h2></div>
-    <section class="prog-top">
-      <strong>${atual.emoji} Nível ${atual.n} — ${esc(atual.nome)}</strong>
-      ${proximo ? `<small class="muted">${acumulados} / ${proximo.req} pts pro nível ${proximo.n} (${esc(proximo.nome)})</small><div class="pet-bar"><span style="width:${Math.min(100, Math.round((acumulados / proximo.req) * 100))}%"></span></div>` : `<small class="muted">Nível máximo alcançado 👑</small>`}
-    </section>
+    <div class="section-title compact"><h2>🏆 Evolução & desafios</h2><span class="muted" style="font-size:.8rem">desbloqueiem com pontos</span></div>
     ${blocos}`;
 }
 
 function nosSection() {
   if (!nosUnlocked) return nosLockTemplate();
-  const saldo = nosSaldo();
-  const fofos = nosRewards.filter((r) => r.kind !== "picante");
-  const picantes = nosRewards.filter((r) => r.kind === "picante");
-  const carregando = nosFor !== state.couple.id;
-
-  const claimsHtml = nosClaims.length
-    ? nosClaims.map(nosClaimCard).join("")
-    : `<div class="empty">Nenhum vale resgatado ainda. 😏</div>`;
-
-  // Limites/consentimento (cada um define a sua intensidade máxima).
-  const meu = prefMax(authUser?.id);
-  const permitida = intensidadePermitida();
-  const adulto = adulto18Ok();
-  // No seletor, níveis 4-6 só aparecem depois de confirmar 18+.
-  const niveisVisiveis = NIVEIS.filter((x) => x.n <= 3 || adulto);
-  const limitesHtml = `
-    <div class="section-title compact"><h2>Seus limites 🔐</h2></div>
-    <section class="form-card">
-      <p class="muted" style="margin:0 0 10px;font-size:.84rem">Escolha a intensidade máxima que <strong>você</strong> aceita. Vale sempre o <strong>menor</strong> limite dos dois.</p>
-      <div class="nivel-pick">
-        ${niveisVisiveis.map((x) => `<button class="nivel-opt ${meu === x.n ? "on" : ""}" type="button" data-set-intensity="${x.n}">${x.emoji} ${esc(x.nome)}</button>`).join("")}
-      </div>
-      ${!adulto ? `<button class="btn ghost" type="button" data-adulto18 style="margin-top:10px">🔞 Liberar conteúdo adulto (18+)</button>` : `<small class="muted" style="display:block;margin-top:10px">🔞 Conteúdo adulto liberado neste aparelho. <button class="linkish" type="button" data-adulto18-off>esconder</button></small>`}
-      <small class="muted" style="display:block;margin-top:10px">${meu ? `Vocês combinam até: <strong>${esc((NIVEIS.find((x) => x.n === permitida) || {}).nome || "")}</strong>` : "Defina o seu limite pra liberar os desafios."}</small>
-    </section>`;
 
   // Desafio do dia (livre, respeitando consentimento + progressão).
+  const meu = prefMax(authUser?.id);
   const desafio = meu ? desafioDoDia() : null;
   const desafioHtml = `
     <div class="section-title compact"><h2>Desafio do dia 🎯</h2>${coupleChallenges.length ? `<span class="muted" style="font-size:.8rem">${coupleChallenges.length} feitos</span>` : ""}</div>
     ${!meu
-      ? `<div class="empty">Defina seus limites acima pra liberar o desafio.</div>`
+      ? `<div class="empty">Defina seus limites (no card de clima) pra liberar o desafio.</div>`
       : desafio
         ? `<section class="desafio-card nivel-${desafio.nivel}">
              <span class="desafio-nivel">${NIVEL_LABEL[desafio.nivel]}</span>
              <strong>${esc(desafio.nome)}</strong>
-             <p class="muted" style="margin:4px 0 0">${esc(desafio.desc)}</p>
-             <div class="actions" style="margin-top:12px">
+             <p class="desafio-desc">${esc(desafio.desc)}</p>
+             <div class="actions" style="margin-top:14px">
                <button class="btn" type="button" data-desafio-done="${desafio.key}:${desafio.nivel}">Concluímos 💞</button>
-               <button class="btn ghost" type="button" data-desafio-outro>Outro</button>
+               <button class="btn ghost" type="button" data-desafio-outro>Trocar</button>
              </div>
            </section>`
         : `<div class="empty">Sem desafio livre agora. Subam de nível ou ajustem os limites.</div>`}`;
 
-  // Progressão por níveis + catálogo desbloqueável.
-  const progHtml = nosProgressaoHtml();
-
-  const acumulados = nosPontosAcumulados();
-
   return `
     <div class="section-title"><h2>🔥 Nós</h2><span class="muted" style="font-size:.8rem">só de vocês dois</span></div>
-    <section class="nos-saldo">
-      <strong>${carregando ? "…" : saldo} pts</strong>
-      <span>pra gastar agora</span>
-      <small class="nos-saldo-sub">${acumulados} ganhos no total · sobem de nível 🔓</small>
-    </section>
+    ${nosHeroHtml()}
 
-    ${nosClimaHtml()}
-    ${limitesHtml}
+    ${nosValesHtml()}
+
     ${desafioHtml}
     ${nosFeitosHtml()}
-    ${nosMissoesHtml()}
-    ${progHtml}
+
+    ${nosClimaHtml()}
+
+    ${nosMissoesResumoHtml()}
+
     ${nosSurpresasHtml()}
-    ${nosTelegramHtml()}
+    ${nosProgressaoHtml()}
     ${nosConquistasHtml()}
+    ${nosTelegramHtml()}
 
-    <div class="section-title compact"><h2>Criar um vale</h2></div>
-    <form id="nos-create-form" class="form-card form-grid">
-      <div class="field full"><label>O que vale?</label><input name="title" placeholder="Vale um nude, vale uma massagem…" required /></div>
-      <div class="field"><label>Categoria</label><select name="kind"><option value="fofo">💕 Fofo</option><option value="picante">🔥 Picante</option></select></div>
-      <div class="field"><label>Custo (pontos)</label><input name="cost" type="number" min="1" value="15" /></div>
-      <div class="actions field full"><button class="btn" type="submit">${icon("add")} Criar vale</button></div>
-    </form>
-    <div class="nos-presets">
-      ${NOS_PRESETS.map((p, i) => `<button class="nos-preset ${p.kind}" type="button" data-nos-preset="${i}">${esc(p.title)} · ${p.cost}pts</button>`).join("")}
-    </div>
-
-    <div class="section-title compact"><h2>💕 Vales fofos</h2></div>
-    ${fofos.length ? `<section class="nos-grid">${fofos.map(nosRewardCard).join("")}</section>` : `<div class="empty">Criem o primeiro vale fofo.</div>`}
-    <div class="section-title compact"><h2>🔥 Vales picantes</h2></div>
-    ${picantes.length ? `<section class="nos-grid">${picantes.map(nosRewardCard).join("")}</section>` : `<div class="empty">Criem o primeiro vale picante. 😏</div>`}
-
-    <div class="section-title compact"><h2>Resgatados</h2></div>
-    <section class="nos-claims">${claimsHtml}</section>`;
+    ${missoesModalTemplate()}`;
 }
 
 // ---------- Planos: wishlist + calendário de encontros ----------
@@ -5772,6 +5811,8 @@ function bindShell() {
   document.querySelectorAll("[data-tg-del]").forEach((b) => listen(b, "click", () => handleTgDel(b.dataset.tgDel)));
   document.querySelectorAll("[data-extrato-open]").forEach((b) => listen(b, "click", () => { extratoOpen = true; render(); }));
   document.querySelectorAll("[data-extrato-close]").forEach((b) => listen(b, "click", () => { extratoOpen = false; render(); }));
+  document.querySelectorAll("[data-missoes-open]").forEach((b) => listen(b, "click", () => { missoesOpen = true; render(); }));
+  document.querySelectorAll("[data-missoes-close]").forEach((b) => listen(b, "click", () => { missoesOpen = false; render(); }));
   document.querySelectorAll("[data-set-intensity]").forEach((b) => listen(b, "click", () => handleSetIntensity(b.dataset.setIntensity)));
   document.querySelectorAll("[data-desafio-done]").forEach((b) => listen(b, "click", () => handleDesafioDone(b.dataset.desafioDone)));
   listen(document.querySelector("[data-desafio-outro]"), "click", handleDesafioOutro);
