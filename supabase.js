@@ -590,6 +590,14 @@ export async function setClaimUsed(id, used) {
   if (error) throw error;
 }
 
+export async function setClaimStatus(id, status) {
+  const { error } = await supabase
+    .from("couple_reward_claims")
+    .update({ status, used: status === "cumprido" })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 export async function deleteCoupleClaim(id) {
   const { error } = await supabase.from("couple_reward_claims").delete().eq("id", id);
   if (error) throw error;

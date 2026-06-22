@@ -78,6 +78,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: **check-in do clima do dia** + **limite só de hoje** (Fase 2 do Nós 2.0)
 - Sem isso: registrar clima/limite do dia dá erro (tabela não existe)
 
+### 1m. Rodar a migração 24 no Supabase (status dos resgates — Nós 2.0 Fase 3)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/24 - status-dos-resgates.sql` e clicar em **Run**
+- Pra quê: o resgate de vale vira um **fluxo com aceite** (solicitado → aceito → cumprido, ou recusado/cancelado com os pontos de volta)
+- Sem isso: aceitar/recusar/cumprir um vale dá erro (coluna `status` não existe)
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

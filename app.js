@@ -76,6 +76,7 @@ import {
   loadCoupleClaims,
   addCoupleClaim,
   setClaimUsed,
+  setClaimStatus,
   deleteCoupleClaim,
   updateCoupleMeetDate,
   loadCouplePrefs,
@@ -528,6 +529,7 @@ let coupleCheckins = []; // check-ins de hoje (clima + limite do dia)
 let nosFor = null;
 let nosUnlocked = false; // destravado nesta sessão (após o PIN)
 let desafioIdx = 0; // pra "outro desafio"
+let extratoOpen = false; // popup do extrato de pontos
 
 function djb2(s) {
   let h = 5381;
@@ -3489,7 +3491,7 @@ async function handleNosClaim(id) {
     await gastarPontos(Number(r.cost || 0), `vale: ${r.title}`, "claim", claimId || `${r.id}:${Date.now()}`);
     nosClaims = await loadCoupleClaims(state.couple.id);
     render();
-    toast("Resgatado! 🔥 Sua pessoa vai ver.");
+    toast("Resgatado! 🔥 Aguardando o aceite da sua pessoa.");
   } catch { toast("Não consegui resgatar."); }
 }
 async function handleNosDeleteReward(id) {
@@ -3500,6 +3502,36 @@ async function handleNosDeleteReward(id) {
 async function handleNosClaimUsed(raw) {
   const [id, v] = String(raw).split(":");
   try { await setClaimUsed(id, v === "1"); nosClaims = await loadCoupleClaims(state.couple.id); render(); } catch { toast("Não consegui atualizar."); }
+}
+async function handleClaimStatus(raw) {
+  const [id, status] = String(raw).split(":");
+  const c = nosClaims.find((x) => x.id === id);
+  if (!c || !state.couple) return;
+  if (status === "recusado") {
+    const ok = await confirmar("Recusar esse vale?", { sub: "Sem problema nenhum — os pontos voltam pra quem resgatou. Recusar nunca tira ponto. 💛", ok: "Recusar" });
+    if (!ok) return;
+  }
+  if (status === "cancelado") {
+    const ok = await confirmar("Cancelar esse resgate?", { sub: "Os pontos voltam pro saldo de vocês.", ok: "Cancelar resgate" });
+    if (!ok) return;
+  }
+  try {
+    await setClaimStatus(id, status);
+    // Recusar/cancelar devolve os pontos (anti-dup por source: nunca devolve 2×).
+    if (status === "recusado" || status === "cancelado") {
+      await estornarPontos(Number(c.cost || 0), `vale ${status}`, "claim_refund", id);
+      coupleLedger = await loadPointsLedger(state.couple.id);
+    }
+    nosClaims = await loadCoupleClaims(state.couple.id);
+    render();
+    toast(
+      status === "cumprido" ? "Cumprido! 💞" :
+      status === "aceito" ? "Aceito 👍 agora é só combinar." :
+      status === "recusado" ? "Recusado — pontos devolvidos. 💛" :
+      status === "cancelado" ? "Cancelado — pontos de volta." :
+      "Atualizado."
+    );
+  } catch { toast("Não consegui atualizar."); }
 }
 async function handleNosDeleteClaim(id) {
   const ok = await confirmar("Apagar esse resgate? Os pontos voltam.", { ok: "Apagar", danger: true });
@@ -3724,6 +3756,59 @@ function nosRewardCard(r) {
     </article>`;
 }
 
+// Estados do resgate (Fase 3): aceite antes de cumprir; recusar/cancelar devolve pontos.
+const CLAIM_STATUS = {
+  solicitado: { label: "⏳ aguardando", cls: "wait" },
+  aceito: { label: "👍 aceito", cls: "ok" },
+  cumprido: { label: "✓ cumprido 💞", cls: "done" },
+  recusado: { label: "✋ recusado (pontos voltaram)", cls: "off" },
+  cancelado: { label: "⤺ cancelado (pontos voltaram)", cls: "off" },
+};
+function claimAcoesHtml(c, st) {
+  const meu = c.claimed_by === authUser?.id;
+  const del = `<button data-nos-del-claim="${c.id}">${icon("trash")}</button>`;
+  if (st === "cumprido") return `<button data-claim-status="${c.id}:aceito">Reabrir</button>${del}`;
+  if (st === "recusado" || st === "cancelado") return del;
+  if (meu) {
+    // Quem resgatou só pode cancelar (devolve pontos), não pode "se cumprir".
+    return `<button data-claim-status="${c.id}:cancelado">Cancelar</button>${del}`;
+  }
+  // A pessoa que vai cumprir aceita / cumpre / recusa.
+  let b = "";
+  if (st === "solicitado") b += `<button class="primary" data-claim-status="${c.id}:aceito">Aceitar</button>`;
+  b += `<button class="primary" data-claim-status="${c.id}:cumprido">Cumpri 💞</button>`;
+  b += `<button data-claim-status="${c.id}:recusado">Recusar</button>`;
+  return b;
+}
+function nosClaimCard(c) {
+  const st = c.status || (c.used ? "cumprido" : "solicitado");
+  const info = CLAIM_STATUS[st] || CLAIM_STATUS.solicitado;
+  const fechado = st === "cumprido" || st === "recusado" || st === "cancelado";
+  return `
+    <article class="nos-claim ${fechado ? "used" : ""} st-${info.cls}">
+      <div>
+        <strong>${esc(c.title || "Vale")}</strong>
+        <small>${esc(nomeMembro(c.claimed_by))} resgatou · ${esc(timeAgo(c.created_at))}</small>
+        <span class="claim-status ${info.cls}">${info.label}</span>
+      </div>
+      <div class="mini-actions">${claimAcoesHtml(c, st)}</div>
+    </article>`;
+}
+
+function extratoModalTemplate() {
+  if (!extratoOpen) return "";
+  const ext = nosResumoExtrato();
+  const linhas = coupleLedger.slice(0, 50).map((l) => `
+    <div class="ext-line"><span class="${Number(l.points) >= 0 ? "pos" : "neg"}">${Number(l.points) > 0 ? "+" : ""}${l.points}</span><small>${esc(l.reason || l.type)} · ${esc(timeAgo(l.created_at))}</small></div>`).join("") || `<div class="empty">Sem lançamentos ainda. Comecem a ganhar pontos! 💞</div>`;
+  return `
+    <div class="modal ui-modal">
+      <section class="modal-card ui-card" style="width:min(440px,100%);max-height:82vh;overflow:auto">
+        <div class="modal-head"><div><h2 style="margin:0">📜 Extrato de pontos</h2><p class="muted" style="margin:4px 0 0">Ganhos +${ext.ganhos} · Gastos ${ext.gastos} · Estornos ${ext.estornos >= 0 ? "+" : ""}${ext.estornos}</p></div><button class="close" type="button" data-extrato-close>×</button></div>
+        <div class="nos-extrato" style="border:0;background:transparent;padding:0;margin:0">${linhas}</div>
+      </section>
+    </div>`;
+}
+
 function nosClimaHtml() {
   const meu = meuCheckin();
   const parceira = coupleMembers.find((m) => m.user_id !== authUser?.id);
@@ -3807,17 +3892,7 @@ function nosSection() {
   const carregando = nosFor !== state.couple.id;
 
   const claimsHtml = nosClaims.length
-    ? nosClaims.map((c) => `
-        <article class="nos-claim ${c.used ? "used" : ""}">
-          <div>
-            <strong>${esc(c.title || "Vale")}</strong>
-            <small>${esc(nomeMembro(c.claimed_by))} resgatou · ${esc(timeAgo(c.created_at))}${c.used ? " · ✓ usado" : ""}</small>
-          </div>
-          <div class="mini-actions">
-            <button data-nos-used="${c.id}:${c.used ? "0" : "1"}">${c.used ? "Reabrir" : "Marcar usado"}</button>
-            <button data-nos-del-claim="${c.id}">${icon("trash")}</button>
-          </div>
-        </article>`).join("")
+    ? nosClaims.map(nosClaimCard).join("")
     : `<div class="empty">Nenhum vale resgatado ainda. 😏</div>`;
 
   // Limites/consentimento (cada um define a sua intensidade máxima).
@@ -3858,19 +3933,15 @@ function nosSection() {
   // Progressão por níveis + catálogo desbloqueável.
   const progHtml = nosProgressaoHtml();
 
-  const ext = nosResumoExtrato();
   const acumulados = nosPontosAcumulados();
-  const extratoRecente = coupleLedger.slice(0, 6).map((l) => `
-    <div class="ext-line"><span class="${Number(l.points) >= 0 ? "pos" : "neg"}">${Number(l.points) > 0 ? "+" : ""}${l.points}</span><small>${esc(l.reason || l.type)}</small></div>`).join("");
 
   return `
     <div class="section-title"><h2>🔥 Nós</h2><span class="muted" style="font-size:.8rem">só de vocês dois</span></div>
     <section class="nos-saldo">
       <strong>${carregando ? "…" : saldo} pts</strong>
-      <span>saldo do casal</span>
-      <small class="muted">Acumulado: ${acumulados} pts · Ganhos +${ext.ganhos} · Gastos ${ext.gastos} · Estornos ${ext.estornos >= 0 ? "+" : ""}${ext.estornos}</small>
+      <span>saldo do casal · acumulado ${acumulados}</span>
+      <button class="recado-mini" type="button" data-extrato-open style="margin-top:8px">📜 Ver extrato</button>
     </section>
-    ${coupleLedger.length ? `<section class="nos-extrato"><span class="muted" style="font-weight:800;font-size:.78rem">Extrato recente</span>${extratoRecente}</section>` : `<div class="empty">Saldo começa em 0. Ganhem pontos assistindo eps, guardando memórias, cartinhas, respondendo o quiz e fazendo desafios. 💞</div>`}
 
     ${nosClimaHtml()}
     ${limitesHtml}
@@ -3895,7 +3966,8 @@ function nosSection() {
     ${picantes.length ? `<section class="nos-grid">${picantes.map(nosRewardCard).join("")}</section>` : `<div class="empty">Criem o primeiro vale picante. 😏</div>`}
 
     <div class="section-title compact"><h2>Resgatados</h2></div>
-    <section class="nos-claims">${claimsHtml}</section>`;
+    <section class="nos-claims">${claimsHtml}</section>
+    ${extratoModalTemplate()}`;
 }
 
 // ---------- Planos: wishlist + calendário de encontros ----------
@@ -5291,6 +5363,9 @@ function bindShell() {
   document.querySelectorAll("[data-nos-del-reward]").forEach((b) => listen(b, "click", () => handleNosDeleteReward(b.dataset.nosDelReward)));
   document.querySelectorAll("[data-nos-used]").forEach((b) => listen(b, "click", () => handleNosClaimUsed(b.dataset.nosUsed)));
   document.querySelectorAll("[data-nos-del-claim]").forEach((b) => listen(b, "click", () => handleNosDeleteClaim(b.dataset.nosDelClaim)));
+  document.querySelectorAll("[data-claim-status]").forEach((b) => listen(b, "click", () => handleClaimStatus(b.dataset.claimStatus)));
+  document.querySelectorAll("[data-extrato-open]").forEach((b) => listen(b, "click", () => { extratoOpen = true; render(); }));
+  document.querySelectorAll("[data-extrato-close]").forEach((b) => listen(b, "click", () => { extratoOpen = false; render(); }));
   document.querySelectorAll("[data-set-intensity]").forEach((b) => listen(b, "click", () => handleSetIntensity(b.dataset.setIntensity)));
   document.querySelectorAll("[data-desafio-done]").forEach((b) => listen(b, "click", () => handleDesafioDone(b.dataset.desafioDone)));
   listen(document.querySelector("[data-desafio-outro]"), "click", handleDesafioOutro);

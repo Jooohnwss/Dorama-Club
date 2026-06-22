@@ -99,10 +99,15 @@ Saldo atual = Σ (pontos do couple_points_ledger)
 - **Limite do dia** (override do limite fixo) em `couple_consent_history`.
 - **Desafio do dia** passa a considerar: menor limite + clima + histórico + nível liberado.
 
-### Fase 3 — Loja de vales 2.0 + resgate com aceite (status) 🗄️
-- Vales com **categoria, validade, custo, quem cria, quem resgata, precisa de aceite**.
-- **Fluxo com status:** solicitado → aceito → (em andamento) → cumprido / remarcado / recusado / cancelado / expirado / reaberto.
-- Pontos **reservados** no resgate → **descontados** no aceite → **estorno** se cancelar. Recusar não pune.
+### Fase 3 — Loja de vales 2.0 + resgate com aceite (status) ✅ **FEITO** (migração 24)
+> Resgate vira fluxo com aceite: **solicitado → aceito → cumprido**, ou **recusado / cancelado**
+> (aí os pontos voltam, anti-dup por fonte `claim_refund:<id>` pra nunca devolver 2×). Quem resgata
+> pode **cancelar**; quem vai cumprir **aceita / cumpre / recusa**. **Recusar nunca pune.** Badge de
+> status colorido no card. Extrato dos pontos virou **pop-up** ("Ver extrato"), pra não poluir.
+- Vales com **categoria, custo, quem cria, quem resgata, precisa de aceite**.
+- **Fluxo com status:** solicitado → aceito → cumprido / recusado / cancelado / reaberto.
+- Pontos descontados no resgate → **estorno** se cancelar/recusar. Recusar não pune.
+- *Pendente migração 24* (`couple_reward_claims.status`).
 
 ### Fase 4 — Missões, surpresas, perguntas e conquistas 🗄️
 - `couple_missions` (diária/semanal: fofinha, saudade, dorama, flerte, Telegram…), +pontos.
