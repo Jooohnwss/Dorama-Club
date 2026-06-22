@@ -92,13 +92,13 @@ Tudo com **RLS** "só os 2 membros" (mesmo padrão das migrações 13–19).
 
 Tudo isso é **dentro do nosso app**, sem depender de bot:
 
-1. **Contagem regressiva** pro próximo encontro (campo + card no painel). 🗄️ pequeno
-2. **Limites & consentimento por pessoa** (intensidade máx. + categorias) — a base de tudo. 🗄️
-3. **Desafios diários** com níveis (respeitando os limites dos dois). 🗄️
-4. **Wishlist compartilhada** de presentes/experiências (com "quem quer" e "feito"). 🗄️
-5. **Calendário de encontros virtuais** (agendar + lembrar dentro do app). 🗄️
-6. **Níveis/level** derivados dos pontos que já existem. 🟢
-7. **Deep link pro Telegram** nos desafios que pedem mídia ("abrir no Telegram → marcar concluído"). 🟢
+1. **Contagem regressiva** pro próximo encontro (campo + card no painel). ✅ FEITO (migração 20)
+2. **Limites & consentimento por pessoa** (intensidade máx.) — a base de tudo. ✅ FEITO (migração 20, em "Nós 🔥")
+3. **Desafios diários** com níveis (respeitando o MENOR limite dos dois). ✅ FEITO (migração 20, em "Nós 🔥")
+4. **Wishlist compartilhada** de presentes/experiências (com "quem quer" e "feito"). 🗄️ a fazer
+5. **Calendário de encontros virtuais** (agendar + lembrar dentro do app). 🗄️ a fazer
+6. **Níveis/level** derivados dos pontos que já existem. 🟢 a fazer
+7. **Deep link pro Telegram** nos desafios que pedem mídia. 🟢 a fazer (Fase 2)
 
 ## 🗺️ Roadmap (fases)
 

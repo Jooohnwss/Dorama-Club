@@ -77,6 +77,11 @@ import {
   addCoupleClaim,
   setClaimUsed,
   deleteCoupleClaim,
+  updateCoupleMeetDate,
+  loadCouplePrefs,
+  saveCouplePref,
+  loadCoupleChallenges,
+  addCoupleChallengeLog,
   loadCoupleDramas,
   addCoupleDrama,
   updateCoupleDrama,
@@ -500,8 +505,11 @@ const NOS_HASHES = ["7mtvr7", "obnuib"];
 const NOS_PIN_KEY = "dorama-club-nos-pin";
 let nosRewards = [];
 let nosClaims = [];
+let couplePrefs = []; // [{user_id, max_intensity}]
+let coupleChallenges = []; // log de desafios concluídos
 let nosFor = null;
 let nosUnlocked = false; // destravado nesta sessão (após o PIN)
+let desafioIdx = 0; // pra "outro desafio"
 
 function djb2(s) {
   let h = 5381;
@@ -3010,10 +3018,26 @@ function couplePetMini() {
     </div>`;
 }
 
+// Contagem regressiva pro próximo encontro presencial.
+function coupleCountdownTemplate() {
+  const d = state.couple?.nextMeetDate;
+  if (!d) return "";
+  const alvo = new Date(`${d}T00:00:00`);
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dias = Math.round((alvo - hoje) / 86400000);
+  let txt;
+  if (dias > 1) txt = `Faltam <strong>${dias} dias</strong> pro nosso encontro 💕`;
+  else if (dias === 1) txt = `É <strong>amanhã</strong>! 😍`;
+  else if (dias === 0) txt = `É <strong>HOJE</strong>! 🥳`;
+  else return ""; // já passou
+  return `<div class="couple-countdown"><span class="cd-txt">${txt}</span><span class="muted">${esc(formatDateShort(d))}</span></div>`;
+}
+
 function coupleInicioSection() {
   return `
     ${coupleRecadoTemplate()}
     ${coupleGreetingTemplate()}
+    ${coupleCountdownTemplate()}
     ${coupleProximoPasso()}
     ${coupleFocusCard()}
     ${couplePetMini()}
@@ -3052,6 +3076,14 @@ function coupleAjustesSection() {
       <span class="muted">Use só quando for chamar sua pessoa para o espaço certo.</span>
       <strong>${esc(state.couple.code || "")}</strong>
       <div class="actions" style="margin-top:12px"><button class="btn secondary" type="button" data-copy-couple-code>${icon("share")} Copiar código</button></div>
+    </section>
+    <div class="section-title"><h2>⏳ Próximo encontro</h2></div>
+    <section class="form-card">
+      <form id="couple-meet-form" class="search-bar">
+        <input name="meet" type="date" value="${esc(state.couple.nextMeetDate || "")}" />
+        <button class="btn secondary" type="submit">Salvar contagem</button>
+      </form>
+      <p class="muted" style="margin:10px 0 0;font-size:.82rem">Aparece como contagem regressiva no painel. Deixe vazio pra tirar.</p>
     </section>
     <div class="section-title"><h2>💌 Cartinha fixa do topo</h2></div>
     <section class="form-card">
@@ -3290,6 +3322,31 @@ function handleNosEnterPin(event) {
   if (pin === nosPinSalvo()) { nosUnlocked = true; render(); }
   else toast("PIN incorreto.");
 }
+async function handleSetIntensity(n) {
+  if (!state.couple) return;
+  try {
+    await saveCouplePref(state.couple.id, authUser.id, Number(n));
+    couplePrefs = couplePrefs.filter((p) => p.user_id !== authUser.id).concat([{ user_id: authUser.id, max_intensity: Number(n) }]);
+    render();
+    toast("Limite salvo 🔐");
+  } catch { toast("Não consegui salvar."); }
+}
+function handleDesafioOutro() {
+  desafioIdx += 1;
+  render();
+}
+async function handleDesafioDone(raw) {
+  if (!state.couple) return;
+  const [key, nivel] = String(raw).split(":");
+  try {
+    await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: Number(nivel) || 1 });
+    coupleChallenges = await loadCoupleChallenges(state.couple.id);
+    desafioIdx += 1; // já mostra o próximo
+    render();
+    toast("Desafio concluído! +8 pts 🎯");
+  } catch { toast("Não consegui registrar."); }
+}
+
 async function handleNosCreate(event) {
   event.preventDefault();
   if (!state.couple) return;
@@ -3355,7 +3412,44 @@ const NOS_PRESETS = [
 
 function nosPontosGanhos() {
   const eps = coupleDramas.reduce((s, d) => s + Number(d.current_episode || 0), 0);
-  return eps * 2 + coupleDiary.length * 10 + coupleLetters.length * 6;
+  return eps * 2 + coupleDiary.length * 10 + coupleLetters.length * 6 + coupleChallenges.length * 8;
+}
+
+// ---------- Desafios à distância (intensidade configurável + consentimento) ----------
+const NIVEL_LABEL = { 1: "Leve 💕", 2: "Médio 😉", 3: "Ousado 🔥" };
+const DESAFIOS = [
+  { key: "audio_amo", nivel: 1, txt: "Mande um áudio dizendo 3 coisas que você ama na sua pessoa." },
+  { key: "selfie_sorriso", nivel: 1, txt: "Tire uma selfie sorrindo agora e mande pra ela/ele." },
+  { key: "recado_diario", nivel: 1, txt: "Escreva um recadinho fofo no diário do casal." },
+  { key: "chamada_10", nivel: 1, txt: "Façam uma chamada de 10 min só pra se olhar." },
+  { key: "musica", nivel: 1, txt: "Mande uma música que te lembra a pessoa." },
+  { key: "flerte_msg", nivel: 2, txt: "Mande uma mensagem flertando como no começo de tudo." },
+  { key: "elogio_ousado", nivel: 2, txt: "Conte o que mais te atrai na sua pessoa (sem vergonha)." },
+  { key: "foto_arrumado", nivel: 2, txt: "Mande uma foto 'arrumadinho(a) pra você' 😏 (no Telegram)." },
+  { key: "memoria_quente", nivel: 2, txt: "Relembrem juntos o date mais marcante de vocês." },
+  { key: "plano_noite", nivel: 3, txt: "Planejem uma noite especial só de vocês dois 🔥 (combinem no Telegram)." },
+  { key: "desejo", nivel: 3, txt: "Cada um conta um desejo que quer realizar no próximo encontro." },
+  { key: "surpresa_quente", nivel: 3, txt: "Mande uma surpresa que só vocês dois entendem 😏 (no Telegram)." },
+];
+
+function prefMax(uid) {
+  const p = couplePrefs.find((x) => x.user_id === uid);
+  return p ? Number(p.max_intensity) || 1 : 0; // 0 = ainda não definiu
+}
+function intensidadePermitida() {
+  const eu = prefMax(authUser?.id);
+  const parceira = coupleMembers.find((m) => m.user_id !== authUser?.id);
+  const dela = parceira ? prefMax(parceira.user_id) : 0;
+  // Consentimento: vale o MENOR dos dois. Se alguém não definiu, conta como Leve (1).
+  return Math.min(eu || 1, dela || 1);
+}
+function desafioDoDia() {
+  const permitida = intensidadePermitida();
+  const pool = DESAFIOS.filter((d) => d.nivel <= permitida);
+  if (!pool.length) return null;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const seed = [...hoje].reduce((a, c) => a + c.charCodeAt(0), 0) + desafioIdx;
+  return pool[seed % pool.length];
 }
 function nosGastos() {
   return nosClaims.reduce((s, c) => s + Number(c.cost || 0), 0);
@@ -3375,11 +3469,18 @@ function nomeMembro(uid) {
 async function loadNosData() {
   if (!state.couple || !casalPrivadoOn()) return;
   try {
-    const [r, c] = await Promise.all([loadCoupleRewards(state.couple.id), loadCoupleClaims(state.couple.id)]);
+    const [r, c, p, ch] = await Promise.all([
+      loadCoupleRewards(state.couple.id),
+      loadCoupleClaims(state.couple.id),
+      loadCouplePrefs(state.couple.id),
+      loadCoupleChallenges(state.couple.id),
+    ]);
     nosRewards = r;
     nosClaims = c;
+    couplePrefs = p;
+    coupleChallenges = ch;
   } catch {
-    nosRewards = []; nosClaims = [];
+    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = [];
   }
   nosFor = state.couple.id;
   render();
@@ -3436,13 +3537,46 @@ function nosSection() {
         </article>`).join("")
     : `<div class="empty">Nenhum vale resgatado ainda. 😏</div>`;
 
+  // Limites/consentimento (cada um define a sua intensidade máxima).
+  const meu = prefMax(authUser?.id);
+  const permitida = intensidadePermitida();
+  const limitesHtml = `
+    <div class="section-title compact"><h2>Seus limites 🔐</h2></div>
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 10px;font-size:.84rem">Escolha a intensidade máxima que <strong>você</strong> aceita. Os desafios respeitam o <strong>menor</strong> limite dos dois — nada aparece sem o ok de ambos.</p>
+      <div class="nivel-pick">
+        ${[1, 2, 3].map((n) => `<button class="nivel-opt ${meu === n ? "on" : ""}" type="button" data-set-intensity="${n}">${NIVEL_LABEL[n]}</button>`).join("")}
+      </div>
+      <small class="muted" style="display:block;margin-top:10px">${meu ? `Vocês combinam até: <strong>${NIVEL_LABEL[permitida]}</strong>` : "Defina o seu limite pra liberar os desafios."}</small>
+    </section>`;
+
+  // Desafio do dia (respeitando o consentimento).
+  const desafio = meu ? desafioDoDia() : null;
+  const desafioHtml = `
+    <div class="section-title compact"><h2>Desafio do dia 🎯</h2>${coupleChallenges.length ? `<span class="muted" style="font-size:.8rem">${coupleChallenges.length} feitos</span>` : ""}</div>
+    ${!meu
+      ? `<div class="empty">Defina seus limites acima pra liberar o desafio.</div>`
+      : desafio
+        ? `<section class="desafio-card nivel-${desafio.nivel}">
+             <span class="desafio-nivel">${NIVEL_LABEL[desafio.nivel]}</span>
+             <strong>${esc(desafio.txt)}</strong>
+             <div class="actions" style="margin-top:12px">
+               <button class="btn" type="button" data-desafio-done="${desafio.key}:${desafio.nivel}">Concluímos 💞</button>
+               <button class="btn ghost" type="button" data-desafio-outro>Outro</button>
+             </div>
+           </section>`
+        : `<div class="empty">Sem desafio pra esse nível agora.</div>`}`;
+
   return `
     <div class="section-title"><h2>🔥 Nós</h2><span class="muted" style="font-size:.8rem">só de vocês dois</span></div>
     <section class="nos-saldo">
       <strong>${carregando ? "…" : saldo} pts</strong>
       <span>de vocês pra gastar</span>
-      <small class="muted">Ganham pontos assistindo episódios, guardando memórias e cartinhas. 💞</small>
+      <small class="muted">Ganham pontos assistindo, guardando memórias, cartinhas e fazendo desafios. 💞</small>
     </section>
+
+    ${limitesHtml}
+    ${desafioHtml}
 
     <div class="section-title compact"><h2>Criar um vale</h2></div>
     <form id="nos-create-form" class="form-card form-grid">
@@ -4720,6 +4854,7 @@ function bindShell() {
   listen(document.querySelector("#create-couple-form"), "submit", handleCreateCouple);
   listen(document.querySelector("#join-couple-form"), "submit", handleJoinCouple);
   listen(document.querySelector("#couple-capa-form"), "submit", handleCoupleCapa);
+  listen(document.querySelector("#couple-meet-form"), "submit", handleMeetDate);
   listen(document.querySelector("#couple-pinned-form"), "submit", handleCouplePinned);
   listen(document.querySelector("#couple-add-drama-form"), "submit", handleCoupleAddDrama);
   listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
@@ -4785,6 +4920,9 @@ function bindShell() {
   document.querySelectorAll("[data-nos-del-reward]").forEach((b) => listen(b, "click", () => handleNosDeleteReward(b.dataset.nosDelReward)));
   document.querySelectorAll("[data-nos-used]").forEach((b) => listen(b, "click", () => handleNosClaimUsed(b.dataset.nosUsed)));
   document.querySelectorAll("[data-nos-del-claim]").forEach((b) => listen(b, "click", () => handleNosDeleteClaim(b.dataset.nosDelClaim)));
+  document.querySelectorAll("[data-set-intensity]").forEach((b) => listen(b, "click", () => handleSetIntensity(b.dataset.setIntensity)));
+  document.querySelectorAll("[data-desafio-done]").forEach((b) => listen(b, "click", () => handleDesafioDone(b.dataset.desafioDone)));
+  listen(document.querySelector("[data-desafio-outro]"), "click", handleDesafioOutro);
   listen(document.querySelector("#couple-add-cat"), "change", (e) => { coupleAddCatSel = e.target.value; });
   listen(document.querySelector("#couple-search-form"), "submit", runCoupleSearch);
   document.querySelectorAll("[data-couple-add-tmdb]").forEach((button) => {
@@ -5237,6 +5375,7 @@ function mapCoupleRow(couple) {
     temaCustom: couple.tema_custom || "",
     createdBy: couple.created_by || null,
     pinnedLetter: couple.pinned_letter || "",
+    nextMeetDate: couple.next_meet_date || "",
   };
 }
 
@@ -5331,6 +5470,21 @@ async function handleCoupleCapa(event) {
     toast("Capa do casal salva.");
   } catch {
     toast("Não consegui salvar a capa.");
+  }
+}
+
+async function handleMeetDate(event) {
+  event.preventDefault();
+  if (!state.couple) return;
+  const meet = String(new FormData(event.currentTarget).get("meet") || "");
+  try {
+    await updateCoupleMeetDate(state.couple.id, meet || null);
+    state.couple.nextMeetDate = meet || "";
+    saveState();
+    render();
+    toast(meet ? "Contagem marcada! 💕" : "Contagem removida.");
+  } catch {
+    toast("Não consegui salvar.");
   }
 }
 
@@ -5767,7 +5921,7 @@ async function handleLeaveCouple() {
     couplePet = null;
     coupleQuiz = [];
     coupleQuizFor = null;
-    nosRewards = []; nosClaims = []; nosFor = null; nosUnlocked = false;
+    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; nosFor = null; nosUnlocked = false;
     state.space = "solo"; // volta pro app normal
     saveState();
     aplicarTemaAmbiente(); // restaura o tema pessoal

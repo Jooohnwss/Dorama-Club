@@ -54,6 +54,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: a **loja privada de vales/recompensas** (aba "Nós 🔥", só pra vocês dois)
 - Status: você confirmou que já rodou a migração 19. A aba só aparece pros 2 e-mails (hash) + PIN local.
 
+### 1i. Rodar a migração 20 no Supabase (à distância: encontro, limites, desafios)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/20 - distancia-desafios-e-limites.sql` e clicar em **Run**
+- Pra quê: **contagem regressiva** do próximo encontro + **limites/consentimento** por pessoa + **desafios** (só metadados)
+- Sem isso: salvar a data do encontro, os limites ou concluir desafio dá erro
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

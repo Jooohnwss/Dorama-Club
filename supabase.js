@@ -399,6 +399,48 @@ export async function saveCouplePinnedLetter(coupleId, texto) {
   if (error) throw error;
 }
 
+// ---------- À DISTÂNCIA: encontro, limites e desafios ----------
+export async function updateCoupleMeetDate(coupleId, date) {
+  const { error } = await supabase.from("couples").update({ next_meet_date: date || null }).eq("id", coupleId);
+  if (error) throw error;
+}
+
+export async function loadCouplePrefs(coupleId) {
+  const { data, error } = await supabase.from("couple_member_prefs").select("user_id, max_intensity").eq("couple_id", coupleId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveCouplePref(coupleId, userId, maxIntensity) {
+  const { error } = await supabase.from("couple_member_prefs").upsert({
+    couple_id: coupleId,
+    user_id: userId,
+    max_intensity: Number(maxIntensity) || 1,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
+export async function loadCoupleChallenges(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_challenge_log")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCoupleChallengeLog(coupleId, userId, entry) {
+  const { error } = await supabase.from("couple_challenge_log").insert({
+    couple_id: coupleId,
+    challenge_key: entry.key,
+    intensity: Number(entry.intensity) || 1,
+    done_by: userId,
+  });
+  if (error) throw error;
+}
+
 // ---------- RECOMPENSAS DO CASAL ("Nós 🔥") ----------
 export async function loadCoupleRewards(coupleId) {
   const { data, error } = await supabase

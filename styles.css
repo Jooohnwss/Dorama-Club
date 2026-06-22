@@ -1297,6 +1297,56 @@ textarea:focus {
   background: color-mix(in srgb, var(--cor-primaria) 22%, transparent);
 }
 
+/* Contagem regressiva pro encontro (painel) */
+.couple-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 30%, transparent);
+  background: color-mix(in srgb, var(--cor-primaria) 10%, var(--cor-superficie));
+}
+.couple-countdown .cd-txt { font-weight: 700; }
+
+/* Limites/intensidade + desafios */
+.nivel-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.nivel-opt {
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie-2);
+  color: var(--cor-texto);
+  font-weight: 800;
+  font-size: 0.84rem;
+}
+.nivel-opt.on {
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+  border-color: transparent;
+}
+.desafio-card {
+  padding: 18px;
+  border-radius: 18px;
+  margin-bottom: 8px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+}
+.desafio-card.nivel-3 {
+  border-color: color-mix(in srgb, #e0566b 38%, transparent);
+  background: color-mix(in srgb, #e0566b 8%, var(--cor-superficie));
+}
+.desafio-nivel {
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  color: var(--cor-primaria);
+}
+.desafio-card strong { display: block; margin-top: 6px; font-size: 1.1rem; line-height: 1.3; }
+
 /* "Nós 🔥" — loja privada de recompensas */
 .nos-lock {
   text-align: center;
