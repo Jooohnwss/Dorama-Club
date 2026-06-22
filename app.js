@@ -3355,6 +3355,46 @@ function handleDesafioOutro() {
   desafioIdx += 1;
   render();
 }
+async function handleAdulto18(on) {
+  if (on) {
+    const ok = await confirmar("Vocês têm 18 anos ou mais?", { sub: "Libera os níveis íntimos (4–6). Só ative se os dois concordam — pode esconder quando quiser.", ok: "Sim, somos +18" });
+    if (!ok) return;
+  }
+  try { if (on) localStorage.setItem(ADULTO18_KEY, "1"); else localStorage.removeItem(ADULTO18_KEY); } catch { /* ignore */ }
+  render();
+}
+async function handleUnlockDesafio(key) {
+  const d = DESAFIOS_CAT.find((x) => x.key === key);
+  if (!d || !state.couple) return;
+  if (d.nivel > intensidadePermitida()) { toast("Fora do limite combinado dos dois."); return; }
+  if (nosSaldo() < d.custo) { toast(`Faltam ${d.custo - nosSaldo()} pts pra desbloquear.`); return; }
+  const ok = await confirmar(`Desbloquear “${d.nome}”?`, { sub: `Custa ${d.custo} pts. Desbloquear não obriga ninguém — ainda precisa de aceite na hora.`, ok: "Desbloquear 🔓" });
+  if (!ok) return;
+  try {
+    await gastarPontos(d.custo, `desbloqueio: ${d.nome}`, "unlock", key);
+    coupleLedger = await loadPointsLedger(state.couple.id);
+    render();
+    toast("Desbloqueado 🔓");
+  } catch { toast("Não consegui desbloquear."); }
+}
+async function handleCatDone(key) {
+  const d = DESAFIOS_CAT.find((x) => x.key === key);
+  if (!d || !state.couple) return;
+  if (d.nivel > intensidadePermitida()) { toast("Fora do limite combinado."); return; }
+  if (d.nivel >= 4) {
+    const ok = await confirmar(`Aceitar “${d.nome}”?`, { sub: `${d.desc} Pode recusar ou remarcar sem perder pontos.`, ok: "Aceitar 💞", cancel: "Recusar" });
+    if (!ok) return;
+  }
+  const pts = PONTOS.desafio[d.nivel] || 5;
+  try {
+    await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: d.nivel });
+    const hoje = new Date().toISOString().slice(0, 10);
+    await ganharPontos(pts, `desafio: ${d.nome}`, "challenge", `${key}:${hoje}`);
+    coupleChallenges = await loadCoupleChallenges(state.couple.id);
+    render();
+    toast(`Concluído! +${pts} pts 🎯`);
+  } catch { toast("Não consegui registrar."); }
+}
 async function handleDesafioDone(raw) {
   if (!state.couple) return;
   const [key, nivel] = String(raw).split(":");
@@ -3461,7 +3501,7 @@ function nosResumoExtrato() {
 }
 
 // Valor por ação (tabela do brief, versão "lenta").
-const PONTOS = { ep: 5, memoria: 3, cartinha: 6, quiz: 2, desafio: { 1: 5, 2: 8, 3: 12 } };
+const PONTOS = { ep: 5, memoria: 3, cartinha: 6, quiz: 2, desafio: { 1: 5, 2: 8, 3: 12, 4: 18, 5: 25, 6: 35 } };
 
 async function lancarPontos(entry) {
   if (!state.couple || !cloudOn()) return;
@@ -3480,37 +3520,71 @@ function estornarPontos(points, reason, sourceType, sourceId) {
   return lancarPontos({ points, type: "refunded", reason, sourceType, sourceId });
 }
 
-// ---------- Desafios à distância (intensidade configurável + consentimento) ----------
-const NIVEL_LABEL = { 1: "Leve 💕", 2: "Médio 😉", 3: "Ousado 🔥" };
-const DESAFIOS = [
-  { key: "audio_amo", nivel: 1, txt: "Mande um áudio dizendo 3 coisas que você ama na sua pessoa." },
-  { key: "selfie_sorriso", nivel: 1, txt: "Tire uma selfie sorrindo agora e mande pra ela/ele." },
-  { key: "recado_diario", nivel: 1, txt: "Escreva um recadinho fofo no diário do casal." },
-  { key: "chamada_10", nivel: 1, txt: "Façam uma chamada de 10 min só pra se olhar." },
-  { key: "musica", nivel: 1, txt: "Mande uma música que te lembra a pessoa." },
-  { key: "flerte_msg", nivel: 2, txt: "Mande uma mensagem flertando como no começo de tudo." },
-  { key: "elogio_ousado", nivel: 2, txt: "Conte o que mais te atrai na sua pessoa (sem vergonha)." },
-  { key: "foto_arrumado", nivel: 2, txt: "Mande uma foto 'arrumadinho(a) pra você' 😏 (no Telegram)." },
-  { key: "memoria_quente", nivel: 2, txt: "Relembrem juntos o date mais marcante de vocês." },
-  { key: "plano_noite", nivel: 3, txt: "Planejem uma noite especial só de vocês dois 🔥 (combinem no Telegram)." },
-  { key: "desejo", nivel: 3, txt: "Cada um conta um desejo que quer realizar no próximo encontro." },
-  { key: "surpresa_quente", nivel: 3, txt: "Mande uma surpresa que só vocês dois entendem 😏 (no Telegram)." },
+// ---------- Progressão por níveis (Nós 2.0 Fase 1) ----------
+const ADULTO18_KEY = "dorama-club-nos-18";
+// Níveis: req = pontos ACUMULADOS pra liberar a categoria. 1 já vem liberado.
+const NIVEIS = [
+  { n: 1, nome: "Safadinho leve", emoji: "😏", req: 0 },
+  { n: 2, nome: "Provocante", emoji: "😈", req: 200 },
+  { n: 3, nome: "Sensual", emoji: "🔥", req: 350 },
+  { n: 4, nome: "Íntimo", emoji: "❤️‍🔥", req: 550 },
+  { n: 5, nome: "Picante", emoji: "🌶️", req: 800 },
+  { n: 6, nome: "Ultra privado", emoji: "🔒", req: 1200 },
+];
+const NIVEL_LABEL = NIVEIS.reduce((a, x) => ((a[x.n] = `${x.emoji} ${x.nome}`), a), {});
+// Catálogo de desafios prontos. custo = pontos pra DESBLOQUEAR (0 = livre, nível 1).
+// Desafios íntimos (4-6) só têm rótulo + "conforme combinado, pelo Telegram" — sem mídia no app.
+const DESAFIOS_CAT = [
+  { key: "selfie_charme", nivel: 1, nome: "Selfie fazendo charme", desc: "Manda uma selfie fazendo charme.", custo: 0 },
+  { key: "audio_saudade", nivel: 1, nome: "Áudio de saudade", desc: "Áudio dizendo que tá com saudade de um jeito provocante.", custo: 0 },
+  { key: "frase_safada", nivel: 1, nome: "Frase safadinha leve", desc: "Manda uma frase safadinha leve.", custo: 0 },
+  { key: "foto_pijama", nivel: 1, nome: "Foto de pijama", desc: "Foto de pijama, do jeitinho que a pessoa gosta.", custo: 0 },
+  { key: "foto_provocante", nivel: 2, nome: "Foto provocante leve", desc: "Foto provocante leve (no Telegram).", custo: 80 },
+  { key: "audio_provocante", nivel: 2, nome: "Áudio provocante curto", desc: "Áudio curto com tom provocante.", custo: 90 },
+  { key: "duplo_sentido", nivel: 2, nome: "Mensagem de duplo sentido", desc: "Manda uma mensagem com duplo sentido.", custo: 60 },
+  { key: "chamada_flerte", nivel: 2, nome: "Chamada com clima de flerte", desc: "Chamada com clima de flerte.", custo: 120 },
+  { key: "foto_sensual", nivel: 3, nome: "Foto sensual combinada", desc: "Foto sensual previamente combinada (no Telegram).", custo: 180 },
+  { key: "audio_intimo", nivel: 3, nome: "Áudio íntimo", desc: "Áudio íntimo, dentro do limite combinado.", custo: 160 },
+  { key: "chamada_quente", nivel: 3, nome: "Chamada com clima quente", desc: "Chamada com clima mais quente.", custo: 250 },
+  { key: "foto_intima_leve", nivel: 4, nome: "Foto íntima leve", desc: "Foto íntima leve pelo Telegram, conforme combinado pelo casal.", custo: 350 },
+  { key: "video_curto", nivel: 4, nome: "Vídeo curto sensual", desc: "Vídeo curto sensual pelo Telegram, conforme combinado pelo casal.", custo: 450 },
+  { key: "pedido_intimo", nivel: 4, nome: "Pedido íntimo combinado", desc: "Cumprir um pedido íntimo previamente combinado, dentro dos limites.", custo: 500 },
+  { key: "foto_explicita", nivel: 5, nome: "Foto íntima (combinada)", desc: "Envio de foto íntima específica pelo Telegram, conforme combinado pelo casal.", custo: 650 },
+  { key: "video_intimo", nivel: 5, nome: "Vídeo íntimo (combinado)", desc: "Envio de vídeo íntimo pelo Telegram, conforme combinado pelo casal.", custo: 750 },
+  { key: "pedido_adulto", nivel: 5, nome: "Pedido adulto personalizado", desc: "Pedido adulto personalizado, dentro dos limites aceitos pelos dois.", custo: 800 },
+  { key: "voce_escolhe", nivel: 6, nome: "Vale “você escolhe”", desc: "Conteúdo adulto específico previamente combinado, dentro dos limites. Envio fora do app.", custo: 1200 },
+  { key: "ultra_personalizado", nivel: 6, nome: "Desafio ultra privado", desc: "Desafio ultra privado personalizado, conforme combinado pelo casal. Envio fora do app.", custo: 1500 },
 ];
 
+function adulto18Ok() {
+  try { return localStorage.getItem(ADULTO18_KEY) === "1"; } catch { return false; }
+}
 function prefMax(uid) {
   const p = couplePrefs.find((x) => x.user_id === uid);
   return p ? Number(p.max_intensity) || 1 : 0; // 0 = ainda não definiu
 }
+// Consentimento: o MENOR limite dos dois (1–6). Sem definir = 1 (leve).
 function intensidadePermitida() {
   const eu = prefMax(authUser?.id);
   const parceira = coupleMembers.find((m) => m.user_id !== authUser?.id);
   const dela = parceira ? prefMax(parceira.user_id) : 0;
-  // Consentimento: vale o MENOR dos dois. Se alguém não definiu, conta como Leve (1).
   return Math.min(eu || 1, dela || 1);
 }
+function nivelLiberadoPorPontos(n) {
+  return nosPontosAcumulados() >= (NIVEIS.find((x) => x.n === n)?.req || 0);
+}
+function desafioUnlocked(key) {
+  return coupleLedger.some((l) => l.source_type === "unlock" && l.source_id === key);
+}
+// Pode ATUAR no desafio agora? (categoria liberada por pontos + consentimento + 18+ p/ 4-6 + desbloqueado se pago)
+function desafioDisponivel(d) {
+  if (d.nivel > intensidadePermitida()) return false;
+  if (!nivelLiberadoPorPontos(d.nivel)) return false;
+  if (d.nivel >= 4 && !adulto18Ok()) return false;
+  return d.custo === 0 || desafioUnlocked(d.key);
+}
 function desafioDoDia() {
-  const permitida = intensidadePermitida();
-  const pool = DESAFIOS.filter((d) => d.nivel <= permitida);
+  const pool = DESAFIOS_CAT.filter(desafioDisponivel);
   if (!pool.length) return null;
   const hoje = new Date().toISOString().slice(0, 10);
   const seed = [...hoje].reduce((a, c) => a + c.charCodeAt(0), 0) + desafioIdx;
@@ -3577,6 +3651,47 @@ function nosRewardCard(r) {
     </article>`;
 }
 
+// Progressão: categorias por pontos acumulados + catálogo desbloqueável por saldo.
+function nosProgressaoHtml() {
+  const acumulados = nosPontosAcumulados();
+  const saldo = nosSaldo();
+  const permitida = intensidadePermitida();
+  // Nível atual = o maior liberado por pontos.
+  const atual = [...NIVEIS].reverse().find((x) => acumulados >= x.req) || NIVEIS[0];
+  const proximo = NIVEIS.find((x) => x.req > acumulados);
+
+  const blocos = NIVEIS.map((niv) => {
+    const liberadoPontos = acumulados >= niv.req;
+    const precisa18 = niv.n >= 4;
+    const bloqueado18 = precisa18 && !adulto18Ok();
+    const desafios = DESAFIOS_CAT.filter((d) => d.nivel === niv.n);
+    if (!liberadoPontos) {
+      return `<div class="prog-cat locked"><span class="prog-cat-head">🔒 ${niv.emoji} ${esc(niv.nome)}</span><small>Faltam ${niv.req - acumulados} pts acumulados</small></div>`;
+    }
+    if (bloqueado18) {
+      return `<div class="prog-cat locked"><span class="prog-cat-head">🔞 ${niv.emoji} ${esc(niv.nome)}</span><small>Liberem o conteúdo adulto (18+) nos limites</small></div>`;
+    }
+    const cards = desafios.map((d) => {
+      const unlocked = d.custo === 0 || desafioUnlocked(d.key);
+      const noConsent = d.nivel > permitida;
+      if (!unlocked) {
+        const podePagar = saldo >= d.custo && !noConsent;
+        return `<div class="cat-desafio locked"><strong>🔒 ${esc(d.nome)}</strong><div class="cat-foot"><span class="nos-cost">${d.custo} pts</span><button class="btn ghost" type="button" data-unlock-desafio="${d.key}" ${podePagar ? "" : "disabled"}>${noConsent ? "fora do limite" : "Desbloquear"}</button></div></div>`;
+      }
+      return `<div class="cat-desafio"><strong>${esc(d.nome)}</strong><small class="muted">${esc(d.desc)}</small><div class="cat-foot"><button class="btn" type="button" data-cat-done="${d.key}" ${noConsent ? "disabled" : ""}>${noConsent ? "fora do limite" : "Concluímos 💞"}</button></div></div>`;
+    }).join("");
+    return `<div class="prog-cat"><span class="prog-cat-head">${niv.emoji} ${esc(niv.nome)}</span><div class="cat-grid">${cards}</div></div>`;
+  }).join("");
+
+  return `
+    <div class="section-title compact"><h2>🏆 Evolução de vocês</h2></div>
+    <section class="prog-top">
+      <strong>${atual.emoji} Nível ${atual.n} — ${esc(atual.nome)}</strong>
+      ${proximo ? `<small class="muted">${acumulados} / ${proximo.req} pts pro nível ${proximo.n} (${esc(proximo.nome)})</small><div class="pet-bar"><span style="width:${Math.min(100, Math.round((acumulados / proximo.req) * 100))}%"></span></div>` : `<small class="muted">Nível máximo alcançado 👑</small>`}
+    </section>
+    ${blocos}`;
+}
+
 function nosSection() {
   if (!nosUnlocked) return nosLockTemplate();
   const saldo = nosSaldo();
@@ -3601,17 +3716,21 @@ function nosSection() {
   // Limites/consentimento (cada um define a sua intensidade máxima).
   const meu = prefMax(authUser?.id);
   const permitida = intensidadePermitida();
+  const adulto = adulto18Ok();
+  // No seletor, níveis 4-6 só aparecem depois de confirmar 18+.
+  const niveisVisiveis = NIVEIS.filter((x) => x.n <= 3 || adulto);
   const limitesHtml = `
     <div class="section-title compact"><h2>Seus limites 🔐</h2></div>
     <section class="form-card">
-      <p class="muted" style="margin:0 0 10px;font-size:.84rem">Escolha a intensidade máxima que <strong>você</strong> aceita. Os desafios respeitam o <strong>menor</strong> limite dos dois — nada aparece sem o ok de ambos.</p>
+      <p class="muted" style="margin:0 0 10px;font-size:.84rem">Escolha a intensidade máxima que <strong>você</strong> aceita. Vale sempre o <strong>menor</strong> limite dos dois.</p>
       <div class="nivel-pick">
-        ${[1, 2, 3].map((n) => `<button class="nivel-opt ${meu === n ? "on" : ""}" type="button" data-set-intensity="${n}">${NIVEL_LABEL[n]}</button>`).join("")}
+        ${niveisVisiveis.map((x) => `<button class="nivel-opt ${meu === x.n ? "on" : ""}" type="button" data-set-intensity="${x.n}">${x.emoji} ${esc(x.nome)}</button>`).join("")}
       </div>
-      <small class="muted" style="display:block;margin-top:10px">${meu ? `Vocês combinam até: <strong>${NIVEL_LABEL[permitida]}</strong>` : "Defina o seu limite pra liberar os desafios."}</small>
+      ${!adulto ? `<button class="btn ghost" type="button" data-adulto18 style="margin-top:10px">🔞 Liberar conteúdo adulto (18+)</button>` : `<small class="muted" style="display:block;margin-top:10px">🔞 Conteúdo adulto liberado neste aparelho. <button class="linkish" type="button" data-adulto18-off>esconder</button></small>`}
+      <small class="muted" style="display:block;margin-top:10px">${meu ? `Vocês combinam até: <strong>${esc((NIVEIS.find((x) => x.n === permitida) || {}).nome || "")}</strong>` : "Defina o seu limite pra liberar os desafios."}</small>
     </section>`;
 
-  // Desafio do dia (respeitando o consentimento).
+  // Desafio do dia (livre, respeitando consentimento + progressão).
   const desafio = meu ? desafioDoDia() : null;
   const desafioHtml = `
     <div class="section-title compact"><h2>Desafio do dia 🎯</h2>${coupleChallenges.length ? `<span class="muted" style="font-size:.8rem">${coupleChallenges.length} feitos</span>` : ""}</div>
@@ -3620,13 +3739,17 @@ function nosSection() {
       : desafio
         ? `<section class="desafio-card nivel-${desafio.nivel}">
              <span class="desafio-nivel">${NIVEL_LABEL[desafio.nivel]}</span>
-             <strong>${esc(desafio.txt)}</strong>
+             <strong>${esc(desafio.nome)}</strong>
+             <p class="muted" style="margin:4px 0 0">${esc(desafio.desc)}</p>
              <div class="actions" style="margin-top:12px">
                <button class="btn" type="button" data-desafio-done="${desafio.key}:${desafio.nivel}">Concluímos 💞</button>
                <button class="btn ghost" type="button" data-desafio-outro>Outro</button>
              </div>
            </section>`
-        : `<div class="empty">Sem desafio pra esse nível agora.</div>`}`;
+        : `<div class="empty">Sem desafio livre agora. Subam de nível ou ajustem os limites.</div>`}`;
+
+  // Progressão por níveis + catálogo desbloqueável.
+  const progHtml = nosProgressaoHtml();
 
   const ext = nosResumoExtrato();
   const acumulados = nosPontosAcumulados();
@@ -3644,6 +3767,7 @@ function nosSection() {
 
     ${limitesHtml}
     ${desafioHtml}
+    ${progHtml}
 
     <div class="section-title compact"><h2>Criar um vale</h2></div>
     <form id="nos-create-form" class="form-card form-grid">
@@ -5061,6 +5185,10 @@ function bindShell() {
   document.querySelectorAll("[data-set-intensity]").forEach((b) => listen(b, "click", () => handleSetIntensity(b.dataset.setIntensity)));
   document.querySelectorAll("[data-desafio-done]").forEach((b) => listen(b, "click", () => handleDesafioDone(b.dataset.desafioDone)));
   listen(document.querySelector("[data-desafio-outro]"), "click", handleDesafioOutro);
+  listen(document.querySelector("[data-adulto18]"), "click", () => handleAdulto18(true));
+  listen(document.querySelector("[data-adulto18-off]"), "click", () => handleAdulto18(false));
+  document.querySelectorAll("[data-unlock-desafio]").forEach((b) => listen(b, "click", () => handleUnlockDesafio(b.dataset.unlockDesafio)));
+  document.querySelectorAll("[data-cat-done]").forEach((b) => listen(b, "click", () => handleCatDone(b.dataset.catDone)));
   listen(document.querySelector("#couple-add-cat"), "change", (e) => { coupleAddCatSel = e.target.value; });
   listen(document.querySelector("#couple-search-form"), "submit", runCoupleSearch);
   document.querySelectorAll("[data-couple-add-tmdb]").forEach((button) => {

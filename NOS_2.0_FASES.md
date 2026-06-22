@@ -76,7 +76,13 @@ Saldo atual = Σ (pontos do couple_points_ledger)
 - **Card de saldo + extrato** ("Ver extrato", "Como ganhar pontos").
 - *Meta:* nenhum ponto solto; tudo rastreável; saldo confiável.
 
-### Fase 1 — Progressão por níveis (categorias + desafios desbloqueáveis) 🗄️
+### Fase 1 — Progressão por níveis (categorias + desafios desbloqueáveis) ✅ **FEITO** (sem migração)
+> 6 níveis (1 Safadinho leve liberado → 6 Ultra privado). Categorias liberam por **pontos
+> acumulados** (0/200/350/550/800/1200) — sem gastar saldo. Desafios pagos **desbloqueiam com saldo**
+> (registrado no ledger como `unlock:<key>`, anti-dup). Consentimento = menor limite dos dois (1–6);
+> níveis 4–6 só com **18+** confirmado (localStorage). **Aceite** (ler descrição + aceitar/recusar)
+> antes de concluir os íntimos; recusar nunca pune. Tela de evolução + catálogo com estados 🔒/✅.
+> Sem mídia: níveis altos são só rótulo + "pelo Telegram, conforme combinado".
 - 6 níveis: **1 Safadinho leve (liberado) · 2 Provocante · 3 Sensual · 4 Íntimo · 5 Picante · 6 Ultra privado**.
 - **Categorias** desbloqueiam por **pontos acumulados** (ex.: 0/200/350/550/800/1200) — **sem gastar saldo**.
 - **Desafios internos** desbloqueiam **gastando saldo** (ficam liberados pro casal).
