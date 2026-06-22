@@ -84,6 +84,12 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: o resgate de vale vira um **fluxo com aceite** (solicitado → aceito → cumprido, ou recusado/cancelado com os pontos de volta)
 - Sem isso: aceitar/recusar/cumprir um vale dá erro (coluna `status` não existe)
 
+### 1n. Rodar a migração 25 no Supabase (surpresas programadas — Nós 2.0 Fase 4)
+- Onde: painel do Supabase → **SQL Editor** → New query
+- O quê: colar o conteúdo de `supabase/25 - surpresas-programadas.sql` e clicar em **Run**
+- Pra quê: a seção **🎁 Surpresas** do "Nós 🔥" — escrever um recadinho que só revela numa data
+- Sem isso: guardar/abrir surpresa dá erro (tabela `couple_surprises` não existe)
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

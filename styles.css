@@ -1627,6 +1627,25 @@ textarea:focus {
 .conq-bar i { display: block; height: 100%; background: var(--cor-primaria); border-radius: 999px; }
 .conq-pct { font-size: 0.7rem; font-weight: 800; color: var(--cor-texto-suave); }
 
+/* Surpresas programadas (Fase 4) */
+.surpresas { display: grid; gap: 10px; }
+.surpresa {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding: 12px 14px; border-radius: 16px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+}
+.surpresa.fechada {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--cor-primaria) 7%, var(--cor-superficie));
+}
+.surpresa.aberta { border-color: color-mix(in srgb, var(--cor-primaria) 40%, var(--cor-borda)); }
+.surp-txt { flex: 1; min-width: 0; }
+.surp-emoji { font-size: 1.2rem; margin-right: 6px; }
+.surpresa strong { font-size: 0.92rem; }
+.surpresa p { margin: 6px 0 4px; font-size: 0.9rem; white-space: pre-wrap; }
+.surpresa small { display: block; color: var(--cor-texto-suave); font-weight: 700; }
+
 /* Quiz do casal */
 .quiz-score {
   display: flex;

@@ -78,6 +78,9 @@ import {
   setClaimUsed,
   setClaimStatus,
   deleteCoupleClaim,
+  loadCoupleSurprises,
+  addCoupleSurprise,
+  deleteCoupleSurprise,
   updateCoupleMeetDate,
   loadCouplePrefs,
   saveCouplePref,
@@ -526,6 +529,7 @@ let couplePrefs = []; // [{user_id, max_intensity}]
 let coupleChallenges = []; // log de desafios concluídos
 let coupleLedger = []; // extrato de pontos (Nós 2.0)
 let coupleCheckins = []; // check-ins de hoje (clima + limite do dia)
+let coupleSurprises = []; // surpresas programadas (revela em data)
 let nosFor = null;
 let nosUnlocked = false; // destravado nesta sessão (após o PIN)
 let desafioIdx = 0; // pra "outro desafio"
@@ -3494,6 +3498,43 @@ async function handleNosClaim(id) {
     toast("Resgatado! 🔥 Aguardando o aceite da sua pessoa.");
   } catch { toast("Não consegui resgatar."); }
 }
+async function handleAjusteSaldo() {
+  if (!state.couple) return;
+  const saldo = nosSaldo();
+  if (saldo >= 0) { toast("O saldo já está em dia. 💛"); return; }
+  const ok = await confirmar("Acertar o saldo pra 0?", { sub: `Lança um ajuste de +${-saldo} no extrato pra zerar o negativo (não some nada — fica registrado).`, ok: "Acertar" });
+  if (!ok) return;
+  try {
+    await lancarPontos({ points: -saldo, type: "refunded", reason: "ajuste de saldo (zerar negativo)", sourceType: "adjust", sourceId: `zero-${Date.now()}` });
+    coupleLedger = await loadPointsLedger(state.couple.id);
+    render();
+    toast("Pronto, saldo em 0. 💞");
+  } catch { toast("Não consegui acertar."); }
+}
+async function handleSurpresaCreate(e) {
+  e.preventDefault();
+  if (!state.couple) return;
+  const f = e.target;
+  const message = f.message.value.trim();
+  const reveal_date = f.reveal_date.value;
+  if (!message || !reveal_date) return;
+  try {
+    await addCoupleSurprise(state.couple.id, authUser.id, { title: f.title.value.trim(), message, reveal_date });
+    coupleSurprises = await loadCoupleSurprises(state.couple.id);
+    f.reset();
+    render();
+    toast("Surpresa guardada! 🤫 Abre no dia.");
+  } catch { toast("Não consegui guardar."); }
+}
+async function handleSurpresaDel(id) {
+  const ok = await confirmar("Apagar essa surpresa?", { ok: "Apagar", danger: true });
+  if (!ok) return;
+  try {
+    await deleteCoupleSurprise(id);
+    coupleSurprises = coupleSurprises.filter((s) => s.id !== id);
+    render();
+  } catch { toast("Não consegui apagar."); }
+}
 async function handleMissionClaim(raw) {
   const [key, period, bonus] = String(raw).split(":");
   if (!state.couple) return;
@@ -3715,13 +3756,14 @@ function nomeMembro(uid) {
 async function loadNosData() {
   if (!state.couple || !casalPrivadoOn()) return;
   try {
-    const [r, c, p, ch, led, ci] = await Promise.all([
+    const [r, c, p, ch, led, ci, su] = await Promise.all([
       loadCoupleRewards(state.couple.id),
       loadCoupleClaims(state.couple.id),
       loadCouplePrefs(state.couple.id),
       loadCoupleChallenges(state.couple.id),
       loadPointsLedger(state.couple.id),
       loadCoupleCheckins(state.couple.id, new Date().toISOString().slice(0, 10)),
+      loadCoupleSurprises(state.couple.id),
     ]);
     nosRewards = r;
     nosClaims = c;
@@ -3729,8 +3771,9 @@ async function loadNosData() {
     coupleChallenges = ch;
     coupleLedger = led;
     coupleCheckins = ci;
+    coupleSurprises = su;
   } catch {
-    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; coupleCheckins = [];
+    nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; coupleCheckins = []; coupleSurprises = [];
   }
   nosFor = state.couple.id;
   render();
@@ -3942,6 +3985,46 @@ function nosConquistas() {
     { emoji: "👑", nome: "Lendários", desc: "1000 pontos acumulados", cur: acc, alvo: 1000 },
   ];
 }
+// ---------- Fase 4: surpresas programadas (revela em data) ----------
+function diasAteData(dateStr) {
+  const alvo = new Date(`${dateStr}T00:00:00`);
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  return Math.round((alvo - hoje) / 86400000);
+}
+function surpresaCard(s) {
+  const aberta = diasAteData(s.reveal_date) <= 0;
+  const dias = diasAteData(s.reveal_date);
+  return `
+    <article class="surpresa ${aberta ? "aberta" : "fechada"}">
+      <div class="surp-txt">
+        <span class="surp-emoji">${aberta ? "💝" : "🎁"}</span>
+        <strong>${esc(s.title || (aberta ? "Surpresa" : "Surpresa guardada"))}</strong>
+        ${aberta
+          ? `<p>${esc(s.message)}</p><small>de ${esc(nomeMembro(s.created_by))} · revelada ${esc(formatDateShort(s.reveal_date))}</small>`
+          : `<small>abre ${dias <= 0 ? "hoje" : `em ${dias} dia${dias > 1 ? "s" : ""}`} · ${esc(formatDateShort(s.reveal_date))} 🤫</small>`}
+      </div>
+      <button class="recado-mini" type="button" data-surp-del="${s.id}">${icon("trash")}</button>
+    </article>`;
+}
+function nosSurpresasHtml() {
+  const hojeStr = hojeISO();
+  const fechadas = coupleSurprises.filter((s) => s.reveal_date > hojeStr);
+  const abertas = coupleSurprises.filter((s) => s.reveal_date <= hojeStr).reverse();
+  const minDate = hojeStr;
+  return `
+    <div class="section-title compact"><h2>🎁 Surpresas</h2><span class="muted" style="font-size:.8rem">abrem na data</span></div>
+    <p class="muted" style="margin:-6px 0 10px;font-size:.82rem">Escreva um recadinho/combinado que só revela no dia marcado. Fica escondido até lá — sem mídia, só o texto de vocês.</p>
+    <form id="nos-surpresa-form" class="form-card form-grid">
+      <div class="field"><label>Rótulo (discreto)</label><input name="title" placeholder="Pra quando bater saudade…" maxlength="60" /></div>
+      <div class="field"><label>Abre em</label><input name="reveal_date" type="date" min="${minDate}" required /></div>
+      <div class="field full"><label>O que revela</label><textarea name="message" rows="2" placeholder="Escreva a surpresa…" required></textarea></div>
+      <div class="actions field full"><button class="btn" type="submit">${icon("add")} Guardar surpresa 🤫</button></div>
+    </form>
+    ${fechadas.length ? `<section class="surpresas">${fechadas.map(surpresaCard).join("")}</section>` : ""}
+    ${abertas.length ? `<div class="muted" style="font-weight:800;font-size:.78rem;margin:10px 0 6px">Já reveladas</div><section class="surpresas">${abertas.map(surpresaCard).join("")}</section>` : ""}
+    ${!coupleSurprises.length ? `<div class="empty">Nenhuma surpresa guardada ainda. Que tal a primeira? 💝</div>` : ""}`;
+}
+
 function nosConquistasHtml() {
   const lista = nosConquistas();
   const feitas = lista.filter((c) => c.cur >= c.alvo).length;
@@ -4058,7 +4141,10 @@ function nosSection() {
     <section class="nos-saldo">
       <strong>${carregando ? "…" : saldo} pts</strong>
       <span>saldo do casal · acumulado ${acumulados}</span>
-      <button class="recado-mini" type="button" data-extrato-open style="margin-top:8px">📜 Ver extrato</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px">
+        <button class="recado-mini" type="button" data-extrato-open>📜 Ver extrato</button>
+        ${!carregando && saldo < 0 ? `<button class="recado-mini" type="button" data-ajuste-saldo>↺ Acertar pra 0</button>` : ""}
+      </div>
     </section>
 
     ${nosClimaHtml()}
@@ -4067,6 +4153,7 @@ function nosSection() {
     ${nosFeitosHtml()}
     ${nosMissoesHtml()}
     ${progHtml}
+    ${nosSurpresasHtml()}
     ${nosConquistasHtml()}
 
     <div class="section-title compact"><h2>Criar um vale</h2></div>
@@ -5485,7 +5572,10 @@ function bindShell() {
   document.querySelectorAll("[data-nos-del-claim]").forEach((b) => listen(b, "click", () => handleNosDeleteClaim(b.dataset.nosDelClaim)));
   document.querySelectorAll("[data-claim-status]").forEach((b) => listen(b, "click", () => handleClaimStatus(b.dataset.claimStatus)));
   document.querySelectorAll("[data-mission]").forEach((b) => listen(b, "click", () => handleMissionClaim(b.dataset.mission)));
+  listen(document.querySelector("#nos-surpresa-form"), "submit", handleSurpresaCreate);
+  document.querySelectorAll("[data-surp-del]").forEach((b) => listen(b, "click", () => handleSurpresaDel(b.dataset.surpDel)));
   document.querySelectorAll("[data-extrato-open]").forEach((b) => listen(b, "click", () => { extratoOpen = true; render(); }));
+  document.querySelectorAll("[data-ajuste-saldo]").forEach((b) => listen(b, "click", handleAjusteSaldo));
   document.querySelectorAll("[data-extrato-close]").forEach((b) => listen(b, "click", () => { extratoOpen = false; render(); }));
   document.querySelectorAll("[data-set-intensity]").forEach((b) => listen(b, "click", () => handleSetIntensity(b.dataset.setIntensity)));
   document.querySelectorAll("[data-desafio-done]").forEach((b) => listen(b, "click", () => handleDesafioDone(b.dataset.desafioDone)));

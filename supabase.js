@@ -603,6 +603,34 @@ export async function deleteCoupleClaim(id) {
   if (error) throw error;
 }
 
+// ---- Surpresas programadas (Fase 4) ----
+export async function loadCoupleSurprises(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_surprises")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("reveal_date", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCoupleSurprise(coupleId, userId, { title, message, reveal_date }) {
+  const { data, error } = await supabase.from("couple_surprises").insert({
+    couple_id: coupleId,
+    created_by: userId,
+    title: title || null,
+    message,
+    reveal_date,
+  }).select("id").single();
+  if (error) throw error;
+  return data?.id || null;
+}
+
+export async function deleteCoupleSurprise(id) {
+  const { error } = await supabase.from("couple_surprises").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ---------- QUIZ DO CASAL ----------
 export async function loadCoupleQuiz(coupleId, week) {
   const { data, error } = await supabase

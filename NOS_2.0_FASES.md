@@ -109,17 +109,19 @@ Saldo atual = Σ (pontos do couple_points_ledger)
 - Pontos descontados no resgate → **estorno** se cancelar/recusar. Recusar não pune.
 - *Pendente migração 24* (`couple_reward_claims.status`).
 
-### Fase 4 — Missões, surpresas, perguntas e conquistas 🟡 **EM ANDAMENTO** (sem migração)
-> **Feito:** **Missões** do dia/semana (clima, carinho, episódio / desafio, memória, quiz) —
-> derivadas do extrato; ao cumprir, aparece **Resgatar +N** (bônus único por período, `mission:<key>:<periodo>`,
-> anti-dup). **Conquistas/medalhas** (14 badges: 1ª maratona, diário cheio, cartas de amor, aventureiros,
-> sincronia, vale cumprido, 100/500/1000 pts…) — também derivadas do ledger, com barra de progresso.
-> **Pendente (migração 25):** `couple_surprises` (surpresa programada, revela em data) e perguntas do
-> casal por categoria com pontos (hoje já existe o quiz semanal).
+### Fase 4 — Missões, surpresas, perguntas e conquistas ✅ **FEITO** (migração 25)
+> **Missões** do dia/semana (clima, carinho, episódio / desafio, memória, quiz) — derivadas do extrato;
+> ao cumprir, aparece **Resgatar +N** (bônus único por período, `mission:<key>:<periodo>`, anti-dup).
+> **Conquistas/medalhas** (14 badges: 1ª maratona, diário cheio, cartas de amor, aventureiros, sincronia,
+> vale cumprido, 100/500/1000 pts…) — derivadas do ledger, com barra de progresso.
+> **Surpresas programadas** (`couple_surprises`, migração 25): recadinho/combinado que só revela numa
+> data — fica escondido até lá (🎁 → 💝), perfeito pra saudade à distância. Só texto, sem mídia.
+> Bônus: **"Acertar pra 0"** no card de saldo (lança um ajuste no extrato pra zerar saldo negativo herdado).
 - ✅ **Missões** (diária/semanal), +pontos com resgate único.
 - ✅ `couple_achievements` virou **conquistas derivadas** (sem tabela; medalhas calculadas do extrato).
-- 🗄️ `couple_surprises` (surpresa programada, revela em data).
-- 🗄️ **Perguntas do casal** por categoria (além do quiz semanal; pontos com limite diário).
+- ✅ `couple_surprises` (surpresa programada, revela em data).
+- ↪️ **Perguntas do casal por categoria** (pontos com limite diário): o **quiz semanal** já cobre o
+  essencial; perguntas abertas por categoria entram junto da Fase 5 (saudade) se fizerem falta.
 
 ### Fase 5 — Modo saudade (à distância) 🟢/🗄️
 - Dias sem se ver + contagem pro próximo encontro (já temos o countdown).

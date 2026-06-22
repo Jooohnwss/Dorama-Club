@@ -33,6 +33,7 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 22 | `22 - ledger-de-pontos-do-casal.sql` | `couple_points_ledger` (extrato de pontos: saldo = Σ, anti-duplicação por fonte) — base do "Nós 2.0" | Casal/Nós 2.0 |
 | 23 | `23 - clima-e-limite-do-dia.sql` | `couple_daily_checkins` (clima do dia + limite só de hoje) + RLS — Nós 2.0 Fase 2 | Casal/Nós 2.0 |
 | 24 | `24 - status-dos-resgates.sql` | Coluna `status` em `couple_reward_claims` (resgate com aceite: solicitado→aceito→cumprido / recusado / cancelado) — Nós 2.0 Fase 3 | Casal/Nós 2.0 |
+| 25 | `25 - surpresas-programadas.sql` | `couple_surprises` (recadinho/combinado que só revela numa data) + RLS — Nós 2.0 Fase 4 | Casal/Nós 2.0 |
 
 ## Convenção de nome
 
