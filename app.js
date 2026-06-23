@@ -3432,50 +3432,73 @@ async function handleUnlockDesafio(key) {
     toast("Desbloqueado 🔓");
   } catch { toast("Não consegui desbloquear."); }
 }
-async function handleCatDone(key) {
-  const d = DESAFIOS_CAT.find((x) => x.key === key);
-  if (!d || !state.couple) return;
-  if (d.nivel > intensidadePermitida()) { toast("Fora do limite combinado."); return; }
-  if (d.nivel >= 4) {
-    const ok = await confirmar(`Aceitar “${d.nome}”?`, { sub: `${d.desc} Pode recusar ou remarcar sem perder pontos.`, ok: "Aceitar 💞", cancel: "Recusar" });
-    if (!ok) return;
-  }
-  const pts = PONTOS.desafio[d.nivel] || 5;
-  try {
-    const logId = await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: d.nivel });
-    await ganharPontos(pts, `desafio: ${d.nome}`, "challenge", logId || `${key}:${Date.now()}`);
-    coupleChallenges = await loadCoupleChallenges(state.couple.id);
-    render();
-    toast(`Concluído! +${pts} pts 🎯 (dá pra desfazer)`);
-  } catch { toast("Não consegui registrar."); }
+// Um desafio é pros DOIS: cada um confirma; só pontua (e sobe de nível) quando os
+// dois confirmaram no mesmo dia. Recusar/esperar nunca tira ponto.
+function confsDesafioHoje(key) {
+  const hoje = hojeISO();
+  return coupleChallenges.filter((c) => c.challenge_key === key && isoDia(c.created_at) === hoje);
+}
+function euConfirmei(key) {
+  return confsDesafioHoje(key).some((c) => c.done_by === authUser?.id);
+}
+function ambosConfirmaram(key) {
+  const users = new Set(confsDesafioHoje(key).map((c) => c.done_by));
+  if (coupleMembers.length < 2) return users.size >= 1; // testando sozinho(a)
+  return coupleMembers.every((m) => users.has(m.user_id));
+}
+function desafioPontuado(key, dia) {
+  return coupleLedger.some((l) => l.source_type === "challenge" && l.source_id === `${key}:${dia}` && Number(l.points) > 0);
 }
 async function handleDesafioDone(raw) {
   if (!state.couple) return;
   const [key, nivel] = String(raw).split(":");
   const n = Number(nivel) || 1;
+  const d = DESAFIOS_CAT.find((x) => x.key === key);
+  const nome = d ? d.nome : "desafio";
+  if (d && d.nivel > intensidadePermitida()) { toast("Fora do limite combinado dos dois."); return; }
+  if (euConfirmei(key)) { toast("Você já confirmou — falta a outra pessoa 💞"); return; }
+  // Aceite nos níveis íntimos.
+  if (n >= 4) {
+    const ok = await confirmar(`Confirmar “${nome}”?`, { sub: "Vale quando os dois confirmarem. Pode recusar/remarcar sem perder pontos.", ok: "Confirmar 💞", cancel: "Agora não" });
+    if (!ok) return;
+  }
   const pts = PONTOS.desafio[n] || 5;
+  const hoje = hojeISO();
   try {
-    const logId = await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: n });
-    await ganharPontos(pts, "desafio concluído", "challenge", logId || `${key}:${Date.now()}`);
+    await addCoupleChallengeLog(state.couple.id, authUser.id, { key, intensity: n });
     coupleChallenges = await loadCoupleChallenges(state.couple.id);
-    desafioIdx += 1; // já mostra o próximo
-    render();
-    toast(`Desafio concluído! +${pts} pts 🎯 (dá pra desfazer)`);
+    if (ambosConfirmaram(key)) {
+      // Os dois confirmaram → pontua UMA vez (anti-dup por key:dia). Sobe de nível.
+      await ganharPontos(pts, `desafio: ${nome}`, "challenge", `${key}:${hoje}`);
+      coupleLedger = await loadPointsLedger(state.couple.id);
+      desafioIdx += 1;
+      render();
+      toast(`Os dois confirmaram! +${pts} pts 🎯`);
+    } else {
+      render();
+      toast("Confirmado! Esperando a outra pessoa 💞");
+    }
   } catch { toast("Não consegui registrar."); }
 }
 
-// Desfazer um desafio concluído (estorna os pontos).
+// Desfazer um desafio: tira as confirmações dos dois e estorna os pontos (se já tinham sido dados).
 async function handleUndoChallenge(raw) {
-  const [id, intensity] = String(raw).split(":");
-  const ok = await confirmar("Desfazer esse desafio?", { sub: "Os pontos ganhos são estornados.", ok: "Desfazer", danger: true });
+  const parts = String(raw).split(":");
+  const ids = String(parts[0] || "").split(",").filter(Boolean);
+  const intensity = Number(parts[1]) || 1;
+  const key = parts[2] || "";
+  const dia = parts[3] || hojeISO();
+  if (!state.couple || !ids.length) return;
+  const ok = await confirmar("Desfazer esse desafio?", { sub: "Tira as confirmações e estorna os pontos (se já tinham sido dados).", ok: "Desfazer", danger: true });
   if (!ok) return;
   try {
-    await deleteCoupleChallengeLog(id);
-    await estornarPontos(-(PONTOS.desafio[Number(intensity)] || 5), "desafio desfeito", "challenge_undo", id);
-    coupleChallenges = coupleChallenges.filter((c) => c.id !== id);
+    const tinhaPontos = desafioPontuado(key, dia);
+    for (const id of ids) await deleteCoupleChallengeLog(id);
+    if (tinhaPontos) await estornarPontos(-(PONTOS.desafio[intensity] || 5), "desafio desfeito", "challenge_undo", `${key}:${dia}`);
+    coupleChallenges = await loadCoupleChallenges(state.couple.id);
     coupleLedger = await loadPointsLedger(state.couple.id);
     render();
-    toast("Desfeito. Pontos estornados.");
+    toast(tinhaPontos ? "Desfeito. Pontos estornados." : "Desfeito.");
   } catch { toast("Não consegui desfazer."); }
 }
 
@@ -4002,15 +4025,25 @@ function nosClimaHtml() {
     </section>`;
 }
 
-// Desafios feitos recentemente — com opção de DESFAZER (estorna pontos).
+// Desafios recentes, agrupados por desafio+dia (mostra se os dois confirmaram).
 function nosFeitosHtml() {
   if (!coupleChallenges.length) return "";
-  const itens = coupleChallenges.slice(0, 5).map((c) => {
-    const cat = DESAFIOS_CAT.find((d) => d.key === c.challenge_key);
-    const nome = cat ? cat.nome : (c.challenge_key || "desafio");
-    return `<div class="feito-item"><small>✓ ${esc(nome)} · ${esc(timeAgo(c.created_at))}</small><button class="recado-mini" type="button" data-undo-challenge="${c.id}:${c.intensity || 1}">Desfazer</button></div>`;
+  const grupos = [];
+  const idx = new Map();
+  for (const c of coupleChallenges) {
+    const dia = isoDia(c.created_at);
+    const k = `${c.challenge_key}:${dia}`;
+    if (!idx.has(k)) { idx.set(k, { key: c.challenge_key, dia, intensity: c.intensity || 1, created_at: c.created_at, ids: [], users: new Set() }); grupos.push(idx.get(k)); }
+    const g = idx.get(k); g.ids.push(c.id); g.users.add(c.done_by);
+  }
+  const itens = grupos.slice(0, 5).map((g) => {
+    const cat = DESAFIOS_CAT.find((d) => d.key === g.key);
+    const nome = cat ? cat.nome : (g.key || "desafio");
+    const ambos = coupleMembers.length < 2 ? g.users.size >= 1 : coupleMembers.every((m) => g.users.has(m.user_id));
+    const status = ambos ? "✓ os dois confirmaram" : `⏳ ${g.users.size}/2 · falta a outra pessoa`;
+    return `<div class="feito-item"><small>${esc(nome)} · ${status} · ${esc(timeAgo(g.created_at))}</small><button class="recado-mini" type="button" data-undo-challenge="${g.ids.join(",")}:${g.intensity}:${g.key}:${g.dia}">Desfazer</button></div>`;
   }).join("");
-  return `<section class="nos-feitos"><span class="muted" style="font-weight:800;font-size:.78rem">Feitos recentes</span>${itens}</section>`;
+  return `<section class="nos-feitos"><span class="muted" style="font-weight:800;font-size:.78rem">Desafios recentes</span>${itens}</section>`;
 }
 
 // ---------- Fase 4: missões (do dia/semana) ----------
@@ -4292,7 +4325,10 @@ function nosNivelBloco(niv) {
       const podePagar = saldo >= d.custo && !noConsent;
       return `<div class="cat-desafio locked"><strong>🔒 ${esc(d.nome)}</strong><div class="cat-foot"><span class="nos-cost">${d.custo} pts</span><button class="btn ghost" type="button" data-unlock-desafio="${d.key}" ${podePagar ? "" : "disabled"}>${noConsent ? "fora do limite" : "Desbloquear"}</button></div></div>`;
     }
-    return `<div class="cat-desafio"><strong>${esc(d.nome)}</strong><small class="muted">${esc(d.desc)}</small><div class="cat-foot"><button class="btn" type="button" data-cat-done="${d.key}" ${noConsent ? "disabled" : ""}>${noConsent ? "fora do limite" : "Concluímos 💞"}</button></div></div>`;
+    const jaEu = euConfirmei(d.key);
+    const ambos = ambosConfirmaram(d.key);
+    const rotulo = ambos ? "✓ os dois 💞" : jaEu ? "⏳ falta o outro" : "Concluímos 💞";
+    return `<div class="cat-desafio"><strong>${esc(d.nome)}</strong><small class="muted">${esc(d.desc)}</small><div class="cat-foot"><button class="btn" type="button" data-desafio-done="${d.key}:${d.nivel}" ${(noConsent || ambos || jaEu) ? "disabled" : ""}>${noConsent ? "fora do limite" : rotulo}</button></div></div>`;
   }).join("");
   return `<div class="prog-cat"><span class="prog-cat-head">${niv.emoji} ${esc(niv.nome)}</span><div class="cat-grid">${cards}</div></div>`;
 }
@@ -4328,8 +4364,18 @@ function nosSection() {
   // Desafio do dia (livre, respeitando consentimento + progressão).
   const meu = prefMax(authUser?.id);
   const desafio = meu ? desafioDoDia() : null;
+  let desafioAcao = "";
+  if (desafio) {
+    if (ambosConfirmaram(desafio.key)) {
+      desafioAcao = `<div class="desafio-status ok">✓ Os dois confirmaram! 💞</div><button class="btn ghost" type="button" data-desafio-outro>Outro desafio</button>`;
+    } else if (euConfirmei(desafio.key)) {
+      desafioAcao = `<div class="desafio-status wait">⏳ Você confirmou — esperando a outra pessoa…</div><button class="btn ghost" type="button" data-desafio-outro>Trocar</button>`;
+    } else {
+      desafioAcao = `<button class="btn" type="button" data-desafio-done="${desafio.key}:${desafio.nivel}">Concluímos 💞</button><button class="btn ghost" type="button" data-desafio-outro>Trocar</button>`;
+    }
+  }
   const desafioHtml = `
-    <div class="section-title compact"><h2>Desafio do dia 🎯</h2>${coupleChallenges.length ? `<span class="muted" style="font-size:.8rem">${coupleChallenges.length} feitos</span>` : ""}</div>
+    <div class="section-title compact"><h2>Desafio do dia 🎯</h2><span class="muted" style="font-size:.8rem">os dois confirmam</span></div>
     ${!meu
       ? `<div class="empty">Defina seus limites (no card de clima) pra liberar o desafio.</div>`
       : desafio
@@ -4337,10 +4383,7 @@ function nosSection() {
              <span class="desafio-nivel">${NIVEL_LABEL[desafio.nivel]}</span>
              <strong>${esc(desafio.nome)}</strong>
              <p class="desafio-desc">${esc(desafio.desc)}</p>
-             <div class="actions" style="margin-top:14px">
-               <button class="btn" type="button" data-desafio-done="${desafio.key}:${desafio.nivel}">Concluímos 💞</button>
-               <button class="btn ghost" type="button" data-desafio-outro>Trocar</button>
-             </div>
+             <div class="actions" style="margin-top:14px">${desafioAcao}</div>
            </section>`
         : `<div class="empty">Sem desafio livre agora. Subam de nível ou ajustem os limites.</div>`}`;
 
@@ -5762,7 +5805,7 @@ function bindShell() {
   listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
   listen(document.querySelector("#couple-letter-form"), "submit", handleCoupleLetter);
   listen(document.querySelector("[data-copy-couple-code]"), "click", copyCoupleCode);
-  listen(document.querySelector("[data-date-roulette]"), "click", handleDateRoulette);
+  document.querySelectorAll("[data-date-roulette]").forEach((b) => listen(b, "click", handleDateRoulette));
   listen(document.querySelector("[data-leave-couple]"), "click", handleLeaveCouple);
   document.querySelectorAll("[data-space-go]").forEach((b) => {
     listen(b, "click", () => (b.dataset.spaceGo === "couple" ? enterCoupleSpace() : leaveCoupleSpace()));
@@ -5840,7 +5883,6 @@ function bindShell() {
   listen(document.querySelector("[data-adulto18]"), "click", () => handleAdulto18(true));
   listen(document.querySelector("[data-adulto18-off]"), "click", () => handleAdulto18(false));
   document.querySelectorAll("[data-unlock-desafio]").forEach((b) => listen(b, "click", () => handleUnlockDesafio(b.dataset.unlockDesafio)));
-  document.querySelectorAll("[data-cat-done]").forEach((b) => listen(b, "click", () => handleCatDone(b.dataset.catDone)));
   document.querySelectorAll("[data-undo-challenge]").forEach((b) => listen(b, "click", () => handleUndoChallenge(b.dataset.undoChallenge)));
   document.querySelectorAll("[data-checkin]").forEach((b) => listen(b, "click", () => handleCheckin(b.dataset.checkin)));
   document.querySelectorAll("[data-day-limit]").forEach((b) => listen(b, "click", () => handleDayLimit(b.dataset.dayLimit)));
