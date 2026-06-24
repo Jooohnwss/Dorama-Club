@@ -30,6 +30,14 @@
   box-sizing: border-box;
 }
 
+/* Trava qualquer overflow horizontal no nível da página: sem isso, um elemento
+   largo deixava a viewport "diminuível" (pinch-zoom) e jogava os modais fixos
+   pra fora da tela no celular. clip não quebra position: sticky. */
+html, body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
