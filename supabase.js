@@ -719,6 +719,99 @@ export async function deleteCoupleSurprise(id) {
   if (error) throw error;
 }
 
+// ---- Missoes secretas / cofrinho / fetiches (Fase 7) ----
+export async function loadSecretMissions(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_secret_missions")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addSecretMission(coupleId, userId, mission) {
+  const { data, error } = await supabase.from("couple_secret_missions").insert({
+    couple_id: coupleId,
+    created_by: userId,
+    target_user: mission.targetUser || null,
+    title: mission.title,
+    kind: mission.kind || "mensagem",
+    intensity: Number(mission.intensity) || 1,
+    due: mission.due || "hoje",
+  }).select("id").single();
+  if (error) throw error;
+  return data?.id || null;
+}
+
+export async function setSecretMissionStatus(id, status) {
+  const { error } = await supabase
+    .from("couple_secret_missions")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteSecretMission(id) {
+  const { error } = await supabase.from("couple_secret_missions").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadCoupleDesires(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_desires")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCoupleDesire(coupleId, userId, desire) {
+  const { data, error } = await supabase.from("couple_desires").insert({
+    couple_id: coupleId,
+    created_by: userId,
+    category: desire.category || "mensagem",
+    intensity: Number(desire.intensity) || 1,
+    body: desire.body,
+  }).select("id").single();
+  if (error) throw error;
+  return data?.id || null;
+}
+
+export async function voteRevealDesire(desire, userId) {
+  const updates = desire.reveal_requested_by && desire.reveal_requested_by !== userId
+    ? { revealed: true }
+    : { reveal_requested_by: userId };
+  const { error } = await supabase.from("couple_desires").update(updates).eq("id", desire.id);
+  if (error) throw error;
+}
+
+export async function deleteCoupleDesire(id) {
+  const { error } = await supabase.from("couple_desires").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadFetishPrefs(coupleId) {
+  const { data, error } = await supabase
+    .from("couple_fetish_prefs")
+    .select("*")
+    .eq("couple_id", coupleId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveFetishPref(coupleId, userId, tag, status) {
+  const { error } = await supabase.from("couple_fetish_prefs").upsert({
+    couple_id: coupleId,
+    user_id: userId,
+    tag,
+    status,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "couple_id,user_id,tag" });
+  if (error) throw error;
+}
+
 // ---------- QUIZ DO CASAL ----------
 export async function loadCoupleQuiz(coupleId, week) {
   const { data, error } = await supabase

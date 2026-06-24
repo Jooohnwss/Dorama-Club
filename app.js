@@ -81,6 +81,16 @@ import {
   loadCoupleSurprises,
   addCoupleSurprise,
   deleteCoupleSurprise,
+  loadSecretMissions,
+  addSecretMission,
+  setSecretMissionStatus,
+  deleteSecretMission,
+  loadCoupleDesires,
+  addCoupleDesire,
+  voteRevealDesire,
+  deleteCoupleDesire,
+  loadFetishPrefs,
+  saveFetishPref,
   updateCoupleMeetDate,
   loadCouplePrefs,
   saveCouplePref,
@@ -548,6 +558,10 @@ let coupleLedger = []; // extrato de pontos (Nós 2.0)
 let coupleCheckins = []; // check-ins de hoje (clima + limite do dia)
 let coupleSurprises = []; // surpresas programadas (revela em data)
 let coupleTgEvents = []; // eventos do Telegram (só metadados)
+let secretMissions = []; // missoes secretas integradas ao Telegram
+let coupleDesires = []; // cofrinho de desejos
+let fetishPrefs = []; // tags de fetiche por pessoa
+let nosExtrasReady = true; // false se a migracao 29 ainda nao foi rodada
 let nosFor = null;
 let nosUnlocked = nosUnlockValido(); // destravado (segue valendo por 20 min, mesmo no refresh)
 let desafioIdx = 0; // pra "outro desafio"
@@ -3642,6 +3656,104 @@ async function handleSurpresaDel(id) {
     render();
   } catch { toast("Não consegui apagar."); }
 }
+
+async function handleSecretMissionCreate(event) {
+  event.preventDefault();
+  if (!state.couple || !authUser) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const title = String(data.title || "").trim();
+  if (!title) return;
+  const partner = coupleMembers.find((m) => m.user_id !== authUser.id);
+  try {
+    await addSecretMission(state.couple.id, authUser.id, {
+      title,
+      kind: data.kind,
+      intensity: Number(data.intensity) || 1,
+      due: data.due,
+      targetUser: partner?.user_id || null,
+    });
+    secretMissions = await loadSecretMissions(state.couple.id);
+    render();
+    toast("Missão secreta criada 🔥");
+  } catch {
+    toast("Não consegui criar. Rode a migração 29 no Supabase.");
+  }
+}
+
+async function handleSecretMissionStatus(raw) {
+  const [id, status] = String(raw).split(":");
+  if (!id || !status || !state.couple) return;
+  try {
+    await setSecretMissionStatus(id, status);
+    secretMissions = await loadSecretMissions(state.couple.id);
+    if (status === "cumprida") {
+      await ganharPontos(8, "missão secreta cumprida", "secret_mission", id);
+      coupleLedger = await loadPointsLedger(state.couple.id);
+    }
+    render();
+    toast(status === "cumprida" ? "Missão cumprida 🔥" : "Missão atualizada.");
+  } catch {
+    toast("Não consegui atualizar a missão.");
+  }
+}
+
+async function handleSecretMissionDelete(id) {
+  const ok = await confirmar("Apagar essa missão secreta?", { ok: "Apagar", danger: true });
+  if (!ok) return;
+  try { await deleteSecretMission(id); secretMissions = secretMissions.filter((m) => m.id !== id); render(); } catch { toast("Não consegui apagar."); }
+}
+
+async function handleDesireCreate(event) {
+  event.preventDefault();
+  if (!state.couple || !authUser) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const body = String(data.body || "").trim();
+  if (!body) return;
+  try {
+    await addCoupleDesire(state.couple.id, authUser.id, {
+      body,
+      category: data.category,
+      intensity: Number(data.intensity) || 1,
+    });
+    coupleDesires = await loadCoupleDesires(state.couple.id);
+    render();
+    toast("Desejo guardado no cofrinho 🔒");
+  } catch {
+    toast("Não consegui guardar. Rode a migração 29 no Supabase.");
+  }
+}
+
+async function handleDesireReveal(id) {
+  const d = coupleDesires.find((x) => x.id === id);
+  if (!d || !authUser) return;
+  try {
+    await voteRevealDesire(d, authUser.id);
+    coupleDesires = await loadCoupleDesires(state.couple.id);
+    render();
+    toast(d.reveal_requested_by && d.reveal_requested_by !== authUser.id ? "Desejo revelado 🔥" : "Pedido de revelar enviado.");
+  } catch {
+    toast("Não consegui revelar.");
+  }
+}
+
+async function handleDesireDelete(id) {
+  const ok = await confirmar("Apagar esse desejo?", { ok: "Apagar", danger: true });
+  if (!ok) return;
+  try { await deleteCoupleDesire(id); coupleDesires = coupleDesires.filter((d) => d.id !== id); render(); } catch { toast("Não consegui apagar."); }
+}
+
+async function handleFetishPref(raw) {
+  const [tag, status] = String(raw).split(":");
+  if (!tag || !status || !state.couple || !authUser) return;
+  try {
+    await saveFetishPref(state.couple.id, authUser.id, tag, status);
+    fetishPrefs = await loadFetishPrefs(state.couple.id);
+    render();
+  } catch {
+    toast("Não consegui salvar. Rode a migração 29 no Supabase.");
+  }
+}
+
 async function handleTgEvent(kind) {
   if (!state.couple) return;
   try {
@@ -3878,6 +3990,39 @@ const MOODS_DIA = [
   { key: "cansado", e: "😴", l: "Cansado(a), algo leve" },
   { key: "surpresa", e: "🎁", l: "Quero surpresa" },
 ];
+const SECRET_MISSION_KINDS = [
+  ["mensagem", "Mensagem"],
+  ["audio", "Áudio"],
+  ["chamada", "Chamada"],
+  ["quando_ver", "Quando se ver"],
+  ["fetiche", "Fetiche combinado"],
+  ["surpresa", "Surpresa"],
+];
+const SECRET_DUES = [
+  ["hoje", "Hoje"],
+  ["semana", "Essa semana"],
+  ["chamada", "Próxima chamada"],
+  ["presencial", "Quando se ver"],
+];
+const FETISH_TAGS = [
+  ["provocacao", "Provocação"],
+  ["dominacao_leve", "Dominação leve"],
+  ["submissao_leve", "Submissão leve"],
+  ["oral", "Oral"],
+  ["anal", "Anal"],
+  ["fantasia", "Fantasia"],
+  ["chamada", "Brincadeira por chamada"],
+  ["presencial", "Quando se ver"],
+];
+const FETISH_STATUSES = [
+  ["curto", "Curto"],
+  ["testar", "Quero testar"],
+  ["talvez", "Talvez"],
+  ["nao", "Não rola"],
+];
+function pairLabel(list, key) {
+  return list.find(([k]) => k === key)?.[1] || key;
+}
 function meuCheckin() { return coupleCheckins.find((c) => c.user_id === authUser?.id); }
 function checkinDe(uid) { return coupleCheckins.find((c) => c.user_id === uid); }
 // Limite de HOJE: se a pessoa marcou um limite do dia, vale ele; senão, o fixo.
@@ -3924,6 +4069,11 @@ async function loadNosData() {
       loadCoupleSurprises(state.couple.id),
       loadTelegramEvents(state.couple.id),
     ]);
+    const extras = await Promise.all([
+      loadSecretMissions(state.couple.id),
+      loadCoupleDesires(state.couple.id),
+      loadFetishPrefs(state.couple.id),
+    ]).catch(() => null);
     nosRewards = r;
     nosClaims = c;
     couplePrefs = p;
@@ -3932,8 +4082,13 @@ async function loadNosData() {
     coupleCheckins = ci;
     coupleSurprises = su;
     coupleTgEvents = tg;
+    secretMissions = extras ? extras[0] : [];
+    coupleDesires = extras ? extras[1] : [];
+    fetishPrefs = extras ? extras[2] : [];
+    nosExtrasReady = Boolean(extras);
   } catch {
     nosRewards = []; nosClaims = []; couplePrefs = []; coupleChallenges = []; coupleLedger = []; coupleCheckins = []; coupleSurprises = []; coupleTgEvents = [];
+    secretMissions = []; coupleDesires = []; fetishPrefs = []; nosExtrasReady = false;
   }
   // Recomeço único do zero: o extrato herdou lançamentos fantasma do bug antigo
   // de duplicação. Marca UMA linha de baseline (source fixo = anti-dup não repete);
@@ -4309,6 +4464,133 @@ function nosSurpresasHtml() {
     </details>`;
 }
 
+function extrasMigrationNotice() {
+  return nosExtrasReady ? "" : `<div class="empty">Novos recursos íntimos aguardando a migração <strong>29 - missoes-desejos-e-fetiches.sql</strong> no Supabase.</div>`;
+}
+
+function secretMissionCard(m) {
+  const mine = m.created_by === authUser?.id;
+  const status = m.status || "criada";
+  const parc = parceiroTelegram();
+  const link = tgLink(parc.contato);
+  const actions = [];
+  if (mine && status === "criada") actions.push(`<button type="button" data-secret-status="${m.id}:enviada">📤 Enviei</button>`);
+  if (!mine && status === "enviada") actions.push(`<button type="button" data-secret-status="${m.id}:recebida">📥 Recebi</button>`);
+  if (!mine && (status === "recebida" || status === "adaptar")) actions.push(`<button type="button" data-secret-status="${m.id}:cumprida">✅ Cumpri</button>`);
+  if (!mine && status !== "cumprida" && status !== "recusada") actions.push(`<button type="button" data-secret-status="${m.id}:adaptar">Adaptar</button><button type="button" data-secret-status="${m.id}:recusada">Agora não</button>`);
+  if (mine || status === "recusada") actions.push(`<button type="button" data-secret-del="${m.id}">${icon("trash")}</button>`);
+  return `
+    <article class="secret-card st-${esc(status)}">
+      <div>
+        <span class="nos-kind">${esc(pairLabel(SECRET_MISSION_KINDS, m.kind))} · ${NIVEL_LABEL[m.intensity] || `Nível ${m.intensity}`}</span>
+        <strong>${esc(m.title)}</strong>
+        <small>${mine ? "você enviou" : `${esc(nomeMembro(m.created_by))} enviou`} · ${esc(pairLabel(SECRET_DUES, m.due))} · ${esc(status)}</small>
+      </div>
+      <div class="mini-actions">
+        ${link ? `<a class="recado-mini" href="${esc(link)}" target="_blank" rel="noopener">Telegram</a>` : ""}
+        ${actions.join("")}
+      </div>
+    </article>`;
+}
+
+function nosMissoesSecretasHtml() {
+  return `
+    <details class="nos-panel">
+      <summary><span>🔥 Missões secretas</span><small>${secretMissions.length} ativas · Telegram integrado</small></summary>
+      ${extrasMigrationNotice()}
+      <details class="nos-criar">
+        <summary>＋ Criar missão</summary>
+        <form id="secret-mission-form" class="form-grid" style="margin-top:12px">
+          <div class="field full"><label>Missão</label><textarea name="title" rows="2" placeholder="Ex.: me manda uma pista de uma vontade sua..." required></textarea></div>
+          <div class="field"><label>Tipo</label><select name="kind">${SECRET_MISSION_KINDS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select></div>
+          <div class="field"><label>Prazo</label><select name="due">${SECRET_DUES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select></div>
+          <div class="field full"><label>Intensidade</label><select name="intensity">${NIVEIS.map((n) => `<option value="${n.n}">${n.emoji} ${esc(n.nome)}</option>`).join("")}</select></div>
+          <div class="actions field full"><button class="btn" type="submit">${icon("add")} Criar missão</button></div>
+        </form>
+      </details>
+      ${secretMissions.length ? `<section class="secret-list">${secretMissions.slice(0, 8).map(secretMissionCard).join("")}</section>` : `<div class="empty">Nenhuma missão secreta ainda.</div>`}
+    </details>`;
+}
+
+function desireCard(d) {
+  const mine = d.created_by === authUser?.id;
+  const visible = mine || d.revealed;
+  const waiting = d.reveal_requested_by && d.reveal_requested_by === authUser?.id && !d.revealed;
+  return `
+    <article class="desire-card ${d.revealed ? "revealed" : ""}">
+      <div>
+        <span class="nos-kind">${esc(pairLabel(SECRET_MISSION_KINDS, d.category))} · ${NIVEL_LABEL[d.intensity] || `Nível ${d.intensity}`}</span>
+        <strong>${visible ? esc(d.body) : "Desejo guardado 🔒"}</strong>
+        <small>${mine ? "seu desejo" : `de ${esc(nomeMembro(d.created_by))}`} · ${d.revealed ? "revelado" : waiting ? "você pediu pra revelar" : "fechado"}</small>
+      </div>
+      <div class="mini-actions">
+        ${!d.revealed ? `<button type="button" data-desire-reveal="${d.id}">${waiting ? "Aguardando" : "Revelar"}</button>` : ""}
+        ${mine ? `<button type="button" data-desire-del="${d.id}">${icon("trash")}</button>` : ""}
+      </div>
+    </article>`;
+}
+
+function nosCofrinhoHtml() {
+  return `
+    <details class="nos-panel">
+      <summary><span>🔒 Cofrinho safado</span><small>${coupleDesires.length} desejos guardados</small></summary>
+      ${extrasMigrationNotice()}
+      <details class="nos-criar">
+        <summary>＋ Guardar desejo</summary>
+        <form id="desire-form" class="form-grid" style="margin-top:12px">
+          <div class="field full"><label>Desejo privado</label><textarea name="body" rows="2" placeholder="Escreve algo que você quer revelar quando os dois toparem..." required></textarea></div>
+          <div class="field"><label>Categoria</label><select name="category">${SECRET_MISSION_KINDS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select></div>
+          <div class="field"><label>Intensidade</label><select name="intensity">${NIVEIS.map((n) => `<option value="${n.n}">${n.emoji} ${esc(n.nome)}</option>`).join("")}</select></div>
+          <div class="actions field full"><button class="btn" type="submit">${icon("add")} Guardar</button></div>
+        </form>
+      </details>
+      ${coupleDesires.length ? `<section class="secret-list">${coupleDesires.slice(0, 10).map(desireCard).join("")}</section>` : `<div class="empty">Cofrinho vazio por enquanto.</div>`}
+    </details>`;
+}
+
+function fetishPref(tag, uid) {
+  return fetishPrefs.find((p) => p.tag === tag && p.user_id === uid)?.status || "";
+}
+function nosFetichesHtml() {
+  const partner = coupleMembers.find((m) => m.user_id !== authUser?.id);
+  const comuns = FETISH_TAGS.filter(([tag]) => {
+    const a = fetishPref(tag, authUser?.id);
+    const b = partner ? fetishPref(tag, partner.user_id) : "";
+    return ["curto", "testar"].includes(a) && ["curto", "testar"].includes(b);
+  });
+  return `
+    <details class="nos-panel">
+      <summary><span>🧭 Tags de desejo</span><small>${comuns.length} combinam nos dois</small></summary>
+      ${extrasMigrationNotice()}
+      <section class="fetish-grid">
+        ${FETISH_TAGS.map(([tag, label]) => {
+          const mine = fetishPref(tag, authUser?.id);
+          const other = partner ? fetishPref(tag, partner.user_id) : "";
+          return `<article class="fetish-card"><strong>${esc(label)}</strong><small>Você: ${esc(mine || "—")} · ${esc(nomeMembro(partner?.user_id))}: ${esc(other || "—")}</small><div class="feito-feedback-actions">${FETISH_STATUSES.map(([v, l]) => `<button class="${mine === v ? "on" : ""}" type="button" data-fetish-pref="${tag}:${v}">${esc(l)}</button>`).join("")}</div></article>`;
+        }).join("")}
+      </section>
+    </details>`;
+}
+
+function nosRoletaSafadaHtml() {
+  const partner = coupleMembers.find((m) => m.user_id !== authUser?.id);
+  const comuns = FETISH_TAGS.filter(([tag]) => {
+    const a = fetishPref(tag, authUser?.id);
+    const b = partner ? fetishPref(tag, partner.user_id) : "";
+    return ["curto", "testar"].includes(a) && ["curto", "testar"].includes(b);
+  });
+  const base = comuns.length ? comuns : FETISH_TAGS.slice(0, 3);
+  const seed = hojeISO().split("").reduce((s, c) => s + c.charCodeAt(0), desafioIdx);
+  const picked = base[seed % base.length];
+  return `
+    <section class="desafio-card nivel-${Math.min(3, intensidadePermitidaHoje())}">
+      <span class="desafio-nivel">Roleta safada por clima</span>
+      <strong>${esc(picked?.[1] || "Provocação")}</strong>
+      <p class="desafio-desc">Use isso como tema para criar uma missão secreta ou um vale. Só aparece a partir do que vocês marcaram como permitido.</p>
+      <div class="actions" style="margin-top:14px"><button class="btn ghost" type="button" data-desafio-outro>Sortear outro clima</button></div>
+    </section>`;
+}
+
 // ---------- Fase 6: Telegram (conteúdo íntimo fora do app) ----------
 const TG_KIND = { sent: "📤 enviei", received: "📥 recebi", done: "✅ concluímos" };
 // Monta o link do Telegram a partir de número (com DDI), @usuário ou link pronto.
@@ -4489,6 +4771,10 @@ function nosSection() {
     </section>
 
     ${nosValesHtml()}
+    ${nosRoletaSafadaHtml()}
+    ${nosMissoesSecretasHtml()}
+    ${nosCofrinhoHtml()}
+    ${nosFetichesHtml()}
     ${nosSurpresasHtml()}
     ${nosProgressaoHtml()}
     ${nosConquistasHtml()}
@@ -5958,6 +6244,13 @@ function bindShell() {
   document.querySelectorAll("[data-mission]").forEach((b) => listen(b, "click", () => handleMissionClaim(b.dataset.mission)));
   listen(document.querySelector("#nos-surpresa-form"), "submit", handleSurpresaCreate);
   document.querySelectorAll("[data-surp-del]").forEach((b) => listen(b, "click", () => handleSurpresaDel(b.dataset.surpDel)));
+  listen(document.querySelector("#secret-mission-form"), "submit", handleSecretMissionCreate);
+  document.querySelectorAll("[data-secret-status]").forEach((b) => listen(b, "click", () => handleSecretMissionStatus(b.dataset.secretStatus)));
+  document.querySelectorAll("[data-secret-del]").forEach((b) => listen(b, "click", () => handleSecretMissionDelete(b.dataset.secretDel)));
+  listen(document.querySelector("#desire-form"), "submit", handleDesireCreate);
+  document.querySelectorAll("[data-desire-reveal]").forEach((b) => listen(b, "click", () => handleDesireReveal(b.dataset.desireReveal)));
+  document.querySelectorAll("[data-desire-del]").forEach((b) => listen(b, "click", () => handleDesireDelete(b.dataset.desireDel)));
+  document.querySelectorAll("[data-fetish-pref]").forEach((b) => listen(b, "click", () => handleFetishPref(b.dataset.fetishPref)));
   document.querySelectorAll("[data-tg-event]").forEach((b) => listen(b, "click", () => handleTgEvent(b.dataset.tgEvent)));
   document.querySelectorAll("[data-tg-del]").forEach((b) => listen(b, "click", () => handleTgDel(b.dataset.tgDel)));
   document.querySelectorAll("[data-extrato-open]").forEach((b) => listen(b, "click", () => { extratoOpen = true; render(); }));

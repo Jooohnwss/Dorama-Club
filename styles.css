@@ -1905,6 +1905,62 @@ textarea:focus {
 .surpresa p { margin: 6px 0 4px; font-size: 0.9rem; white-space: pre-wrap; }
 .surpresa small { display: block; color: var(--cor-texto-suave); font-weight: 700; }
 
+.secret-list,
+.fetish-grid {
+  display: grid;
+  gap: 10px;
+}
+.secret-card,
+.desire-card,
+.fetish-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+}
+.secret-card.st-cumprida,
+.desire-card.revealed {
+  border-color: color-mix(in srgb, var(--cor-primaria) 45%, var(--cor-borda));
+  background: color-mix(in srgb, var(--cor-primaria) 10%, var(--cor-superficie));
+}
+.secret-card.st-recusada {
+  opacity: 0.68;
+}
+.secret-card > div:first-child,
+.desire-card > div:first-child,
+.fetish-card > div:first-child {
+  min-width: 0;
+}
+.secret-card strong,
+.desire-card strong,
+.fetish-card strong {
+  display: block;
+  margin: 3px 0;
+  line-height: 1.25;
+}
+.secret-card small,
+.desire-card small,
+.fetish-card small {
+  color: var(--cor-texto-suave);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.fetish-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+.fetish-card {
+  flex-direction: column;
+}
+.fetish-card .feito-feedback-actions button.on {
+  border-color: transparent;
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+}
+
 /* Modo saudade (Fase 5) */
 .saudade-box {
   padding: 14px; border-radius: 18px;
