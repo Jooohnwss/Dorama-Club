@@ -3466,6 +3466,23 @@ function desafioRotuloAcao(key) {
 function desafioPontuado(key, dia) {
   return coupleLedger.some((l) => l.source_type === "challenge" && l.source_id === `${key}:${dia}` && Number(l.points) > 0);
 }
+const CHALLENGE_FEEDBACKS = [
+  ["amei", "Amei"],
+  ["repetir", "Quero repetir"],
+  ["adaptar", "Prefiro adaptar"],
+  ["nao", "Não de novo"],
+];
+function feedbacksDesafio(key, dia) {
+  const prefix = `${key}:${dia}:`;
+  return coupleLedger.filter((l) => l.source_type === "challenge_feedback" && String(l.source_id || "").startsWith(prefix));
+}
+function meuFeedbackDesafio(key, dia) {
+  const prefix = `${key}:${dia}:${authUser?.id}:`;
+  return coupleLedger.find((l) => l.source_type === "challenge_feedback" && String(l.source_id || "").startsWith(prefix));
+}
+function feedbackLabel(value) {
+  return CHALLENGE_FEEDBACKS.find(([v]) => v === value)?.[1] || value;
+}
 async function handleDesafioDone(raw) {
   if (!state.couple) return;
   const [key, nivel] = String(raw).split(":");
@@ -3498,6 +3515,22 @@ async function handleDesafioDone(raw) {
       toast(recebendo ? "Recebido! Esperando atualizar 💞" : "Desafio enviado! Esperando a outra pessoa receber 💞");
     }
   } catch { toast("Não consegui registrar."); }
+}
+
+async function handleChallengeFeedback(raw) {
+  if (!state.couple || !authUser) return;
+  const [key, dia, value] = String(raw).split(":");
+  if (!key || !dia || !value) return;
+  if (!desafioPontuado(key, dia)) { toast("O desafio precisa estar concluído primeiro."); return; }
+  if (meuFeedbackDesafio(key, dia)) { toast("Você já marcou seu check-in desse desafio."); return; }
+  try {
+    await ganharPontos(0, `check-in do desafio: ${feedbackLabel(value)}`, "challenge_feedback", `${key}:${dia}:${authUser.id}:${value}`);
+    coupleLedger = await loadPointsLedger(state.couple.id);
+    render();
+    toast("Check-in guardado 💞");
+  } catch {
+    toast("Não consegui guardar o check-in.");
+  }
 }
 
 // Desfazer um desafio: tira as confirmações dos dois e estorna os pontos (se já tinham sido dados).
@@ -4052,15 +4085,27 @@ function nosFeitosHtml() {
   for (const c of coupleChallenges) {
     const dia = isoDia(c.created_at);
     const k = `${c.challenge_key}:${dia}`;
-    if (!idx.has(k)) { idx.set(k, { key: c.challenge_key, dia, intensity: c.intensity || 1, created_at: c.created_at, ids: [], users: new Set() }); grupos.push(idx.get(k)); }
-    const g = idx.get(k); g.ids.push(c.id); g.users.add(c.done_by);
+    if (!idx.has(k)) { idx.set(k, { key: c.challenge_key, dia, intensity: c.intensity || 1, created_at: c.created_at, ids: [], users: new Set(), logs: [] }); grupos.push(idx.get(k)); }
+    const g = idx.get(k); g.ids.push(c.id); g.users.add(c.done_by); g.logs.push(c);
   }
   const itens = grupos.slice(0, 5).map((g) => {
     const cat = DESAFIOS_CAT.find((d) => d.key === g.key);
     const nome = cat ? cat.nome : (g.key || "desafio");
     const ambos = coupleMembers.length < 2 ? g.users.size >= 1 : coupleMembers.every((m) => g.users.has(m.user_id));
-    const status = ambos ? "✓ enviado + recebido" : `⏳ ${g.users.size}/2 · falta receber`;
-    return `<div class="feito-item"><small>${esc(nome)} · ${status} · ${esc(timeAgo(g.created_at))}</small><button class="recado-mini" type="button" data-undo-challenge="${g.ids.join(",")}:${g.intensity}:${g.key}:${g.dia}">Desfazer</button></div>`;
+    const logs = g.logs.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    const enviou = logs[0]?.done_by;
+    const recebeu = logs.find((l) => l.done_by !== enviou)?.done_by;
+    const parceiro = coupleMembers.find((m) => m.user_id !== enviou)?.user_id;
+    const fluxo = ambos
+      ? `${esc(nomeMembro(enviou))} desafiou → ${esc(nomeMembro(recebeu || parceiro))} recebeu`
+      : `${esc(nomeMembro(enviou))} desafiou → falta ${esc(nomeMembro(parceiro || ""))} receber`;
+    const meusFb = meuFeedbackDesafio(g.key, g.dia);
+    const fbs = feedbacksDesafio(g.key, g.dia);
+    const fbTxt = fbs.length ? `<small class="feito-feedback">${fbs.map((f) => `${esc(nomeMembro(String(f.source_id).split(":")[2]))}: ${esc(feedbackLabel(String(f.source_id).split(":")[3] || ""))}`).join(" · ")}</small>` : "";
+    const fbBtns = ambos && !meusFb
+      ? `<div class="feito-feedback-actions">${CHALLENGE_FEEDBACKS.map(([v, label]) => `<button type="button" data-challenge-feedback="${g.key}:${g.dia}:${v}">${esc(label)}</button>`).join("")}</div>`
+      : "";
+    return `<div class="feito-item"><div><small><strong>${esc(nome)}</strong> · ${fluxo} · ${esc(timeAgo(g.created_at))}</small>${fbTxt}${fbBtns}</div><button class="recado-mini" type="button" data-undo-challenge="${g.ids.join(",")}:${g.intensity}:${g.key}:${g.dia}">Desfazer</button></div>`;
   }).join("");
   return `<section class="nos-feitos"><span class="muted" style="font-weight:800;font-size:.78rem">Desafios recentes</span>${itens}</section>`;
 }
@@ -5923,6 +5968,7 @@ function bindShell() {
   document.querySelectorAll("[data-desafios-close]").forEach((b) => listen(b, "click", () => { desafiosOpen = false; render(); }));
   document.querySelectorAll("[data-set-intensity]").forEach((b) => listen(b, "click", () => handleSetIntensity(b.dataset.setIntensity)));
   document.querySelectorAll("[data-desafio-done]").forEach((b) => listen(b, "click", () => handleDesafioDone(b.dataset.desafioDone)));
+  document.querySelectorAll("[data-challenge-feedback]").forEach((b) => listen(b, "click", () => handleChallengeFeedback(b.dataset.challengeFeedback)));
   listen(document.querySelector("[data-desafio-outro]"), "click", handleDesafioOutro);
   listen(document.querySelector("[data-adulto18]"), "click", () => handleAdulto18(true));
   listen(document.querySelector("[data-adulto18-off]"), "click", () => handleAdulto18(false));

@@ -1724,11 +1724,34 @@ textarea:focus {
 }
 .feito-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
 }
 .feito-item small { color: var(--cor-texto-suave); }
+.feito-item small strong { color: var(--cor-texto); }
+.feito-feedback {
+  display: block;
+  margin-top: 4px;
+}
+.feito-feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.feito-feedback-actions button {
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie-2);
+  color: var(--cor-texto);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.feito-feedback-actions button:hover {
+  border-color: color-mix(in srgb, var(--cor-primaria) 45%, var(--cor-borda));
+}
 .nos-presets {
   display: flex;
   flex-wrap: wrap;
