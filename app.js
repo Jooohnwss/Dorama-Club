@@ -3678,14 +3678,14 @@ async function handleNosDeleteClaim(id) {
 
 // ---------- "Nós 🔥": loja privada de recompensas ----------
 const NOS_PRESETS = [
-  { title: "Vale um áudio fofo 🎙️", kind: "fofo", cost: 10 },
-  { title: "Vale uma chamada até dormir 🌙", kind: "fofo", cost: 20 },
-  { title: "Vale escolher o próximo dorama 🎬", kind: "fofo", cost: 8 },
-  { title: "Vale uma carta escrita à mão 💌", kind: "fofo", cost: 25 },
-  { title: "Vale um date virtual (assistir junto) 🍿", kind: "fofo", cost: 15 },
-  { title: "Vale uma selfie sua agora 🤳", kind: "picante", cost: 15 },
-  { title: "Vale uma foto especial 🔥", kind: "picante", cost: 30 },
-  { title: "Vale uma surpresa sua 😏", kind: "picante", cost: 25 },
+  { title: "Vale áudio de boa noite 🎙️", kind: "fofo", cost: 10 },
+  { title: "Vale chamada sem pressa 🌙", kind: "fofo", cost: 20 },
+  { title: "Vale escolher o date virtual 🎬", kind: "fofo", cost: 12 },
+  { title: "Vale cartinha surpresa 💌", kind: "fofo", cost: 25 },
+  { title: "Vale assistir juntinhos 🍿", kind: "fofo", cost: 15 },
+  { title: "Vale provocação por mensagem 😏", kind: "picante", cost: 20 },
+  { title: "Vale pedido seu 🔥", kind: "picante", cost: 35 },
+  { title: "Vale guardar pra quando se verem 🔒", kind: "picante", cost: 45 },
 ];
 
 // Saldo e pontos vêm do EXTRATO (ledger), não de cálculo solto.
@@ -4146,11 +4146,12 @@ function nosValesHtml() {
   const picantes = nosRewards.filter((r) => r.kind === "picante");
   const claimsHtml = nosClaims.length ? nosClaims.map(nosClaimCard).join("") : "";
   return `
-    <div class="section-title"><h2>🎟️ Loja de vales</h2><span class="muted" style="font-size:.8rem">o melhor daqui 😏</span></div>
+    <details class="nos-panel">
+      <summary><span>🎟️ Loja de vales</span><small>${nosRewards.length} criados · ${nosClaims.length} resgatados</small></summary>
     <details class="nos-criar">
       <summary>＋ Criar um vale</summary>
       <form id="nos-create-form" class="form-grid" style="margin-top:12px">
-        <div class="field full"><label>O que vale?</label><input name="title" placeholder="Vale um nude, vale uma massagem…" required /></div>
+        <div class="field full"><label>O que vale?</label><input name="title" placeholder="Vale chamada, mensagem, pedido combinado…" required /></div>
         <div class="field"><label>Categoria</label><select name="kind"><option value="fofo">💕 Fofo</option><option value="picante">🔥 Picante</option></select></div>
         <div class="field"><label>Custo (pontos)</label><input name="cost" type="number" min="1" value="15" /></div>
         <div class="actions field full"><button class="btn" type="submit">${icon("add")} Criar vale</button></div>
@@ -4162,7 +4163,8 @@ function nosValesHtml() {
     ${fofos.length ? `<section class="nos-grid">${fofos.map(nosRewardCard).join("")}</section>` : `<div class="empty">Criem o primeiro vale fofo 💕</div>`}
     <div class="vales-head">🔥 Picantes</div>
     ${picantes.length ? `<section class="nos-grid">${picantes.map(nosRewardCard).join("")}</section>` : `<div class="empty">Criem o primeiro vale picante 😏</div>`}
-    ${claimsHtml ? `<div class="vales-head">📋 Resgatados</div><section class="nos-claims">${claimsHtml}</section>` : ""}`;
+    ${claimsHtml ? `<div class="vales-head">📋 Resgatados</div><section class="nos-claims">${claimsHtml}</section>` : ""}
+    </details>`;
 }
 
 // ---------- Fase 4: conquistas (derivadas do extrato) ----------
@@ -4225,7 +4227,8 @@ function nosSurpresasHtml() {
   const abertas = coupleSurprises.filter((s) => s.reveal_date <= hojeStr).reverse();
   const minDate = hojeStr;
   return `
-    <div class="section-title compact"><h2>🎁 Surpresas</h2><span class="muted" style="font-size:.8rem">abrem na data 🤫</span></div>
+    <details class="nos-panel">
+      <summary><span>🎁 Surpresas à distância</span><small>${fechadas.length} fechadas · ${abertas.length} abertas</small></summary>
     <details class="nos-criar">
       <summary>＋ Guardar uma surpresa</summary>
       <p class="muted" style="margin:10px 0;font-size:.82rem">Um recadinho que só revela no dia marcado. Fica escondido até lá — só texto, sem mídia.</p>
@@ -4238,7 +4241,8 @@ function nosSurpresasHtml() {
     </details>
     ${fechadas.length ? `<section class="surpresas">${fechadas.map(surpresaCard).join("")}</section>` : ""}
     ${abertas.length ? `<div class="vales-head" style="font-size:.82rem">💝 Já reveladas</div><section class="surpresas">${abertas.map(surpresaCard).join("")}</section>` : ""}
-    ${!coupleSurprises.length ? `<div class="empty">Nenhuma surpresa guardada ainda. Que tal a primeira? 💝</div>` : ""}`;
+    ${!coupleSurprises.length ? `<div class="empty">Nenhuma surpresa guardada ainda. Que tal a primeira? 💝</div>` : ""}
+    </details>`;
 }
 
 // ---------- Fase 6: Telegram (conteúdo íntimo fora do app) ----------
@@ -4268,6 +4272,8 @@ function nosTelegramHtml() {
   const eventos = coupleTgEvents.slice(0, 4);
   const planeIco = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M21.7 3.3 2.9 10.6c-.9.4-.9 1.6 0 1.9l4.6 1.5 1.8 5.4c.3.8 1.3 1 1.9.4l2.5-2.4 4.6 3.4c.6.5 1.5.2 1.7-.6l3.3-15.5c.2-.9-.7-1.7-1.6-1.4ZM9.7 13.7l9-7.4-7.5 8.3v3.1l-1.5-4Z"/></svg>`;
   return `
+    <details class="nos-panel">
+      <summary><span>✈️ Telegram privado</span><small>registrar envio e conclusão</small></summary>
     <section class="tg-box">
       <div class="tg-top">
         <span class="tg-logo">${planeIco}</span>
@@ -4282,14 +4288,16 @@ function nosTelegramHtml() {
         <button class="tg-chip done" type="button" data-tg-event="done">✅ Concluímos <b>+${PONTOS.telegram}</b></button>
       </div>
       ${eventos.length ? `<div class="tg-events">${eventos.map((e) => `<div class="tg-event"><small>${TG_KIND[e.kind] || esc(e.kind)} · ${esc(nomeMembro(e.user_id))} · ${esc(timeAgo(e.created_at))}</small><button class="recado-mini" type="button" data-tg-del="${e.id}:${esc(e.kind)}">${icon("trash")}</button></div>`).join("")}</div>` : ""}
-    </section>`;
+    </section>
+    </details>`;
 }
 
 function nosConquistasHtml() {
   const lista = nosConquistas();
   const feitas = lista.filter((c) => c.cur >= c.alvo).length;
   return `
-    <div class="section-title compact"><h2>🏅 Conquistas</h2><span class="muted" style="font-size:.8rem">${feitas}/${lista.length}</span></div>
+    <details class="nos-panel">
+      <summary><span>🏅 Conquistas</span><small>${feitas}/${lista.length} liberadas</small></summary>
     <section class="conquistas">
       ${lista.map((c) => {
         const ok = c.cur >= c.alvo;
@@ -4301,7 +4309,8 @@ function nosConquistasHtml() {
           ${ok ? `<span class="conq-badge">conquistado!</span>` : `<div class="conq-bar"><i style="width:${pct}%"></i></div><span class="conq-pct">${c.cur}/${c.alvo}</span>`}
         </article>`;
       }).join("")}
-    </section>`;
+    </section>
+    </details>`;
 }
 
 // Bloco de um nível (catálogo desbloqueável). Reusado inline e no popup.
@@ -4336,16 +4345,23 @@ function nosNivelBloco(niv) {
 function nosProgressaoHtml() {
   const acumulados = nosPontosAcumulados();
   const liberados = NIVEIS.filter((niv) => acumulados >= niv.req && !(niv.n >= 4 && !adulto18Ok()));
-  const inline = liberados.length ? liberados : [NIVEIS[0]];
-  const restantes = NIVEIS.length - inline.length;
+  const atual = liberados.length ? liberados[liberados.length - 1] : NIVEIS[0];
+  const restantes = NIVEIS.length - liberados.length;
   return `
-    <div class="section-title compact"><h2>🏆 Evolução & desafios</h2><span class="muted" style="font-size:.8rem">desbloqueiem com pontos</span></div>
-    ${inline.map(nosNivelBloco).join("")}
+    <details class="nos-panel">
+      <summary><span>🏆 Níveis & desafios</span><small>Nível ${atual.n} · ${restantes > 0 ? `${restantes} bloqueados` : "todos liberados"}</small></summary>
+    <div class="nos-level-rail">
+      ${NIVEIS.map((niv) => {
+        const ok = acumulados >= niv.req && !(niv.n >= 4 && !adulto18Ok());
+        return `<span class="${ok ? "on" : ""}">${niv.emoji}<b>${niv.n}</b><small>${esc(niv.nome)}</small></span>`;
+      }).join("")}
+    </div>
     <button class="nos-tile" type="button" data-desafios-open>
       <span class="tile-ico">🗺️</span>
       <span class="tile-main"><strong>Todos os níveis</strong><small>${restantes > 0 ? `+${restantes} nível${restantes > 1 ? "is" : ""} pra desbloquear` : "ver os 6 níveis"}</small></span>
       <span class="tile-go">›</span>
-    </button>`;
+    </button>
+    </details>`;
 }
 function desafiosModalTemplate() {
   if (!desafiosOpen) return "";
@@ -4391,15 +4407,18 @@ function nosSection() {
     <div class="section-title"><h2>🔥 Nós</h2><span class="muted" style="font-size:.8rem">só de vocês dois</span></div>
     ${nosHeroHtml()}
 
+    <section class="nos-daily-grid">
+      <div class="nos-stack">
+        ${desafioHtml}
+        ${nosFeitosHtml()}
+        ${nosMissoesResumoHtml()}
+      </div>
+      <div class="nos-stack">
+        ${nosClimaHtml()}
+      </div>
+    </section>
+
     ${nosValesHtml()}
-
-    ${desafioHtml}
-    ${nosFeitosHtml()}
-
-    ${nosClimaHtml()}
-
-    ${nosMissoesResumoHtml()}
-
     ${nosSurpresasHtml()}
     ${nosProgressaoHtml()}
     ${nosConquistasHtml()}

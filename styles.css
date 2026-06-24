@@ -1525,6 +1525,104 @@ textarea:focus {
 .nos-hero-bar i { display: block; height: 100%; border-radius: 999px; background: #fff; }
 .nos-hero-sub { display: block; margin-top: 6px; font-size: 0.76rem; opacity: 0.9; font-weight: 700; }
 
+.nos-daily-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+.nos-stack {
+  min-width: 0;
+}
+.nos-stack > .section-title:first-child,
+.nos-stack > .section-title.compact:first-child {
+  margin-top: 0;
+}
+.nos-panel {
+  margin: 0 0 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--cor-superficie) 88%, transparent);
+  overflow: hidden;
+}
+.nos-panel > summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 900;
+}
+.nos-panel > summary::-webkit-details-marker {
+  display: none;
+}
+.nos-panel > summary::after {
+  content: "›";
+  color: var(--cor-texto-suave);
+  font-size: 1.25rem;
+  transform: rotate(90deg);
+  transition: transform 0.16s ease;
+}
+.nos-panel[open] > summary::after {
+  transform: rotate(-90deg);
+}
+.nos-panel > summary span {
+  min-width: 0;
+}
+.nos-panel > summary small {
+  margin-left: auto;
+  color: var(--cor-texto-suave);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-align: right;
+}
+.nos-panel > :not(summary) {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+.nos-panel > :last-child {
+  margin-bottom: 16px;
+}
+.nos-level-rail {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.nos-level-rail span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 10px 6px;
+  border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie-2);
+  color: var(--cor-texto-suave);
+  text-align: center;
+  font-weight: 800;
+}
+.nos-level-rail span.on {
+  color: var(--cor-texto);
+  border-color: color-mix(in srgb, var(--cor-primaria) 40%, var(--cor-borda));
+  background: color-mix(in srgb, var(--cor-primaria) 12%, var(--cor-superficie));
+}
+.nos-level-rail b {
+  font-size: 0.84rem;
+}
+.nos-level-rail small {
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Tile compacto (missões -> popup) */
 .nos-tile {
   width: 100%; display: flex; align-items: center; gap: 12px;
@@ -3754,6 +3852,31 @@ textarea:focus {
 
   .couple-dash-card.featured {
     grid-column: auto;
+  }
+
+  .nos-daily-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nos-panel > summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+    padding-right: 42px;
+  }
+
+  .nos-panel > summary small {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .nos-panel > summary::after {
+    position: absolute;
+    right: 16px;
+  }
+
+  .nos-level-rail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   /* No celular a sidebar vira barra inferior: o alternador não cabe lá.
