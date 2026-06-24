@@ -1908,10 +1908,13 @@ textarea:focus {
   gap: 8px;
   margin-bottom: 14px;
 }
-.bingo-grid.size-3 { grid-template-columns: repeat(3, 1fr); }
-.bingo-grid.size-4 { grid-template-columns: repeat(4, 1fr); }
+/* minmax(0, 1fr): deixa a coluna encolher abaixo da palavra mais longa, senão
+   palavras como "interrompido" esticavam a grade pra fora da tela (só na Diversão). */
+.bingo-grid.size-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bingo-grid.size-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .bingo-cell {
   aspect-ratio: 1 / 1;
+  min-width: 0;
   display: grid;
   place-items: center;
   padding: 8px;
@@ -1923,6 +1926,9 @@ textarea:focus {
   font-size: 0.74rem;
   line-height: 1.15;
   text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
 }
 .bingo-cell.on {
   background: var(--cor-primaria);
