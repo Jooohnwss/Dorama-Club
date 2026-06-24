@@ -3441,10 +3441,27 @@ function confsDesafioHoje(key) {
 function euConfirmei(key) {
   return confsDesafioHoje(key).some((c) => c.done_by === authUser?.id);
 }
+function outroConfirmou(key) {
+  return confsDesafioHoje(key).some((c) => c.done_by !== authUser?.id);
+}
 function ambosConfirmaram(key) {
   const users = new Set(confsDesafioHoje(key).map((c) => c.done_by));
   if (coupleMembers.length < 2) return users.size >= 1; // testando sozinho(a)
   return coupleMembers.every((m) => users.has(m.user_id));
+}
+function desafioEstado(key) {
+  return {
+    eu: euConfirmei(key),
+    outro: outroConfirmou(key),
+    ambos: ambosConfirmaram(key),
+  };
+}
+function desafioRotuloAcao(key) {
+  const st = desafioEstado(key);
+  if (st.ambos) return "✓ concluído 💞";
+  if (st.eu) return "📤 enviado · falta receber";
+  if (st.outro) return "📥 Recebi";
+  return "📤 Desafiar";
 }
 function desafioPontuado(key, dia) {
   return coupleLedger.some((l) => l.source_type === "challenge" && l.source_id === `${key}:${dia}` && Number(l.points) > 0);
@@ -3456,10 +3473,12 @@ async function handleDesafioDone(raw) {
   const d = DESAFIOS_CAT.find((x) => x.key === key);
   const nome = d ? d.nome : "desafio";
   if (d && d.nivel > intensidadePermitida()) { toast("Fora do limite combinado dos dois."); return; }
-  if (euConfirmei(key)) { toast("Você já confirmou — falta a outra pessoa 💞"); return; }
+  const estadoAntes = desafioEstado(key);
+  const recebendo = estadoAntes.outro && !estadoAntes.eu;
+  if (estadoAntes.eu) { toast("Você já enviou — falta a outra pessoa marcar que recebeu 💞"); return; }
   // Aceite nos níveis íntimos.
   if (n >= 4) {
-    const ok = await confirmar(`Confirmar “${nome}”?`, { sub: "Vale quando os dois confirmarem. Pode recusar/remarcar sem perder pontos.", ok: "Confirmar 💞", cancel: "Agora não" });
+    const ok = await confirmar(recebendo ? `Marcar “${nome}” como recebido?` : `Enviar desafio “${nome}”?`, { sub: recebendo ? "Ao marcar recebido, o desafio fica concluído e pontua para vocês." : "A outra pessoa precisa marcar que recebeu para concluir e pontuar.", ok: recebendo ? "Recebi 💞" : "Enviei 📤", cancel: "Agora não" });
     if (!ok) return;
   }
   const pts = PONTOS.desafio[n] || 5;
@@ -3473,10 +3492,10 @@ async function handleDesafioDone(raw) {
       coupleLedger = await loadPointsLedger(state.couple.id);
       desafioIdx += 1;
       render();
-      toast(`Os dois confirmaram! +${pts} pts 🎯`);
+      toast(`Recebido e concluído! +${pts} pts 🎯`);
     } else {
       render();
-      toast("Confirmado! Esperando a outra pessoa 💞");
+      toast(recebendo ? "Recebido! Esperando atualizar 💞" : "Desafio enviado! Esperando a outra pessoa receber 💞");
     }
   } catch { toast("Não consegui registrar."); }
 }
@@ -4025,7 +4044,7 @@ function nosClimaHtml() {
     </section>`;
 }
 
-// Desafios recentes, agrupados por desafio+dia (mostra se os dois confirmaram).
+// Desafios recentes, agrupados por desafio+dia (enviado + recebido = concluido).
 function nosFeitosHtml() {
   if (!coupleChallenges.length) return "";
   const grupos = [];
@@ -4040,7 +4059,7 @@ function nosFeitosHtml() {
     const cat = DESAFIOS_CAT.find((d) => d.key === g.key);
     const nome = cat ? cat.nome : (g.key || "desafio");
     const ambos = coupleMembers.length < 2 ? g.users.size >= 1 : coupleMembers.every((m) => g.users.has(m.user_id));
-    const status = ambos ? "✓ os dois confirmaram" : `⏳ ${g.users.size}/2 · falta a outra pessoa`;
+    const status = ambos ? "✓ enviado + recebido" : `⏳ ${g.users.size}/2 · falta receber`;
     return `<div class="feito-item"><small>${esc(nome)} · ${status} · ${esc(timeAgo(g.created_at))}</small><button class="recado-mini" type="button" data-undo-challenge="${g.ids.join(",")}:${g.intensity}:${g.key}:${g.dia}">Desfazer</button></div>`;
   }).join("");
   return `<section class="nos-feitos"><span class="muted" style="font-weight:800;font-size:.78rem">Desafios recentes</span>${itens}</section>`;
@@ -4070,7 +4089,7 @@ const MISSOES_DIA = [
   { key: "ep", emoji: "🎬", nome: "Um episódio juntos", desc: "Avancem um episódio hoje", bonus: 3, feita: () => ledgerHoje("ep") >= 1 },
 ];
 const MISSOES_SEMANA = [
-  { key: "desafio", emoji: "🔥", nome: "Um desafio", desc: "Concluam um desafio nesta semana", bonus: 6, feita: () => ledgerSemana("challenge") >= 1 },
+  { key: "desafio", emoji: "🔥", nome: "Um desafio", desc: "Enviem e recebam um desafio nesta semana", bonus: 6, feita: () => ledgerSemana("challenge") >= 1 },
   { key: "memoria", emoji: "📸", nome: "Guardem uma memória", desc: "Uma página no diário", bonus: 4, feita: () => ledgerSemana("memory") >= 1 },
   { key: "quiz", emoji: "❓", nome: "Quiz do casal", desc: "Respondam o quiz da semana", bonus: 4, feita: () => ledgerSemana("quiz") >= 1 },
 ];
@@ -4334,10 +4353,9 @@ function nosNivelBloco(niv) {
       const podePagar = saldo >= d.custo && !noConsent;
       return `<div class="cat-desafio locked"><strong>🔒 ${esc(d.nome)}</strong><div class="cat-foot"><span class="nos-cost">${d.custo} pts</span><button class="btn ghost" type="button" data-unlock-desafio="${d.key}" ${podePagar ? "" : "disabled"}>${noConsent ? "fora do limite" : "Desbloquear"}</button></div></div>`;
     }
-    const jaEu = euConfirmei(d.key);
-    const ambos = ambosConfirmaram(d.key);
-    const rotulo = ambos ? "✓ os dois 💞" : jaEu ? "⏳ falta o outro" : "Concluímos 💞";
-    return `<div class="cat-desafio"><strong>${esc(d.nome)}</strong><small class="muted">${esc(d.desc)}</small><div class="cat-foot"><button class="btn" type="button" data-desafio-done="${d.key}:${d.nivel}" ${(noConsent || ambos || jaEu) ? "disabled" : ""}>${noConsent ? "fora do limite" : rotulo}</button></div></div>`;
+    const st = desafioEstado(d.key);
+    const rotulo = desafioRotuloAcao(d.key);
+    return `<div class="cat-desafio"><strong>${esc(d.nome)}</strong><small class="muted">${esc(d.desc)}</small><div class="cat-foot"><button class="btn" type="button" data-desafio-done="${d.key}:${d.nivel}" ${(noConsent || st.ambos || st.eu) ? "disabled" : ""}>${noConsent ? "fora do limite" : rotulo}</button></div></div>`;
   }).join("");
   return `<div class="prog-cat"><span class="prog-cat-head">${niv.emoji} ${esc(niv.nome)}</span><div class="cat-grid">${cards}</div></div>`;
 }
@@ -4386,12 +4404,15 @@ function nosSection() {
   const desafio = meu ? desafioDoDia() : null;
   let desafioAcao = "";
   if (desafio) {
-    if (ambosConfirmaram(desafio.key)) {
-      desafioAcao = `<div class="desafio-status ok">✓ Os dois confirmaram! 💞</div><button class="btn ghost" type="button" data-desafio-outro>Outro desafio</button>`;
-    } else if (euConfirmei(desafio.key)) {
-      desafioAcao = `<div class="desafio-status wait">⏳ Você confirmou — esperando a outra pessoa…</div><button class="btn ghost" type="button" data-desafio-outro>Trocar</button>`;
+    const st = desafioEstado(desafio.key);
+    if (st.ambos) {
+      desafioAcao = `<div class="desafio-status ok">✓ Recebido e concluído! 💞</div><button class="btn ghost" type="button" data-desafio-outro>Outro desafio</button>`;
+    } else if (st.eu) {
+      desafioAcao = `<div class="desafio-status wait">📤 Você enviou o desafio — esperando a outra pessoa marcar que recebeu…</div><button class="btn ghost" type="button" data-desafio-outro>Trocar</button>`;
+    } else if (st.outro) {
+      desafioAcao = `<button class="btn" type="button" data-desafio-done="${desafio.key}:${desafio.nivel}">📥 Recebi</button><button class="btn ghost" type="button" data-desafio-outro>Trocar</button>`;
     } else {
-      desafioAcao = `<button class="btn" type="button" data-desafio-done="${desafio.key}:${desafio.nivel}">Concluímos 💞</button><button class="btn ghost" type="button" data-desafio-outro>Trocar</button>`;
+      desafioAcao = `<button class="btn" type="button" data-desafio-done="${desafio.key}:${desafio.nivel}">📤 Desafiar</button><button class="btn ghost" type="button" data-desafio-outro>Trocar</button>`;
     }
   }
   const desafioHtml = `
