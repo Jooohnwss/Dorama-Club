@@ -94,6 +94,10 @@ button {
   min-height: 100vh;
 }
 
+.shell > * {
+  min-width: 0;
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -201,6 +205,11 @@ button {
   /* Blinda contra overflow horizontal de qualquer conteúdo (que deslocava a
      barra inferior fixa no celular). Linhas roláveis têm seu próprio scroll. */
   overflow-x: hidden;
+}
+
+.main > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .main-topbar {
