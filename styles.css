@@ -94,10 +94,6 @@ button {
   min-height: 100vh;
 }
 
-.shell > * {
-  min-width: 0;
-}
-
 .sidebar {
   position: sticky;
   top: 0;
@@ -205,11 +201,6 @@ button {
   /* Blinda contra overflow horizontal de qualquer conteúdo (que deslocava a
      barra inferior fixa no celular). Linhas roláveis têm seu próprio scroll. */
   overflow-x: hidden;
-}
-
-.main > * {
-  min-width: 0;
-  max-width: 100%;
 }
 
 .main-topbar {
@@ -1264,8 +1255,15 @@ textarea:focus {
   flex-wrap: wrap;
   gap: 8px;
 }
+.pet-pick-opt {
+  position: relative;
+}
 .pet-pick-opt input {
   position: absolute;
+  inset: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
   opacity: 0;
   pointer-events: none;
 }
