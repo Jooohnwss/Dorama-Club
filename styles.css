@@ -314,6 +314,16 @@ button {
   box-sizing: border-box;
 }
 
+.modal.ui-modal .actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.modal.ui-modal .btn {
+  width: 100%;
+}
+
 .ui-card h3 {
   margin: 0;
   font-size: 1.15rem;
@@ -3658,7 +3668,9 @@ textarea:focus {
 /* ---------- Mobile ---------- */
 @media (max-width: 860px) {
   .shell {
-    grid-template-columns: 1fr;
+    /* minmax(0,1fr): a coluna NÃO pode expandir além da tela pra caber um
+       conteúdo largo (era o que deixava a Diversão "diminuível" no pinch). */
+    grid-template-columns: minmax(0, 1fr);
     padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
 
@@ -3723,6 +3735,14 @@ textarea:focus {
   .couple-dashboard,
   .couple-fun-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+    margin: 12px 0 18px;
+  }
+
+  .couple-dash-card {
+    min-height: 124px;
+    padding: 18px 20px;
+    border-radius: 16px;
   }
 
   .couple-dash-card.featured {
@@ -3889,6 +3909,16 @@ textarea:focus {
     width: 100%;
     max-height: 90vh;
     border-radius: 20px 20px 0 0;
+  }
+
+  .modal.ui-modal {
+    align-items: center;
+    padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+  }
+
+  .modal.ui-modal .ui-card {
+    width: min(100%, 380px);
+    border-radius: 20px;
   }
 
   .btn {
