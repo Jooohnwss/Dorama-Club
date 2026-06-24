@@ -1622,6 +1622,14 @@ textarea:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.nos-ready-levels {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.nos-ready-levels .prog-cat {
+  margin-bottom: 0;
+}
 
 /* Tile compacto (missões -> popup) */
 .nos-tile {

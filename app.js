@@ -4346,6 +4346,7 @@ function nosProgressaoHtml() {
   const acumulados = nosPontosAcumulados();
   const liberados = NIVEIS.filter((niv) => acumulados >= niv.req && !(niv.n >= 4 && !adulto18Ok()));
   const atual = liberados.length ? liberados[liberados.length - 1] : NIVEIS[0];
+  const inline = liberados.length ? liberados : [NIVEIS[0]];
   const restantes = NIVEIS.length - liberados.length;
   return `
     <details class="nos-panel">
@@ -4355,6 +4356,9 @@ function nosProgressaoHtml() {
         const ok = acumulados >= niv.req && !(niv.n >= 4 && !adulto18Ok());
         return `<span class="${ok ? "on" : ""}">${niv.emoji}<b>${niv.n}</b><small>${esc(niv.nome)}</small></span>`;
       }).join("")}
+    </div>
+    <div class="nos-ready-levels">
+      ${inline.map(nosNivelBloco).join("")}
     </div>
     <button class="nos-tile" type="button" data-desafios-open>
       <span class="tile-ico">🗺️</span>
