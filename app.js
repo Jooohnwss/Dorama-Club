@@ -3486,6 +3486,11 @@ const CHALLENGE_FEEDBACKS = [
   ["adaptar", "Prefiro adaptar"],
   ["nao", "Não de novo"],
 ];
+const DESIRE_STOPWORDS = new Set([
+  "a", "ao", "aos", "as", "com", "da", "das", "de", "do", "dos", "e", "em", "eu", "me", "meu",
+  "minha", "na", "nas", "no", "nos", "o", "os", "ou", "para", "por", "pra", "que", "se", "sem",
+  "sua", "te", "um", "uma", "você",
+]);
 function feedbacksDesafio(key, dia) {
   const prefix = `${key}:${dia}:`;
   return coupleLedger.filter((l) => l.source_type === "challenge_feedback" && String(l.source_id || "").startsWith(prefix));
@@ -4402,6 +4407,12 @@ function nosConquistas() {
   const sync = coupleLedger.filter((l) => l.source_type === "checkin_bonus").length;
   const valesCumpridos = nosClaims.filter((c) => (c.status || (c.used ? "cumprido" : "")) === "cumprido").length;
   const acc = nosPontosAcumulados();
+  const missoesCriadas = secretMissions.length;
+  const missoesCumpridas = secretMissions.filter((m) => m.status === "cumprida").length;
+  const desejosRevelados = coupleDesires.filter((d) => d.revealed || desireAutoRevealIds().has(d.id)).length;
+  const desejosCombinando = desireMatchGroups().length;
+  const tagsEmComum = commonFetishTags().length;
+  const telegramDone = coupleTgEvents.filter((e) => e.kind === "done").length;
   return [
     { emoji: "🎬", nome: "Primeira maratona", desc: "1º episódio assistido junto", cur: eps, alvo: 1 },
     { emoji: "🍿", nome: "Maratonistas", desc: "10 episódios juntos", cur: eps, alvo: 10 },
@@ -4414,6 +4425,12 @@ function nosConquistas() {
     { emoji: "🌤️", nome: "Clima em dia", desc: "1º check-in do clima", cur: checkins, alvo: 1 },
     { emoji: "💞", nome: "Sincronia", desc: "os dois no mesmo dia", cur: sync, alvo: 1 },
     { emoji: "🎁", nome: "Vale cumprido", desc: "1 vale realizado", cur: valesCumpridos, alvo: 1 },
+    { emoji: "🔥", nome: "Primeira missão", desc: "1 missão secreta criada", cur: missoesCriadas, alvo: 1 },
+    { emoji: "😈", nome: "Missão dada", desc: "3 missões concluídas", cur: missoesCumpridas, alvo: 3 },
+    { emoji: "🔓", nome: "Segredo aberto", desc: "1 desejo revelado", cur: desejosRevelados, alvo: 1 },
+    { emoji: "💘", nome: "Mesma vontade", desc: "1 match no cofrinho", cur: desejosCombinando, alvo: 1 },
+    { emoji: "🧭", nome: "Mapa do tesão", desc: "3 tags em comum", cur: tagsEmComum, alvo: 3 },
+    { emoji: "✈️", nome: "Faísca à distância", desc: "5 registros concluídos no Telegram", cur: telegramDone, alvo: 5 },
     { emoji: "⭐", nome: "100 pontos", desc: "100 pontos acumulados", cur: acc, alvo: 100 },
     { emoji: "🏆", nome: "500 pontos", desc: "500 pontos acumulados", cur: acc, alvo: 500 },
     { emoji: "👑", nome: "Lendários", desc: "1000 pontos acumulados", cur: acc, alvo: 1000 },
@@ -4468,6 +4485,73 @@ function extrasMigrationNotice() {
   return nosExtrasReady ? "" : `<div class="empty">Novos recursos íntimos aguardando a migração <strong>29 - missoes-desejos-e-fetiches.sql</strong> no Supabase.</div>`;
 }
 
+function secretStatusText(status) {
+  return {
+    criada: "pronta para você enviar",
+    enviada: "aguardando a outra pessoa marcar que recebeu",
+    recebida: "recebida e pronta para ser cumprida",
+    cumprida: "concluída pelos dois",
+    adaptar: "pede ajuste antes de concluir",
+    recusada: "guardada por agora",
+  }[status] || status;
+}
+
+function missionCounts() {
+  return {
+    pendentes: secretMissions.filter((m) => ["criada", "enviada", "recebida", "adaptar"].includes(m.status || "criada")).length,
+    cumpridas: secretMissions.filter((m) => m.status === "cumprida").length,
+  };
+}
+
+function commonFetishTags() {
+  const partner = coupleMembers.find((m) => m.user_id !== authUser?.id);
+  return FETISH_TAGS.filter(([tag]) => {
+    const a = fetishPref(tag, authUser?.id);
+    const b = partner ? fetishPref(tag, partner.user_id) : "";
+    return ["curto", "testar"].includes(a) && ["curto", "testar"].includes(b);
+  });
+}
+
+function normalizeWords(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 4 && !DESIRE_STOPWORDS.has(w));
+}
+
+function desireMatchGroups() {
+  const mine = coupleDesires.filter((d) => d.created_by === authUser?.id);
+  const other = coupleDesires.filter((d) => d.created_by !== authUser?.id);
+  const matches = [];
+  for (const a of mine) {
+    for (const b of other) {
+      if ((a.category || "") !== (b.category || "")) continue;
+      if (Math.abs(Number(a.intensity || 1) - Number(b.intensity || 1)) > 1) continue;
+      const wa = normalizeWords(a.body);
+      const wb = normalizeWords(b.body);
+      const overlap = wa.filter((w) => wb.includes(w));
+      const exact = String(a.body || "").trim().toLowerCase() === String(b.body || "").trim().toLowerCase();
+      if (exact || overlap.length >= 2) {
+        matches.push({ ids: [a.id, b.id], overlap });
+      }
+    }
+  }
+  return matches;
+}
+
+function desireAutoRevealIds() {
+  const ids = new Set();
+  desireMatchGroups().forEach((m) => m.ids.forEach((id) => ids.add(id)));
+  return ids;
+}
+
+function desireMatchFor(id) {
+  return desireMatchGroups().find((m) => m.ids.includes(id)) || null;
+}
+
 function secretMissionCard(m) {
   const mine = m.created_by === authUser?.id;
   const status = m.status || "criada";
@@ -4475,6 +4559,7 @@ function secretMissionCard(m) {
   const link = tgLink(parc.contato);
   const actions = [];
   if (mine && status === "criada") actions.push(`<button type="button" data-secret-status="${m.id}:enviada">📤 Enviei</button>`);
+  if (mine && status === "adaptar") actions.push(`<button type="button" data-secret-status="${m.id}:criada">Ajustar</button>`);
   if (!mine && status === "enviada") actions.push(`<button type="button" data-secret-status="${m.id}:recebida">📥 Recebi</button>`);
   if (!mine && (status === "recebida" || status === "adaptar")) actions.push(`<button type="button" data-secret-status="${m.id}:cumprida">✅ Cumpri</button>`);
   if (!mine && status !== "cumprida" && status !== "recusada") actions.push(`<button type="button" data-secret-status="${m.id}:adaptar">Adaptar</button><button type="button" data-secret-status="${m.id}:recusada">Agora não</button>`);
@@ -4484,7 +4569,7 @@ function secretMissionCard(m) {
       <div>
         <span class="nos-kind">${esc(pairLabel(SECRET_MISSION_KINDS, m.kind))} · ${NIVEL_LABEL[m.intensity] || `Nível ${m.intensity}`}</span>
         <strong>${esc(m.title)}</strong>
-        <small>${mine ? "você enviou" : `${esc(nomeMembro(m.created_by))} enviou`} · ${esc(pairLabel(SECRET_DUES, m.due))} · ${esc(status)}</small>
+        <small>${mine ? "você criou" : `${esc(nomeMembro(m.created_by))} criou`} · ${esc(pairLabel(SECRET_DUES, m.due))} · ${esc(secretStatusText(status))}</small>
       </div>
       <div class="mini-actions">
         ${link ? `<a class="recado-mini" href="${esc(link)}" target="_blank" rel="noopener">Telegram</a>` : ""}
@@ -4494,9 +4579,10 @@ function secretMissionCard(m) {
 }
 
 function nosMissoesSecretasHtml() {
+  const counts = missionCounts();
   return `
     <details class="nos-panel">
-      <summary><span>🔥 Missões secretas</span><small>${secretMissions.length} ativas · Telegram integrado</small></summary>
+      <summary><span>🔥 Missões secretas</span><small>${counts.pendentes} pendentes · ${counts.cumpridas} concluídas</small></summary>
       ${extrasMigrationNotice()}
       <details class="nos-criar">
         <summary>＋ Criar missão</summary>
@@ -4514,26 +4600,30 @@ function nosMissoesSecretasHtml() {
 
 function desireCard(d) {
   const mine = d.created_by === authUser?.id;
-  const visible = mine || d.revealed;
+  const match = desireMatchFor(d.id);
+  const autoReveal = desireAutoRevealIds().has(d.id);
+  const visible = mine || d.revealed || autoReveal;
   const waiting = d.reveal_requested_by && d.reveal_requested_by === authUser?.id && !d.revealed;
   return `
-    <article class="desire-card ${d.revealed ? "revealed" : ""}">
+    <article class="desire-card ${(d.revealed || autoReveal) ? "revealed" : ""}">
       <div>
         <span class="nos-kind">${esc(pairLabel(SECRET_MISSION_KINDS, d.category))} · ${NIVEL_LABEL[d.intensity] || `Nível ${d.intensity}`}</span>
         <strong>${visible ? esc(d.body) : "Desejo guardado 🔒"}</strong>
-        <small>${mine ? "seu desejo" : `de ${esc(nomeMembro(d.created_by))}`} · ${d.revealed ? "revelado" : waiting ? "você pediu pra revelar" : "fechado"}</small>
+        <small>${mine ? "seu desejo" : `de ${esc(nomeMembro(d.created_by))}`} · ${d.revealed ? "revelado pelos dois" : autoReveal ? "abriu porque combinou com o outro" : waiting ? "você pediu pra revelar" : "fechado"}</small>
+        ${match ? `<span class="match-pill">match de desejo${match.overlap.length ? ` · ${esc(match.overlap.slice(0, 2).join(" · "))}` : ""}</span>` : ""}
       </div>
       <div class="mini-actions">
-        ${!d.revealed ? `<button type="button" data-desire-reveal="${d.id}">${waiting ? "Aguardando" : "Revelar"}</button>` : ""}
+        ${(!d.revealed && !autoReveal) ? `<button type="button" data-desire-reveal="${d.id}">${waiting ? "Aguardando" : "Revelar"}</button>` : ""}
         ${mine ? `<button type="button" data-desire-del="${d.id}">${icon("trash")}</button>` : ""}
       </div>
     </article>`;
 }
 
 function nosCofrinhoHtml() {
+  const matches = desireMatchGroups().length;
   return `
     <details class="nos-panel">
-      <summary><span>🔒 Cofrinho safado</span><small>${coupleDesires.length} desejos guardados</small></summary>
+      <summary><span>🔒 Cofrinho safado</span><small>${coupleDesires.length} desejos · ${matches} matches</small></summary>
       ${extrasMigrationNotice()}
       <details class="nos-criar">
         <summary>＋ Guardar desejo</summary>
@@ -4553,11 +4643,7 @@ function fetishPref(tag, uid) {
 }
 function nosFetichesHtml() {
   const partner = coupleMembers.find((m) => m.user_id !== authUser?.id);
-  const comuns = FETISH_TAGS.filter(([tag]) => {
-    const a = fetishPref(tag, authUser?.id);
-    const b = partner ? fetishPref(tag, partner.user_id) : "";
-    return ["curto", "testar"].includes(a) && ["curto", "testar"].includes(b);
-  });
+  const comuns = commonFetishTags();
   return `
     <details class="nos-panel">
       <summary><span>🧭 Tags de desejo</span><small>${comuns.length} combinam nos dois</small></summary>
@@ -4573,12 +4659,7 @@ function nosFetichesHtml() {
 }
 
 function nosRoletaSafadaHtml() {
-  const partner = coupleMembers.find((m) => m.user_id !== authUser?.id);
-  const comuns = FETISH_TAGS.filter(([tag]) => {
-    const a = fetishPref(tag, authUser?.id);
-    const b = partner ? fetishPref(tag, partner.user_id) : "";
-    return ["curto", "testar"].includes(a) && ["curto", "testar"].includes(b);
-  });
+  const comuns = commonFetishTags();
   const base = comuns.length ? comuns : FETISH_TAGS.slice(0, 3);
   const seed = hojeISO().split("").reduce((s, c) => s + c.charCodeAt(0), desafioIdx);
   const picked = base[seed % base.length];
