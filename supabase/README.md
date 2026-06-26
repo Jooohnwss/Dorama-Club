@@ -32,6 +32,9 @@ Cada arquivo é seguro pra rodar de novo (usa `if not exists` / `or replace`).
 | 21 | `21 - planos-do-casal.sql` | `couple_wishlist` (presentes/experiências) + `couple_dates` (calendário de encontros virtuais) + RLS | Casal/Distância |
 | 22 | `22 - ledger-de-pontos-do-casal.sql` | `couple_points_ledger` (extrato de pontos: saldo = Σ, anti-duplicação por fonte) — base do "Nós 2.0" | Casal/Nós 2.0 |
 | 23 | `23 - clima-e-limite-do-dia.sql` | `couple_daily_checkins` (clima do dia + limite só de hoje) + RLS — Nós 2.0 Fase 2 | Casal/Nós 2.0 |
+| 36 | `36 - corrige-club-list-feed-id-ambiguo.sql` | Conserta `club_list_feed` (erro "id ambiguous") — a Sala de Escolha do clube | Clube |
+| 37 | `37 - clube-ciclo-de-temporada.sql` | Ciclo do clube: `clubs.cycle_*` + `club_cycle`/`club_open_voting`/`club_close_voting`/`club_elect_winner` (assistindo → votação 10d → próximo) | Clube |
+| 38 | `38 - limpa-novidades-pessoais-do-clube.sql` | Apaga do feed do clube as novidades antigas que eram ações pessoais (humor, adicionar/terminar na lista pessoal) | Clube |
 | 24 | `24 - status-dos-resgates.sql` | Coluna `status` em `couple_reward_claims` (resgate com aceite: solicitado→aceito→cumprido / recusado / cancelado) — Nós 2.0 Fase 3 | Casal/Nós 2.0 |
 | 25 | `25 - surpresas-programadas.sql` | `couple_surprises` (recadinho/combinado que só revela numa data) + RLS — Nós 2.0 Fase 4 | Casal/Nós 2.0 |
 | 26 | `26 - modo-saudade.sql` | `couples.last_met_date` (dias sem se ver) + `couple_reunion_list` ("pra quando a gente se ver") + `couple_saudade` (recadinho de saudade) + RLS — Nós 2.0 Fase 5 | Casal/Distância |
