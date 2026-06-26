@@ -8254,7 +8254,7 @@ async function handleListAdd(dramaId, manualTitle = "") {
     toast(`${payload.title} entrou na sala de escolha.`);
   } catch (e) {
     console.error("clubListAdd", e);
-    toast(`Erro: ${e?.message || e?.hint || "não consegui adicionar"}`);
+    toast("Não consegui adicionar agora.");
   }
 }
 
@@ -8290,7 +8290,7 @@ async function handleClubAddTmdb(tmdbId) {
     toast(`${brief.title} entrou na sala de escolha 🗳️`);
   } catch (e) {
     console.error("clubListAdd", e);
-    toast(`Erro: ${e?.message || e?.hint || "não consegui adicionar"}`);
+    toast("Não consegui adicionar agora.");
   }
 }
 
