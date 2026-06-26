@@ -363,7 +363,7 @@ let clubMembers = [];
 let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop)
 let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
-let clubTab = "mural"; // aba interna da tela Doramigas
+let clubTab = "inicio"; // aba interna da tela Doramigas (lobby)
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
 let clubDebateDraft = null; // dorama avulso da lista do clube para abrir debate no mural
 let listSort = "recente"; // ordenação da Minhas listas
@@ -2181,42 +2181,99 @@ function clubFeaturedDrama() {
   return clubSocial.picks[0] || null;
 }
 
+// Cada clube ganha uma carinha própria (emoji determinístico pelo id).
+const CLUB_EMOJIS = ["🌸", "🎬", "💜", "🍿", "🌙", "⭐", "🔥", "🎀", "🦋", "🌷", "🍓", "☕", "🎧", "📺", "💫", "🐰", "🌈", "🫶", "🥹", "👑"];
+const AVATAR_CORES = ["#df4f94", "#8a5cf6", "#f97316", "#22c55e", "#38bdf8", "#ec4899", "#eab308", "#14b8a6"];
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) >>> 0;
+  return h;
+}
+function clubEmoji(club) {
+  return CLUB_EMOJIS[hashStr(club?.id || club?.name || "?") % CLUB_EMOJIS.length];
+}
+function clubAvatarMini(m) {
+  const nome = m.name || m.nickname || "?";
+  if (m.photo) return `<span class="club-av" title="${esc(nome)}"><img src="${esc(m.photo)}" alt="" loading="lazy" /></span>`;
+  const ini = (nome.trim().charAt(0) || "?").toUpperCase();
+  return `<span class="club-av" title="${esc(nome)}" style="background:${AVATAR_CORES[hashStr(nome) % AVATAR_CORES.length]}">${esc(ini)}</span>`;
+}
+
 function clubHeaderTemplate() {
-  const totalMembros = clubMembersFor === state.club.id ? clubMembers.length : "...";
+  const totalMembros = clubMembersFor === state.club.id ? clubMembers.length : 0;
   const meuCargo = clubRoleLabel(currentClubMember()?.role || (state.club.owner_id === authUser?.id ? "owner" : "member"));
-  const destaque = clubFeaturedDrama();
-  const description = state.club.description || "Clube sem descricao ainda. Use a aba Sobre para combinar o clima da comunidade.";
-  const totalPosts = clubFeedFor === state.club.id ? clubFeedItems.length : "...";
-  const totalLista = clubSocial.for === state.club.id ? clubSocial.list.length : "...";
-  const totalEventos = clubSocial.for === state.club.id ? clubSocial.events.length : "...";
+  const cover = clubSocial.featured?.cover || clubFeaturedDrama()?.cover || "";
+  const vibe = state.club.description || "Clube ainda sem vibe — caprichem na descrição na aba Sobre. 💜";
+  const avatares = clubMembers.slice(0, 6).map(clubAvatarMini).join("");
+  const extra = totalMembros > 6 ? `<span class="club-av more">+${totalMembros - 6}</span>` : "";
 
   return `
-    <section class="club-hero">
-      <div class="club-hero-main">
-        <span class="club-eyebrow">${icon("club")} Clube ativo</span>
-        <h2>${esc(state.club.name)}</h2>
-        <p>${esc(description)}</p>
-        <div class="chips">
-          <span class="chip">${totalMembros} membros</span>
-          <span class="chip">${esc(meuCargo)}</span>
-          <span class="chip">Codigo ${esc(state.club.code)}</span>
+    <section class="club-hero2" ${cover ? `style="--club-cover:url('${esc(cover)}')"` : ""}>
+      <div class="club-hero2-veil"></div>
+      <div class="club-hero2-row">
+        <div class="club-avatar-lg">${clubEmoji(state.club)}</div>
+        <div class="club-hero2-main">
+          <span class="club-eyebrow">${icon("club")} Clube</span>
+          <h2>${esc(state.club.name)}</h2>
+          <p class="club-vibe">${esc(vibe)}</p>
         </div>
       </div>
-      <div class="club-hero-side">
-        <span class="muted">${clubSocial.featured ? "Dorama oficial do clube" : "Dorama em disputa"}</span>
-        <strong>${destaque ? esc(destaque.title) : "Escolham o dorama do mes"}</strong>
-        <span class="muted">${clubSocial.featured ? `Meu check-in: ep. ${Number(destaque.my_episode || 0)}` : destaque ? `${destaque.votos} voto(s) agora` : "A enquete fica na aba Doramas."}</span>
-        <div class="mini-actions">
-          <button data-club-tab="doramas">${icon("play")} Ver doramas</button>
-          <button data-copy-code>${icon("share")} Copiar codigo</button>
-        </div>
+      <div class="club-avatars">
+        ${avatares || `<span class="muted" style="font-size:.8rem">Carregando membros…</span>`}${extra}
+        <span class="club-av-count">${totalMembros || "…"} membros</span>
+      </div>
+      <div class="club-hero2-foot">
+        <span class="chip">${esc(meuCargo)}</span>
+        <span class="chip">Código ${esc(state.club.code)}</span>
+        <button class="chip chip-btn" data-copy-code>${icon("share")} Copiar código</button>
       </div>
     </section>
-    <section class="grid stats club-stats">
-      <div class="stat"><span class="muted">Mural</span><strong>${totalPosts}</strong><span class="muted">posts recentes</span></div>
-      <div class="stat"><span class="muted">Lista</span><strong>${totalLista}</strong><span class="muted">sugestoes</span></div>
-      <div class="stat"><span class="muted">Eventos</span><strong>${totalEventos}</strong><span class="muted">agenda do clube</span></div>
-    </section>
+  `;
+}
+
+// Lobby do clube: tudo separadinho e fácil de achar, num lugar só.
+function clubLobbyTemplate() {
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando o clube…</div>`;
+  const featured = clubSocial.featured;
+  const lastChat = (clubSocial.chat || [])[0];
+  const totalPosts = clubFeedFor === state.club.id ? clubFeedItems.length : 0;
+  const lastPost = clubFeedItems[0];
+  const desafio = (clubSocial.challenges || []).find((c) => c.status === "active");
+  const limite = new Date(Date.now() - 3600000);
+  const prox = (clubSocial.events || [])
+    .filter((e) => e.status !== "cancelled" && new Date(e.starts_at) >= limite)
+    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0];
+  const pts = clubSocial.points || [];
+  const minhaIdx = pts.findIndex((r) => r.user_id === authUser?.id);
+  const meu = minhaIdx >= 0 ? pts[minhaIdx] : null;
+  const lider = pts[0];
+  const corte = (t, n) => { const s = String(t || ""); return s.length > n ? `${esc(s.slice(0, n))}…` : esc(s); };
+
+  const tile = (ico, titulo, corpo, tab, cta) => `
+    <button class="club-lobby-card" type="button" data-club-tab="${tab}">
+      <span class="cl-ico">${ico}</span>
+      <span class="cl-body"><strong>${titulo}</strong>${corpo}</span>
+      <span class="cl-go">${cta || "abrir"} ›</span>
+    </button>`;
+
+  const featureCard = featured
+    ? `<button class="club-lobby-feature" type="button" data-club-tab="doramas">
+         ${featured.cover ? `<img src="${esc(featured.cover)}" alt="" />` : `<span class="clf-emoji">🎬</span>`}
+         <span class="clf-body"><span class="clf-eyebrow">🎬 Dorama do clube</span><strong>${esc(featured.title)}</strong><small>Seu check-in: ep. ${Number(featured.my_episode || 0)}</small></span>
+         <span class="cl-go">›</span>
+       </button>`
+    : `<button class="club-lobby-card highlight" type="button" data-club-tab="doramas"><span class="cl-ico">🎬</span><span class="cl-body"><strong>Escolham o dorama do clube</strong><small class="muted">Ninguém fixou um ainda — abram a Escolha</small></span><span class="cl-go">escolher ›</span></button>`;
+
+  return `
+    ${featureCard}
+    <div class="club-lobby-grid">
+      ${tile("💬", "Chat", lastChat ? `<small>${esc(lastChat.author || "alguém")}: ${corte(lastChat.body, 38)}</small>` : `<small class="muted">Sem mensagens — comecem a conversa</small>`, "chat", "abrir")}
+      ${tile("📌", "Mural", lastPost ? `<small>${totalPosts} post(s) · último por ${esc(lastPost.author || "alguém")}</small>` : `<small class="muted">Ninguém surtou ainda</small>`, "feed", "ver")}
+      ${tile("🎯", "Missão da semana", desafio ? `<small>${corte(desafio.title, 34)} · +${Number(desafio.points || 0)} pts</small>` : `<small class="muted">Nenhuma missão ativa</small>`, "desafios", "ver")}
+      ${tile("📅", "Próximo evento", prox ? `<small>${corte(prox.title, 28)} · ${esc(formatDateTimeShort(prox.starts_at))}</small>` : `<small class="muted">Nada agendado</small>`, "eventos", "agenda")}
+      ${tile("🏆", "Ranking", meu ? `<small>Você: ${Number(meu.points || 0)} pts · ${minhaIdx + 1}º lugar</small>` : (lider ? `<small>Líder: ${esc(lider.name)} (${Number(lider.points || 0)} pts)</small>` : `<small class="muted">Sem pontos ainda</small>`), "ranking", "ver")}
+      ${tile("🗳️", "Enquetes", (clubSocial.polls || []).length ? `<small>${(clubSocial.polls || []).filter((p) => p.status === "active").length} aberta(s)</small>` : `<small class="muted">Sem enquetes</small>`, "doramas", "votar")}
+    </div>
   `;
 }
 
@@ -2230,7 +2287,7 @@ function formatDateTimeShort(value) {
 }
 
 function clubAboutTemplate() {
-  const rules = state.club.rules || "Sem regras cadastradas ainda. Sugestao: avisar spoilers, respeitar opinioes e manter o clima leve.";
+  const rules = state.club.rules || "Sem regras cadastradas ainda. Sugestão: avisar spoilers, respeitar opiniões e manter o clima leve.";
   const membros = clubMembers.length
     ? clubMembers
         .map((member) => `<div class="card club-member-card"><strong>${esc(member.name || "(sem nome)")}</strong>${member.nickname ? `<span class="muted">${esc(member.nickname)}</span>` : ""}<span class="chip">${clubRoleLabel(member.role)}</span></div>`)
@@ -2240,16 +2297,16 @@ function clubAboutTemplate() {
   return `
     <div class="section-title"><h2>Sobre o clube</h2><button class="btn ghost" data-edit-club-about>${icon("detail")} Editar</button></div>
     <section class="grid cards">
-      <div class="card"><span class="muted">Descricao</span><p>${esc(state.club.description || "Ainda sem descricao.")}</p></div>
+      <div class="card"><span class="muted">Descrição</span><p>${esc(state.club.description || "Ainda sem descrição.")}</p></div>
       <div class="card"><span class="muted">Regras</span><p>${esc(rules)}</p></div>
     </section>
     <div class="section-title"><h2>Membros (${clubMembers.length || "..."})</h2></div>
     <section class="grid cards">${membros}</section>
     <div class="section-title"><h2>Convidar e gerenciar</h2></div>
     <section class="grid cards">
-      <button class="card" data-share-club><strong>Chamar doramiga no WhatsApp</strong><p class="muted">Envia o codigo ${esc(state.club.code)}</p></button>
+      <button class="card" data-share-club><strong>Chamar doramiga no WhatsApp</strong><p class="muted">Envia o código ${esc(state.club.code)}</p></button>
       <button class="card" data-rename-club><strong>Renomear clube</strong><p class="muted">Ajusta o nome que aparece no topo.</p></button>
-      <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">Voce deixa de ver este clube.</p></button>
+      <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">Você deixa de ver este clube.</p></button>
     </section>
   `;
 }
@@ -2259,7 +2316,7 @@ function clubTemplate() {
     return clubFormsTemplate();
   }
 
-  if (!["feed", "chat", "doramas", "eventos", "desafios", "ranking", "sobre"].includes(clubTab)) clubTab = "feed";
+  if (!["inicio", "feed", "chat", "doramas", "eventos", "desafios", "ranking", "sobre"].includes(clubTab)) clubTab = "inicio";
 
   const switcher = `
     <div class="tabs">
@@ -2268,17 +2325,19 @@ function clubTemplate() {
     </div>`;
 
   const subtabs = [
+    ["inicio", "Início"],
     ["feed", "Mural"],
     ["chat", "Chat"],
     ["doramas", "Escolha"],
     ["eventos", "Agenda"],
-    ["desafios", "Missoes"],
+    ["desafios", "Missões"],
     ["ranking", "Ranking"],
     ["sobre", "Sobre"],
   ];
 
   const conteudo = {
-    feed: `${commentFormTemplate()}${clubFeedTemplate()}<div class="section-title"><h2>Novidades automaticas</h2></div>${atividadesTemplate()}<div class="section-title"><h2>Diario compartilhado</h2></div>${diarioCompartilhadoTemplate()}`,
+    inicio: clubLobbyTemplate(),
+    feed: `${commentFormTemplate()}${clubFeedTemplate()}<div class="section-title"><h2>Novidades automáticas</h2></div>${atividadesTemplate()}<div class="section-title"><h2>Diário compartilhado</h2></div>${diarioCompartilhadoTemplate()}`,
     chat: clubeChatTemplate(),
     doramas: `
       <div class="section-title"><h2>Dorama do clube</h2></div>${clubeDestaqueTemplate()}
@@ -2301,7 +2360,7 @@ function clubTemplate() {
     <div class="tabs club-subtabs">
       ${subtabs.map(([k, l]) => `<button class="${clubTab === k ? "active" : ""}" data-club-tab="${k}">${l}</button>`).join("")}
     </div>
-    ${conteudo[clubTab] || conteudo.feed}
+    ${conteudo[clubTab] || conteudo.inicio}
   `;
 }
 
@@ -2522,10 +2581,10 @@ function clubeChatTemplate() {
       <form id="club-chat-form" class="form-grid">
         <div class="field full">
           <label for="clubChatBody">Mensagem no chat</label>
-          <textarea id="clubChatBody" name="body" placeholder="Combinem a maratona, mandem teoria, surtos rapidos..." required></textarea>
+          <textarea id="clubChatBody" name="body" placeholder="Combinem a maratona, mandem teoria, surtos rápidos..." required></textarea>
         </div>
         <div class="field">
-          <label for="clubChatEpisode">Spoiler ate ep.</label>
+          <label for="clubChatEpisode">Spoiler até ep.</label>
           <input id="clubChatEpisode" name="episodeNumber" type="number" min="0" value="0" />
         </div>
         <label class="check-row">
@@ -2553,7 +2612,7 @@ function clubeChatTemplate() {
             <strong>${esc(msg.author || msg.nickname || "Membro")}</strong>
             <span class="muted">${timeAgo(msg.created_at)}</span>
           </div>
-          ${spoiler ? `<span class="chip">Spoiler${Number(msg.episode_number || 0) ? ` ate ep. ${Number(msg.episode_number || 0)}` : ""}</span>` : ""}
+          ${spoiler ? `<span class="chip">Spoiler${Number(msg.episode_number || 0) ? ` até ep. ${Number(msg.episode_number || 0)}` : ""}</span>` : ""}
           <p>${esc(msg.body)}</p>
           ${podeApagar ? `<div class="mini-actions"><button data-del-chat="${msg.id}">${icon("trash")} Apagar</button></div>` : ""}
         </article>`;
@@ -2571,7 +2630,7 @@ function clubeEnquetesTemplate() {
           <input id="clubPollQuestion" name="question" placeholder="Qual dorama vamos assistir depois?" required />
         </div>
         <div class="field full">
-          <label for="clubPollOptions">Opcoes, uma por linha</label>
+          <label for="clubPollOptions">Opções, uma por linha</label>
           <textarea id="clubPollOptions" name="options" placeholder="Dorama A&#10;Dorama B&#10;Dorama C" required></textarea>
         </div>
         <div class="actions field full">
@@ -2581,7 +2640,7 @@ function clubeEnquetesTemplate() {
     </section>`;
 
   if (clubSocial.for !== state.club.id) return form + `<div class="empty">Carregando enquetes...</div>`;
-  if (!clubSocial.polls.length) return form + `<div class="empty">Nenhuma enquete livre ainda. Crie a primeira decisao do clube.</div>`;
+  if (!clubSocial.polls.length) return form + `<div class="empty">Nenhuma enquete livre ainda. Crie a primeira decisão do clube.</div>`;
 
   const cards = clubSocial.polls
     .map((poll) => {
@@ -2634,7 +2693,7 @@ function clubeEventosTemplate() {
             <option value="watch_party">Watch party</option>
             <option value="marathon">Maratona</option>
             <option value="debate">Debate</option>
-            <option value="vote">Votacao</option>
+            <option value="vote">Votação</option>
             <option value="other">Outro</option>
           </select>
         </div>
@@ -2667,7 +2726,7 @@ function clubeEventosTemplate() {
   if (clubSocial.for !== state.club.id) return form + `<div class="empty">Carregando eventos...</div>`;
   if (!clubSocial.events.length) return form + `<div class="empty">Nenhum evento marcado ainda. Crie uma watch party para o clube se encontrar.</div>`;
 
-  const typeLabel = { watch_party: "Watch party", marathon: "Maratona", debate: "Debate", vote: "Votacao", other: "Evento" };
+  const typeLabel = { watch_party: "Watch party", marathon: "Maratona", debate: "Debate", vote: "Votação", other: "Evento" };
   const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
   const cards = clubSocial.events
     .map((event) => {
@@ -2708,9 +2767,9 @@ function clubeEventosTemplate() {
 function clubPointsTemplate() {
   if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando pontos...</div>`;
   const rows = clubSocial.points || [];
-  if (!rows.length) return `<div class="empty">Ainda sem pontos. Votos, eventos, check-ins e desafios vao movimentar esse ranking.</div>`;
+  if (!rows.length) return `<div class="empty">Ainda sem pontos. Votos, eventos, check-ins e desafios vão movimentar esse ranking.</div>`;
   return `<section class="grid cards">${rows
-    .map((row, index) => `<div class="card club-points-card"><span class="muted">#${index + 1}</span><strong>${esc(row.name || "Membro")}</strong><div class="chips"><span class="chip">${Number(row.points || 0)} pts</span><span class="chip">${Number(row.actions || 0)} acoes</span></div></div>`)
+    .map((row, index) => `<div class="card club-points-card"><span class="muted">#${index + 1}</span><strong>${esc(row.name || "Membro")}</strong><div class="chips"><span class="chip">${Number(row.points || 0)} pts</span><span class="chip">${Number(row.actions || 0)} ações</span></div></div>`)
     .join("")}</section>`;
 }
 
