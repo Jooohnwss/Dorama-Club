@@ -1156,30 +1156,64 @@ textarea:focus {
 }
 
 .club-chat-list {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px 2px;
 }
 
 .club-chat-message {
-  display: grid;
-  gap: 6px;
-  max-width: 780px;
-  padding: 13px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 80%;
+  width: fit-content;
+  padding: 9px 13px;
+  border-radius: 16px 16px 16px 4px;
+  background: color-mix(in srgb, var(--cor-superficie) 92%, transparent);
   border: 1px solid var(--cor-borda);
-  border-radius: var(--raio);
-  background: var(--cor-superficie);
+  margin-bottom: 6px;
 }
 
 .club-chat-message.mine {
   margin-left: auto;
-  border-color: color-mix(in srgb, var(--cor-primaria) 42%, var(--cor-borda));
-  background: color-mix(in srgb, var(--cor-primaria) 9%, var(--cor-superficie));
+  align-items: flex-end;
+  border-radius: 16px 16px 4px 16px;
+  border-color: transparent;
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
 }
 
+.chat-author { font-weight: 850; font-size: 0.78rem; }
+.chat-spoiler { align-self: flex-start; }
 .club-chat-message p {
   margin: 0;
-  line-height: 1.45;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
+.chat-foot { display: inline-flex; align-items: center; gap: 6px; }
+.chat-time { font-size: 0.68rem; opacity: 0.7; font-weight: 700; }
+.chat-del { background: transparent; opacity: 0.55; padding: 0; color: inherit; }
+.chat-del .ico { width: 13px; height: 13px; }
+.chat-del:hover { opacity: 1; }
+
+/* Ranking de pontos com medalhas */
+.club-rank-list { display: grid; gap: 8px; }
+.club-rank-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+}
+.club-rank-row.top { border-color: color-mix(in srgb, var(--cor-primaria) 30%, var(--cor-borda)); }
+.club-rank-row.me { background: color-mix(in srgb, var(--cor-primaria) 10%, var(--cor-superficie)); border-color: color-mix(in srgb, var(--cor-primaria) 45%, var(--cor-borda)); }
+.rank-pos { width: 30px; text-align: center; font-weight: 900; font-size: 1.1rem; flex-shrink: 0; }
+.club-rank-row .club-av { margin-right: 0; flex-shrink: 0; }
+.rank-name { flex: 1; min-width: 0; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-name small { color: var(--cor-texto-suave); font-weight: 700; }
+.rank-pts { font-weight: 900; color: var(--cor-primaria); white-space: nowrap; }
+.rank-pts small { font-weight: 700; color: var(--cor-texto-suave); }
 
 .list-toolbar {
   display: flex;

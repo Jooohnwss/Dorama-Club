@@ -2581,7 +2581,7 @@ function clubeChatTemplate() {
       <form id="club-chat-form" class="form-grid">
         <div class="field full">
           <label for="clubChatBody">Mensagem no chat</label>
-          <textarea id="clubChatBody" name="body" placeholder="Combinem a maratona, mandem teoria, surtos rápidos..." required></textarea>
+          <textarea id="clubChatBody" name="body" placeholder="Combinem a maratona, mandem teorias, surtem juntas..." required></textarea>
         </div>
         <div class="field">
           <label for="clubChatEpisode">Spoiler até ep.</label>
@@ -2602,19 +2602,19 @@ function clubeChatTemplate() {
   if (!messages.length) return form + `<div class="empty">Chat vazio. Mande a primeira mensagem do clube.</div>`;
   const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
   const list = messages
-    .map((msg) => {
+    .map((msg, i) => {
       const mine = authUser && msg.user_id === authUser.id;
       const spoiler = msg.has_spoiler || Number(msg.episode_number || 0) > 0;
       const podeApagar = mine || canManage;
+      const nome = msg.author || msg.nickname || "Membro";
+      const prev = messages[i - 1];
+      const mesmoAutor = prev && prev.user_id === msg.user_id;
       return `
         <article class="club-chat-message ${mine ? "mine" : ""}">
-          <div class="comment-head">
-            <strong>${esc(msg.author || msg.nickname || "Membro")}</strong>
-            <span class="muted">${timeAgo(msg.created_at)}</span>
-          </div>
-          ${spoiler ? `<span class="chip">Spoiler${Number(msg.episode_number || 0) ? ` até ep. ${Number(msg.episode_number || 0)}` : ""}</span>` : ""}
+          ${!mine && !mesmoAutor ? `<span class="chat-author" style="color:${AVATAR_CORES[hashStr(nome) % AVATAR_CORES.length]}">${esc(nome)}</span>` : ""}
+          ${spoiler ? `<span class="chip chat-spoiler">🔒 Spoiler${Number(msg.episode_number || 0) ? ` até ep. ${Number(msg.episode_number || 0)}` : ""}</span>` : ""}
           <p>${esc(msg.body)}</p>
-          ${podeApagar ? `<div class="mini-actions"><button data-del-chat="${msg.id}">${icon("trash")} Apagar</button></div>` : ""}
+          <span class="chat-foot"><span class="chat-time">${timeAgo(msg.created_at)}</span>${podeApagar ? `<button class="chat-del" data-del-chat="${msg.id}" title="Apagar">${icon("trash")}</button>` : ""}</span>
         </article>`;
     })
     .join("");
@@ -2702,20 +2702,20 @@ function clubeEventosTemplate() {
           <input id="clubEventStarts" name="startsAt" type="datetime-local" required />
         </div>
         <div class="field full">
-          <label for="clubEventTitle">Titulo</label>
+          <label for="clubEventTitle">Título</label>
           <input id="clubEventTitle" name="title" placeholder="Maratona do ep. 1 ao 4" required />
         </div>
         <div class="field">
           <label for="clubEventDrama">Dorama ligado</label>
           <select id="clubEventDrama" name="dramaId">
-            <option value="">Sem dorama especifico</option>
+            <option value="">Sem dorama específico</option>
             ${featuredOption}
             ${dramaOptions}
           </select>
         </div>
         <div class="field full">
           <label for="clubEventDescription">Detalhes</label>
-          <textarea id="clubEventDescription" name="description" placeholder="Combinado, episodios, plataforma, regra de spoiler..."></textarea>
+          <textarea id="clubEventDescription" name="description" placeholder="Combinado, episódios, plataforma, regra de spoiler..."></textarea>
         </div>
         <div class="actions field full">
           <button class="btn" type="submit">Criar evento</button>
@@ -2734,7 +2734,7 @@ function clubeEventosTemplate() {
       const buttons = [
         ["going", "Vou"],
         ["maybe", "Talvez"],
-        ["not_going", "Nao vou"],
+        ["not_going", "Não vou"],
       ]
         .map(([value, label]) => `<button class="${event.my_status === value ? "mine" : ""}" data-event-rsvp="${event.id}" data-rsvp="${value}" ${cancelled ? "disabled" : ""}>${label}</button>`)
         .join("");
@@ -2768,8 +2768,18 @@ function clubPointsTemplate() {
   if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando pontos...</div>`;
   const rows = clubSocial.points || [];
   if (!rows.length) return `<div class="empty">Ainda sem pontos. Votos, eventos, check-ins e desafios vão movimentar esse ranking.</div>`;
-  return `<section class="grid cards">${rows
-    .map((row, index) => `<div class="card club-points-card"><span class="muted">#${index + 1}</span><strong>${esc(row.name || "Membro")}</strong><div class="chips"><span class="chip">${Number(row.points || 0)} pts</span><span class="chip">${Number(row.actions || 0)} ações</span></div></div>`)
+  const medalha = ["🥇", "🥈", "🥉"];
+  return `<section class="club-rank-list">${rows
+    .map((row, index) => {
+      const eu = row.user_id === authUser?.id;
+      const pos = medalha[index] || `${index + 1}º`;
+      return `<div class="club-rank-row ${index < 3 ? "top" : ""} ${eu ? "me" : ""}">
+        <span class="rank-pos">${pos}</span>
+        <span class="club-av" style="background:${AVATAR_CORES[hashStr(row.name || "?") % AVATAR_CORES.length]}">${esc((String(row.name || "?").trim().charAt(0) || "?").toUpperCase())}</span>
+        <strong class="rank-name">${esc(row.name || "Membro")}${eu ? " <small>(você)</small>" : ""}</strong>
+        <span class="rank-pts">${Number(row.points || 0)} <small>pts</small></span>
+      </div>`;
+    })
     .join("")}</section>`;
 }
 
@@ -2787,11 +2797,11 @@ function clubeDesafiosTemplate() {
         </div>
         <div class="field full">
           <label for="clubChallengeTitle">Novo desafio</label>
-          <input id="clubChallengeTitle" name="title" placeholder="Assistir 3 episodios essa semana" required />
+          <input id="clubChallengeTitle" name="title" placeholder="Assistir 3 episódios essa semana" required />
         </div>
         <div class="field full">
           <label for="clubChallengeDescription">Detalhes</label>
-          <textarea id="clubChallengeDescription" name="description" placeholder="O que vale, ate quando, como contar..."></textarea>
+          <textarea id="clubChallengeDescription" name="description" placeholder="O que vale, até quando, como contar..."></textarea>
         </div>
         <div class="actions field full">
           <button class="btn" type="submit">Criar desafio</button>
@@ -2817,7 +2827,7 @@ function clubeDesafiosTemplate() {
               <div class="chips">
                 <span class="chip">${Number(challenge.completions || 0)} concluiu</span>
                 ${challenge.ends_at ? `<span class="chip">ate ${formatDateTimeShort(challenge.ends_at)}</span>` : ""}
-                ${done ? `<span class="chip">Concluido por voce</span>` : ""}
+                ${done ? `<span class="chip">Concluído por você</span>` : ""}
                 ${closed ? `<span class="chip">Encerrado</span>` : ""}
               </div>
               <form class="club-challenge-complete" data-challenge-complete="${challenge.id}">
