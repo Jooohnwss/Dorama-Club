@@ -367,6 +367,7 @@ let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop
 let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 let clubTab = "inicio"; // aba interna da tela Doramigas (lobby)
+let revealedPosts = new Set(); // posts cujo spoiler o leitor escolheu ver
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
 let clubDebateDraft = null; // dorama avulso da lista do clube para abrir debate no mural
 let listSort = "recente"; // ordenação da Minhas listas
@@ -2338,7 +2339,10 @@ function clubTemplate() {
 
   const conteudo = {
     inicio: clubLobbyTemplate(),
-    feed: `${commentFormTemplate()}${clubFeedTemplate()}<div class="section-title"><h2>Novidades automáticas</h2></div>${atividadesTemplate()}<div class="section-title"><h2>Diário compartilhado</h2></div>${diarioCompartilhadoTemplate()}`,
+    feed: `${commentFormTemplate()}
+      <div class="section-title compact"><h2>💬 Surtos do clube</h2></div>${clubFeedTemplate()}
+      <div class="section-title compact"><h2>🔔 Novidades do clube</h2></div>${atividadesTemplate()}
+      <div class="section-title compact"><h2>📖 Diário compartilhado</h2></div>${diarioCompartilhadoTemplate()}`,
     chat: clubeChatTemplate(),
     doramas: `
       ${clubeCicloTemplate()}
@@ -2974,18 +2978,44 @@ function compatibilidadeTemplate() {
     .join("")}</section>`;
 }
 
+function muralAvatar(name) {
+  const n = name || "?";
+  const ini = (String(n).trim().charAt(0) || "?").toUpperCase();
+  return `<span class="club-av" style="background:${AVATAR_CORES[hashStr(n) % AVATAR_CORES.length]}">${esc(ini)}</span>`;
+}
+
+// Card de post do mural (usado pelo feed e pelo diário compartilhado).
+function muralPostCard(item, opts = {}) {
+  const liberado = podeVerComentario(item) || (item.id && revealedPosts.has(item.id));
+  const podeApagar = opts.canDelete && authUser && (item.user_id === authUser.id || isAdmin());
+  const chip = item.drama_title ? `<span class="mural-chip">🎬 ${esc(item.drama_title)}${item.spoiler_episode ? ` · ep. ${item.spoiler_episode}` : ""}</span>` : "";
+  const corpo = liberado
+    ? `<p class="mural-body">${esc(item.body)}</p>`
+    : `<div class="mural-locked">
+         <span>🔒 Spoiler até o ep. ${item.spoiler_episode}${item.drama_title ? ` de ${esc(item.drama_title)}` : ""}</span>
+         ${item.id ? `<button class="btn ghost" type="button" data-reveal-post="${item.id}">Ver mesmo assim 👀</button>` : ""}
+       </div>`;
+  return `
+    <article class="mural-post">
+      <div class="mural-head">
+        ${muralAvatar(item.author)}
+        <div class="mural-meta"><strong>${esc(item.author || "(sem nome)")}</strong><small>${esc(timeAgo(item.created_at))}</small></div>
+        ${podeApagar ? `<button class="mural-del" data-del-comment="${item.id}" title="Apagar">${icon("trash")}</button>` : ""}
+      </div>
+      ${chip}
+      ${corpo}
+      ${opts.reactions === false ? "" : barraReacoes(item.id)}
+    </article>`;
+}
+
 function diarioCompartilhadoTemplate() {
   if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando…</div>`;
   if (!clubSocial.shared.length) return `<div class="empty">Nenhum surto compartilhado ainda. No diário de um dorama, marque "compartilhar com doramigas". 💜</div>`;
-  return `<section class="grid">${clubSocial.shared
-    .map((s) => {
-      const item = { spoiler_episode: s.episode, tmdb_id: s.tmdb_id, user_id: s.user_id };
-      const liberado = podeVerComentario(item);
-      const corpo = liberado
-        ? `<p>${esc(s.body)}</p>`
-        : `<p class="muted spoiler-lock">🔒 Spoiler! Chegue no ep. ${s.episode}${s.drama_title ? ` de ${esc(s.drama_title)}` : ""} pra ver.</p>`;
-      return `<div class="card comment-card"><div class="comment-head"><strong>${esc(s.author)}</strong><span class="muted">${timeAgo(s.created_at)}</span></div>${s.drama_title ? `<span class="chip">${esc(s.drama_title)} · ep. ${s.episode}</span>` : ""}${corpo}</div>`;
-    })
+  return `<section class="mural-list">${clubSocial.shared
+    .map((s) => muralPostCard({
+      id: s.id, author: s.author, body: s.body, spoiler_episode: s.episode,
+      tmdb_id: s.tmdb_id, drama_title: s.drama_title, user_id: s.user_id, created_at: s.created_at,
+    }, { reactions: false, canDelete: false }))
     .join("")}</section>`;
 }
 
@@ -2993,28 +3023,19 @@ function commentFormTemplate() {
   const meusDramas = state.dramas.filter((d) => d.tmdbId);
   const debateText = clubDebateDraft ? `Debate sobre ${clubDebateDraft.title}: ` : "";
   return `
-    <section class="form-card">
-      <form id="comment-form" class="form-grid">
-        <div class="field full">
-          <label for="commentBody">Conta o surto pras doramigas</label>
-          <textarea id="commentBody" name="body" placeholder="Gente, o episódio de hoje…" required>${esc(debateText)}</textarea>
-          <div class="frases">${FRASES_DORAMEIRA.map((f) => `<button type="button" class="frase" data-frase="${esc(f)}">${esc(f)}</button>`).join("")}</div>
-        </div>
-        <div class="field">
-          <label for="commentDrama">Sobre qual dorama?</label>
-          <select id="commentDrama" name="dramaId">
-            <option value="">Geral (sem dorama)</option>
-            ${clubDebateDraft ? `<option value="__club_draft" selected>${esc(clubDebateDraft.title)} (sala de escolha)</option>` : ""}
+    <section class="mural-composer">
+      <div class="mural-composer-top">${muralAvatar(state.profile?.name)}<strong>Conta o surto pras doramigas…</strong></div>
+      <form id="comment-form">
+        <textarea id="commentBody" name="body" placeholder="Gente, o episódio de hoje… 😭" required>${esc(debateText)}</textarea>
+        <div class="frases">${FRASES_DORAMEIRA.map((f) => `<button type="button" class="frase" data-frase="${esc(f)}">${esc(f)}</button>`).join("")}</div>
+        <div class="mural-composer-row">
+          <select id="commentDrama" name="dramaId" aria-label="Sobre qual dorama">
+            <option value="">🎬 Geral</option>
+            ${clubDebateDraft ? `<option value="__club_draft" selected>${esc(clubDebateDraft.title)} (escolha)</option>` : ""}
             ${meusDramas.map((d) => `<option value="${d.id}" ${commentDraft === d.id ? "selected" : ""}>${esc(d.title)}</option>`).join("")}
           </select>
-        </div>
-        <div class="field">
-          <label for="commentSpoiler">Spoiler até o episódio</label>
-          <input id="commentSpoiler" name="spoiler" type="number" min="0" value="0" />
-          <span class="muted" style="font-size:.74rem">0 = sem spoiler</span>
-        </div>
-        <div class="actions field full">
-          <button class="btn" type="submit">Publicar no mural</button>
+          <label class="mural-spoiler-field" title="0 = sem spoiler">🔒 ep <input id="commentSpoiler" name="spoiler" type="number" min="0" value="0" /></label>
+          <button class="btn" type="submit">Publicar</button>
         </div>
       </form>
     </section>
@@ -3032,30 +3053,7 @@ function podeVerComentario(item) {
 function clubFeedTemplate() {
   if (clubFeedFor !== state.club.id) return `<div class="empty">Carregando o mural…</div>`;
   if (!clubFeedItems.length) return `<div class="empty">Ninguém surtou ainda. Seja a primeira! 💜</div>`;
-  return `
-    <section class="grid">
-      ${clubFeedItems
-        .map((item) => {
-          const liberado = podeVerComentario(item);
-          const podeApagar = authUser && (item.user_id === authUser.id || isAdmin());
-          const corpo = liberado
-            ? `<p>${esc(item.body)}</p>`
-            : `<p class="muted spoiler-lock">🔒 Cuidado, spoiler! Você precisa chegar no episódio ${item.spoiler_episode}${item.drama_title ? ` de ${esc(item.drama_title)}` : ""} pra ver esse surto.</p>`;
-          return `
-        <div class="card comment-card">
-          <div class="comment-head">
-            <strong>${esc(item.author || "(sem nome)")}</strong>
-            <span class="muted">${timeAgo(item.created_at)}</span>
-          </div>
-          ${item.drama_title ? `<span class="chip">${esc(item.drama_title)}${item.spoiler_episode ? ` · spoiler ep. ${item.spoiler_episode}` : ""}</span>` : ""}
-          ${corpo}
-          ${barraReacoes(item.id)}
-          ${podeApagar ? `<div class="mini-actions"><button data-del-comment="${item.id}">${icon("trash")} Apagar</button></div>` : ""}
-        </div>`;
-        })
-        .join("")}
-    </section>
-  `;
+  return `<section class="mural-list">${clubFeedItems.map((item) => muralPostCard(item, { canDelete: true })).join("")}</section>`;
 }
 
 const coupleStatusLabel = { wishlist: "Queremos ver", watching: "Assistindo juntos", watched: "Já vimos", favorite: "Favorito do casal" };
@@ -7070,6 +7068,9 @@ function bindShell() {
   listen(document.querySelector("#comment-form"), "submit", handlePostComment);
   document.querySelectorAll("[data-del-comment]").forEach((button) => {
     listen(button, "click", () => handleDeleteComment(button.dataset.delComment));
+  });
+  document.querySelectorAll("[data-reveal-post]").forEach((button) => {
+    listen(button, "click", () => { revealedPosts.add(button.dataset.revealPost); render(); });
   });
   document.querySelectorAll("[data-react]").forEach((button) => {
     listen(button, "click", () => handleToggleReaction(button.dataset.react, button.dataset.emoji));

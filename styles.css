@@ -965,6 +965,57 @@ textarea:focus {
 }
 .comum-chip.more { background: transparent; color: var(--cor-texto-suave); }
 
+/* ===== Mural do clube ===== */
+.mural-composer {
+  padding: 14px; border-radius: 18px; margin-bottom: 16px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 92%, transparent);
+}
+.mural-composer-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.mural-composer-top strong { font-size: 0.92rem; color: var(--cor-texto-suave); }
+.mural-composer textarea {
+  width: 100%; min-height: 64px; resize: vertical; border-radius: 12px;
+  padding: 10px 12px; border: 1px solid var(--cor-borda); background: var(--cor-superficie-2);
+}
+.mural-composer-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.mural-composer-row select { flex: 1; min-width: 120px; }
+.mural-spoiler-field {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font-weight: 700; font-size: 0.82rem; color: var(--cor-texto-suave);
+  padding: 6px 10px; border-radius: 10px; border: 1px solid var(--cor-borda); background: var(--cor-superficie-2);
+}
+.mural-spoiler-field input { width: 48px; border: 0; background: transparent; padding: 0; text-align: center; }
+.mural-composer-row .btn { flex: 0 0 auto; }
+
+.mural-list { display: grid; gap: 12px; }
+.mural-post {
+  padding: 14px; border-radius: 16px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 92%, transparent);
+}
+.mural-head { display: flex; align-items: center; gap: 10px; }
+.mural-head .club-av { margin-right: 0; width: 36px; height: 36px; font-size: 0.92rem; flex-shrink: 0; }
+.mural-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.mural-meta strong { font-size: 0.92rem; }
+.mural-meta small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.76rem; }
+.mural-del { background: transparent; color: var(--cor-texto-suave); opacity: 0.6; padding: 6px; flex-shrink: 0; }
+.mural-del:hover { opacity: 1; color: #e0566b; }
+.mural-del .ico { width: 16px; height: 16px; }
+.mural-chip {
+  display: inline-block; margin-top: 10px;
+  padding: 4px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 800;
+  background: color-mix(in srgb, var(--cor-primaria) 12%, transparent); color: var(--cor-primaria);
+}
+.mural-body { margin: 10px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
+.mural-locked {
+  margin-top: 10px; padding: 12px; border-radius: 12px; text-align: center;
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  background: color-mix(in srgb, var(--cor-texto-suave) 8%, transparent);
+  border: 1px dashed var(--cor-borda);
+  color: var(--cor-texto-suave); font-weight: 700; font-size: 0.84rem;
+}
+.mural-post .reacoes { margin-top: 12px; }
+
 .club-member-card {
   display: grid;
   gap: 6px;
