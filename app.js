@@ -2487,14 +2487,17 @@ function diasRestantes(dateStr) {
 // Ciclo de temporada: assistindo agora (com progresso) + votação dos próximos.
 function clubeCicloTemplate() {
   if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando o ciclo do clube…</div>`;
-  const cycle = clubSocial.cycle || { phase: "watching", members_count: clubMembers.length, finished_count: 0 };
+  const cycle = clubSocial.cycle || {};
   const featured = clubSocial.featured;
   const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
   const membros = Math.max(1, Number(cycle.members_count || clubMembers.length || 1));
   const terminaram = Number(cycle.finished_count || 0);
   const pct = Math.min(100, Math.round((terminaram / membros) * 100));
   const euTerminei = featured && featured.my_status === "finished";
-  const votando = cycle.phase === "voting";
+  const votingOpen = Boolean(cycle.voting_open);
+  const minhasSug = Number(cycle.my_suggestions || 0);
+  const comQuota = Number(cycle.members_with_quota || 0);
+  const faltam = Math.max(0, membros - comQuota);
 
   const assistindo = featured
     ? `<section class="ciclo-now">
@@ -2508,7 +2511,7 @@ function clubeCicloTemplate() {
         </div>
         <div class="ciclo-prog">
           <div class="ciclo-bar"><i style="width:${pct}%"></i></div>
-          <small>${terminaram}/${membros} terminaram${votando ? " · todos prontos! 🎉" : ""}</small>
+          <small>${terminaram}/${membros} terminaram${terminaram >= membros && membros >= 2 ? " · todos! o próximo já entra 🎉" : ""}</small>
         </div>
         <form id="club-checkin-form" class="ciclo-checkin">
           <input name="episode" type="number" min="0" value="${Number(featured.my_episode || 0)}" aria-label="Meu episódio" />
@@ -2516,34 +2519,25 @@ function clubeCicloTemplate() {
           <button class="btn secondary" type="submit">Salvar ep.</button>
           <button class="btn ${euTerminei ? "ghost" : ""}" type="button" data-club-finish="${euTerminei ? "0" : "1"}">${euTerminei ? "Reabrir" : "✓ Terminei"}</button>
         </form>
+        <p class="ciclo-hint muted">Cada um marca o seu episódio. Quando <strong>todos</strong> marcarem "Terminei", o mais votado entra como próximo.</p>
       </section>`
-    : `<section class="ciclo-now"><span class="clf-eyebrow">🎬 Assistindo agora</span><p class="muted" style="margin:8px 0 0">Nenhum dorama oficial ainda. Adicionem candidatos abaixo e ${canManage ? "fixem o primeiro (botão Fixar)" : "votem"}.</p></section>`;
+    : `<section class="ciclo-now"><span class="clf-eyebrow">🎬 Assistindo agora</span><p class="muted" style="margin:8px 0 0">Nenhum dorama oficial ainda. ${canManage ? "Sugiram abaixo e fixem o primeiro (botão Fixar)." : "Sugiram o primeiro abaixo."}</p></section>`;
 
-  const prazo = diasRestantes(cycle.voting_ends_at);
-  const banner = votando
-    ? `<div class="ciclo-banner open">
-         <div><strong>🗳️ Votação aberta</strong><small>${prazo != null ? (prazo > 0 ? `fecha em ${prazo} dia${prazo > 1 ? "s" : ""}` : "fecha hoje") : "vote nos próximos"}</small></div>
-         ${canManage ? `<button class="btn ghost" type="button" data-club-close-voting>Fechar e eleger</button>` : ""}
-       </div>`
-    : `<div class="ciclo-banner">
-         <div><strong>🗳️ Próximos doramas</strong><small>a votação abre quando todos terminarem o atual</small></div>
-         ${canManage ? `<button class="btn ghost" type="button" data-club-open-voting>Abrir votação já</button>` : ""}
-       </div>`;
+  const banner = votingOpen
+    ? `<div class="ciclo-banner open"><div><strong>🗳️ Votação aberta!</strong><small>todo mundo sugeriu — votem no próximo</small></div></div>`
+    : `<div class="ciclo-banner"><div><strong>💡 Sugeridos</strong><small>cada um sugere 2 · você ${minhasSug}/2${faltam ? ` · faltam ${faltam} pessoa${faltam > 1 ? "s" : ""} sugerir` : ""}</small></div></div>`;
 
-  return `${assistindo}${banner}${listaCompartilhadaTemplate()}`;
+  return `${assistindo}${banner}${listaCompartilhadaTemplate(votingOpen, minhasSug, canManage)}`;
 }
 
-function listaCompartilhadaTemplate() {
+function listaCompartilhadaTemplate(votingOpen = true, minhasSug = 0, canManage = false) {
   const meusDramas = state.dramas.filter((d) => d.tmdbId);
-  const addForm = `
-    <section class="club-choice-panel">
-      <div>
-        <span class="club-eyebrow">${icon("play")} Sala de escolha</span>
-        <h3>Escolham, votem e debatam o proximo dorama</h3>
-        <p class="muted">Adicione candidatos, veja o humor do grupo, fixe o escolhido como dorama oficial e abra debate no mural.</p>
-      </div>
+  const cheio = minhasSug >= 2;
+  const buscaAdd = cheio
+    ? `<div class="empty" style="margin-top:8px">Você já sugeriu 2 doramas 💡 Apague um abaixo pra trocar.</div>`
+    : `
       <form id="club-search-form" class="search-bar" style="margin-bottom:8px">
-        <input name="q" placeholder="🔎 Buscar no TMDB (qualquer dorama/filme, com capa)" value="${esc(clubAddSearch.query)}" autocomplete="off" />
+        <input name="q" placeholder="🔎 Buscar no TMDB (com capa)" value="${esc(clubAddSearch.query)}" autocomplete="off" />
         <button class="btn" type="submit">Buscar</button>
       </form>
       ${clubAddSearch.loading ? `<p class="muted" style="margin:0 0 8px">Buscando…</p>` : ""}
@@ -2554,33 +2548,46 @@ function listaCompartilhadaTemplate() {
           ${meusDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("")}
         </select>
         <input name="manualTitle" placeholder="Ou escreva um nome avulso" />
-        <button class="btn secondary" type="submit">Adicionar candidato</button>
-      </form>
+        <button class="btn secondary" type="submit">Sugerir (${minhasSug}/2)</button>
+      </form>`;
+  const addForm = `
+    <section class="club-choice-panel">
+      <div>
+        <span class="club-eyebrow">${icon("play")} ${votingOpen ? "Votação dos próximos" : "Sugeridos"}</span>
+        <h3>${votingOpen ? "Votem no próximo dorama do clube" : "Sugiram o próximo (2 por pessoa)"}</h3>
+        <p class="muted">${votingOpen ? "Todo mundo já sugeriu. O mais votado entra quando o clube terminar o dorama atual." : "Cada um adiciona até 2 candidatos. Quando todos sugerirem, a votação abre sozinha."}</p>
+      </div>
+      ${buscaAdd}
     </section>`;
   if (clubSocial.for !== state.club.id) return addForm + `<div class="empty">Carregando...</div>`;
-  if (!clubSocial.list.length) return addForm + `<div class="empty">A sala de escolha esta vazia. Adicione o primeiro candidato para o clube votar e debater.</div>`;
+  if (!clubSocial.list.length) return addForm + `<div class="empty">Nenhum sugerido ainda. Comecem a sugerir o próximo dorama! 🎬</div>`;
+
+  // Líder (só quando a votação está aberta).
+  const peso = { "Quero muito": 2, "Já vi, mas vejo de novo": 1, "Tanto faz": 0, "Não tenho psicológico": -1, "Não me chama pra sofrer": -2 };
+  const score = (item) => Object.entries(item.votes || {}).reduce((s, [v, n]) => s + (peso[v] || 0) * Number(n), 0);
+  let liderId = null;
+  if (votingOpen) {
+    let best = -Infinity;
+    for (const it of clubSocial.list) { const sc = score(it); if (sc > best) { best = sc; liderId = it.id; } }
+  }
+
   const itens = clubSocial.list
     .map((item) => {
       const votos = item.votes || {};
-      const chips = Object.entries(votos)
-        .map(([v, n]) => `<span class="chip">${esc(v)}: ${n}</span>`)
-        .join("");
-      const botoes = LISTA_VOTOS.map(
-        (v) => `<button class="${item.my_vote === v ? "mine" : ""}" data-list-vote="${item.id}" data-vote="${esc(v)}">${esc(v)}</button>`,
-      ).join("");
+      const chips = Object.entries(votos).map(([v, n]) => `<span class="chip">${esc(v)}: ${n}</span>`).join("");
+      const botoes = LISTA_VOTOS.map((v) => `<button class="${item.my_vote === v ? "mine" : ""}" data-list-vote="${item.id}" data-vote="${esc(v)}">${esc(v)}</button>`).join("");
       return `
-      <div class="card club-choice-card">
+      <div class="card club-choice-card ${liderId === item.id ? "leading" : ""}">
         <div class="club-choice-head">
           ${item.cover ? `<img src="${esc(item.cover)}" alt="" />` : `<span class="club-choice-placeholder">${icon("play")}</span>`}
           <div>
-            <strong>${esc(item.title)}</strong>
+            <strong>${liderId === item.id ? "🏆 " : ""}${esc(item.title)}</strong>
             ${item.added_by_name ? `<span class="muted">sugerido por ${esc(item.added_by_name)}</span>` : ""}
           </div>
         </div>
-        <div class="chips">${chips || '<span class="muted">sem votos ainda</span>'}</div>
-        <div class="mini-actions voto-row">${botoes}</div>
+        ${votingOpen ? `<div class="chips">${chips || '<span class="muted">sem votos ainda</span>'}</div><div class="mini-actions voto-row">${botoes}</div>` : ""}
         <div class="mini-actions">
-          <button data-list-feature="${item.id}">${icon("play")} Fixar</button>
+          ${canManage ? `<button data-list-feature="${item.id}">${icon("play")} Fixar</button>` : ""}
           <button data-list-debate="${item.id}">${icon("club")} Debater</button>
           <button data-list-remove="${item.id}">${icon("trash")} Tirar</button>
         </div>
@@ -8431,11 +8438,12 @@ async function handleListAdd(dramaId, manualTitle = "") {
   try {
     await clubListAdd(state.club.id, payload);
     clubSocial.list = await clubListFeed(state.club.id);
+    clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
     render();
-    toast(`${payload.title} entrou na sala de escolha.`);
+    toast(`${payload.title} foi sugerido 💡`);
   } catch (e) {
     console.error("clubListAdd", e);
-    toast("Não consegui adicionar agora.");
+    toast(e?.message?.includes("2 doramas") ? "Você já sugeriu 2 doramas. Apague um pra trocar." : "Não consegui adicionar agora.");
   }
 }
 
@@ -8466,12 +8474,13 @@ async function handleClubAddTmdb(tmdbId) {
   try {
     await clubListAdd(state.club.id, { title: brief.title, tmdbId: brief.tmdbId, cover: brief.cover || null });
     clubSocial.list = await clubListFeed(state.club.id);
+    clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
     clubAddSearch = { query: "", loading: false, results: [] };
     render();
-    toast(`${brief.title} entrou na sala de escolha 🗳️`);
+    toast(`${brief.title} foi sugerido 💡`);
   } catch (e) {
     console.error("clubListAdd", e);
-    toast("Não consegui adicionar agora.");
+    toast(e?.message?.includes("2 doramas") ? "Você já sugeriu 2 doramas. Apague um pra trocar." : "Não consegui adicionar agora.");
   }
 }
 
@@ -8509,6 +8518,7 @@ async function handleListVote(listId, vote) {
   try {
     await clubListVote(listId, vote);
     clubSocial.list = await clubListFeed(state.club.id);
+    clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
     render();
   } catch {
     toast("Não consegui votar.");
@@ -8520,6 +8530,7 @@ async function handleListRemove(listId) {
   try {
     await clubListRemove(listId);
     clubSocial.list = clubSocial.list.filter((i) => i.id !== listId);
+    clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
     render();
     toast("Removido da lista.");
   } catch {

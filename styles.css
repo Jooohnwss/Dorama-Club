@@ -952,6 +952,11 @@ textarea:focus {
 .ciclo-banner.open { border-color: color-mix(in srgb, #22c55e 45%, var(--cor-borda)); background: color-mix(in srgb, #22c55e 10%, var(--cor-superficie)); }
 .ciclo-banner strong { display: block; font-size: 0.98rem; }
 .ciclo-banner small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.8rem; }
+.ciclo-hint { margin: 10px 0 0; font-size: 0.78rem; }
+.club-choice-card.leading {
+  border-color: color-mix(in srgb, #eab308 55%, var(--cor-borda));
+  background: color-mix(in srgb, #eab308 10%, var(--cor-superficie));
+}
 
 /* Doramas em comum (chips, não bloco colado) */
 .comum-card { display: grid; gap: 8px; }
