@@ -898,3 +898,21 @@ Depois disso, o clube ja fica com cara de comunidade. Chat, eventos e ranking en
 - Pendente:
   - Rodar `supabase/34 - clubes-pontos-e-desafios.sql` no Supabase.
   - Validar pontos criando/votando em enquete, fazendo check-in, confirmando evento e concluindo desafio.
+
+### 2026-06-26 - Codex, chat
+
+- Criada a migracao `35 - clubes-chat.sql`.
+  - Tabela `club_chat_messages`.
+  - RPC `create_club_chat_message`.
+  - RPC `delete_club_chat_message`.
+  - RPC `club_chat_feed`.
+- Implementado no app:
+  - Nova aba `Chat`.
+  - Enviar mensagem no clube.
+  - Marcar mensagem como spoiler e/ou episodio.
+  - Apagar propria mensagem.
+  - Dono/moderador pode apagar mensagens.
+  - Mensagem no chat gera ponto quando a migracao 34 ja existe.
+- Pendente:
+  - Rodar `supabase/35 - clubes-chat.sql` no Supabase, depois da 34.
+  - Validar enviando e apagando mensagens no clube.

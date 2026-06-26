@@ -64,6 +64,9 @@ import {
   createClubChallenge,
   completeClubChallenge,
   closeClubChallenge,
+  clubChatFeed,
+  createClubChatMessage,
+  deleteClubChatMessage,
   loadFavoritos,
   addFavorito,
   deleteFavorito,
@@ -498,7 +501,7 @@ function trocarClubeAtivo(club) {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [] };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [] };
   addingClub = false;
 }
 
@@ -534,7 +537,7 @@ function marcarClubeVisto() {
   clubHasNews = false;
 }
 // Social do clube (feed automático, dorama do mês, ranking, diário compartilhado).
-let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [] };
+let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [] };
 // Espaço "Nós dois" (carregado sob demanda).
 let coupleFor = null;
 let coupleMembers = [];
@@ -2254,7 +2257,7 @@ function clubTemplate() {
     return clubFormsTemplate();
   }
 
-  if (!["feed", "doramas", "eventos", "desafios", "ranking", "sobre"].includes(clubTab)) clubTab = "feed";
+  if (!["feed", "chat", "doramas", "eventos", "desafios", "ranking", "sobre"].includes(clubTab)) clubTab = "feed";
 
   const switcher = `
     <div class="tabs">
@@ -2264,6 +2267,7 @@ function clubTemplate() {
 
   const subtabs = [
     ["feed", "Feed"],
+    ["chat", "Chat"],
     ["doramas", "Doramas"],
     ["eventos", "Eventos"],
     ["desafios", "Desafios"],
@@ -2273,6 +2277,7 @@ function clubTemplate() {
 
   const conteudo = {
     feed: `${commentFormTemplate()}${clubFeedTemplate()}<div class="section-title"><h2>Novidades automaticas</h2></div>${atividadesTemplate()}<div class="section-title"><h2>Diario compartilhado</h2></div>${diarioCompartilhadoTemplate()}`,
+    chat: clubeChatTemplate(),
     doramas: `
       <div class="section-title"><h2>Dorama do clube</h2></div>${clubeDestaqueTemplate()}
       <div class="section-title"><h2>Enquetes do clube</h2></div>${clubeEnquetesTemplate()}
@@ -2456,6 +2461,52 @@ function clubeDestaqueTemplate() {
       <div class="club-checkins">${rows}</div>
       ${fixarForm}
     </section>`;
+}
+
+function clubeChatTemplate() {
+  const form = `
+    <section class="form-card club-chat-form-card">
+      <form id="club-chat-form" class="form-grid">
+        <div class="field full">
+          <label for="clubChatBody">Mensagem no chat</label>
+          <textarea id="clubChatBody" name="body" placeholder="Combinem a maratona, mandem teoria, surtos rapidos..." required></textarea>
+        </div>
+        <div class="field">
+          <label for="clubChatEpisode">Spoiler ate ep.</label>
+          <input id="clubChatEpisode" name="episodeNumber" type="number" min="0" value="0" />
+        </div>
+        <label class="check-row">
+          <input name="hasSpoiler" type="checkbox" />
+          <span>Tem spoiler</span>
+        </label>
+        <div class="actions field full">
+          <button class="btn" type="submit">Enviar</button>
+        </div>
+      </form>
+    </section>`;
+
+  if (clubSocial.for !== state.club.id) return form + `<div class="empty">Carregando chat...</div>`;
+  const messages = [...(clubSocial.chat || [])].reverse();
+  if (!messages.length) return form + `<div class="empty">Chat vazio. Mande a primeira mensagem do clube.</div>`;
+  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
+  const list = messages
+    .map((msg) => {
+      const mine = authUser && msg.user_id === authUser.id;
+      const spoiler = msg.has_spoiler || Number(msg.episode_number || 0) > 0;
+      const podeApagar = mine || canManage;
+      return `
+        <article class="club-chat-message ${mine ? "mine" : ""}">
+          <div class="comment-head">
+            <strong>${esc(msg.author || msg.nickname || "Membro")}</strong>
+            <span class="muted">${timeAgo(msg.created_at)}</span>
+          </div>
+          ${spoiler ? `<span class="chip">Spoiler${Number(msg.episode_number || 0) ? ` ate ep. ${Number(msg.episode_number || 0)}` : ""}</span>` : ""}
+          <p>${esc(msg.body)}</p>
+          ${podeApagar ? `<div class="mini-actions"><button data-del-chat="${msg.id}">${icon("trash")} Apagar</button></div>` : ""}
+        </article>`;
+    })
+    .join("");
+  return form + `<section class="club-chat-list">${list}</section>`;
 }
 
 function clubeEnquetesTemplate() {
@@ -6448,7 +6499,7 @@ async function handleLogout() {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [] };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [] };
   coupleFor = null;
   coupleMembers = [];
   coupleDramas = [];
@@ -6893,6 +6944,10 @@ function bindShell() {
   document.querySelectorAll("[data-close-challenge]").forEach((button) => {
     listen(button, "click", () => handleCloseClubChallenge(button.dataset.closeChallenge));
   });
+  listen(document.querySelector("#club-chat-form"), "submit", handleCreateClubChatMessage);
+  document.querySelectorAll("[data-del-chat]").forEach((button) => {
+    listen(button, "click", () => handleDeleteClubChatMessage(button.dataset.delChat));
+  });
   listen(document.querySelector("#casal-form"), "submit", handleAddCasal);
   document.querySelectorAll("[data-del-casal]").forEach((button) => {
     listen(button, "click", () => handleDeleteCasal(button.dataset.delCasal));
@@ -7222,9 +7277,9 @@ async function loadClubFeed() {
 async function loadClubSocial() {
   if (!state.club) return;
   clubSocial = { ...clubSocial, for: state.club.id };
-  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [] };
+  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [] };
   try {
-    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -7238,8 +7293,9 @@ async function loadClubSocial() {
       clubEventsFeed(state.club.id).catch(() => []),
       clubPointsRanking(state.club.id).catch(() => []),
       clubChallengesFeed(state.club.id).catch(() => []),
+      clubChatFeed(state.club.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat };
   } catch {
     clubSocial = empty;
   }
@@ -8258,6 +8314,43 @@ async function handleCloseClubChallenge(challengeId) {
     toast("Desafio encerrado.");
   } catch (error) {
     toast(error?.message?.includes("permissao") ? "So dono ou moderador pode encerrar." : "Nao consegui encerrar.");
+  }
+}
+
+async function handleCreateClubChatMessage(event) {
+  event.preventDefault();
+  if (!state.club) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const body = String(data.body || "").trim();
+  if (!body) return;
+  try {
+    await createClubChatMessage(state.club.id, {
+      body,
+      hasSpoiler: Boolean(data.hasSpoiler),
+      episodeNumber: Number(data.episodeNumber) || 0,
+    });
+    const [chat, points] = await Promise.all([
+      clubChatFeed(state.club.id).catch(() => clubSocial.chat || []),
+      clubPointsRanking(state.club.id).catch(() => clubSocial.points || []),
+    ]);
+    clubSocial.chat = chat;
+    clubSocial.points = points;
+    event.currentTarget.reset();
+    render();
+  } catch (error) {
+    toast(error?.message || "Nao consegui enviar a mensagem.");
+  }
+}
+
+async function handleDeleteClubChatMessage(messageId) {
+  if (!(await confirmar("Apagar esta mensagem?", { ok: "Apagar", danger: true }))) return;
+  try {
+    await deleteClubChatMessage(messageId);
+    clubSocial.chat = await clubChatFeed(state.club.id).catch(() => clubSocial.chat || []);
+    render();
+    toast("Mensagem apagada.");
+  } catch (error) {
+    toast(error?.message?.includes("permissao") ? "Voce nao pode apagar essa mensagem." : "Nao consegui apagar.");
   }
 }
 

@@ -1212,6 +1212,29 @@ export async function closeClubChallenge(challengeId) {
   if (error) throw error;
 }
 
+// ---------- Chat do clube ----------
+export async function clubChatFeed(clubId) {
+  const { data, error } = await supabase.rpc("club_chat_feed", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createClubChatMessage(clubId, message) {
+  const { data, error } = await supabase.rpc("create_club_chat_message", {
+    p_club: clubId,
+    p_body: message.body,
+    p_has_spoiler: Boolean(message.hasSpoiler),
+    p_episode_number: Number(message.episodeNumber) || 0,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteClubChatMessage(messageId) {
+  const { error } = await supabase.rpc("delete_club_chat_message", { p_message: messageId });
+  if (error) throw error;
+}
+
 // ---------- Favoritos especiais ----------
 export async function loadFavoritos(userId) {
   const { data, error } = await supabase.from("favoritos").select("*").eq("user_id", userId).order("created_at", { ascending: false });

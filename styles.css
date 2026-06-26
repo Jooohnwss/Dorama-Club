@@ -1011,6 +1011,36 @@ textarea:focus {
   flex: 1;
 }
 
+.club-chat-form-card {
+  max-width: none;
+}
+
+.club-chat-list {
+  display: grid;
+  gap: 10px;
+}
+
+.club-chat-message {
+  display: grid;
+  gap: 6px;
+  max-width: 780px;
+  padding: 13px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-superficie);
+}
+
+.club-chat-message.mine {
+  margin-left: auto;
+  border-color: color-mix(in srgb, var(--cor-primaria) 42%, var(--cor-borda));
+  background: color-mix(in srgb, var(--cor-primaria) 9%, var(--cor-superficie));
+}
+
+.club-chat-message p {
+  margin: 0;
+  line-height: 1.45;
+}
+
 .list-toolbar {
   display: flex;
   flex-wrap: wrap;
