@@ -64,6 +64,8 @@ end;
 $$;
 
 -- Estado do ciclo + tick (troca quando todos terminam).
+-- A função mudou de colunas de retorno (vinha da migração 37), então precisa DROP antes.
+drop function if exists public.club_cycle(uuid);
 create or replace function public.club_cycle(p_club uuid)
 returns table (
   members_count int,

@@ -2365,8 +2365,7 @@ function clubTemplate() {
     chat: clubeChatTemplate(),
     doramas: `
       ${clubeCicloTemplate()}
-      <div class="section-title"><h2>Enquetes do clube</h2></div>${clubeEnquetesTemplate()}
-      <div class="section-title"><h2>Doramas em comum</h2></div>${doramasEmComumTemplate()}`,
+      <div class="section-title compact"><h2>🤝 Doramas em comum</h2></div>${doramasEmComumTemplate()}`,
     ranking: `
       <div class="section-title"><h2>Ranking do clube</h2></div>${rankingClubeTemplate()}
       <div class="section-title"><h2>Ranking de pontos</h2></div>${clubPointsTemplate()}
@@ -2428,9 +2427,8 @@ function doramasEmComumTemplate() {
     "Todo mundo já viu": dados.filter((d) => Number(d.finished) >= total && total > 1),
     "Todo mundo quer ver": dados.filter((d) => Number(d.wishlist) >= total && total > 1),
     "Melhor pra ver juntas": dados.filter((d) => Number(d.wishlist) >= 2 && Number(d.finished) === 0),
-    "Só uma viu": dados.filter((d) => Number(d.membros) === 1 && Number(d.finished) >= 1),
   };
-  const emoji = { "Todo mundo já viu": "✅", "Todo mundo quer ver": "💖", "Melhor pra ver juntas": "🍿", "Só uma viu": "👀" };
+  const emoji = { "Todo mundo já viu": "✅", "Todo mundo quer ver": "💖", "Melhor pra ver juntas": "🍿" };
   const blocos = Object.entries(grupos)
     .filter(([, lista]) => lista.length)
     .map(([titulo, lista]) => {
@@ -8493,7 +8491,11 @@ async function handleSetClubFeaturedFromList(listId) {
       { title: item.title, tmdbId: item.tmdb_id ?? null, cover: item.cover || null },
       "week",
     );
+    // O dorama aceito sai dos sugeridos.
+    await clubListRemove(listId).catch(() => {});
     clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id);
+    clubSocial.list = await clubListFeed(state.club.id).catch(() => (clubSocial.list || []).filter((i) => i.id !== listId));
+    clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
     await registrarAtividade(`🎬 ${state.profile?.name || "Alguém"} fixou ${item.title} como dorama do clube`);
     clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
     clubTab = "doramas";
