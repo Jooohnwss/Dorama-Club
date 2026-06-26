@@ -553,6 +553,7 @@ let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let coupleDiaryKind = "episodio"; // tipo de página do diário sendo criada
 let recadoIndex = Math.floor(Math.random() * 1000); // qual recadinho mostrar no topo
 let coupleAddSearch = { query: "", loading: false, results: [] }; // busca TMDB no add do casal
+let clubAddSearch = { query: "", loading: false, results: [] }; // busca TMDB na sala de escolha do clube
 let coupleAddCatSel = "watching"; // categoria escolhida no add do casal (persiste no re-render)
 let temaSearchCasal = { query: "", loading: false, results: [] }; // busca de tema dentro do casal
 let runtimeCache = {}; // tmdbId -> minutos por episódio (TMDB), pra estimar horas
@@ -2463,13 +2464,19 @@ function listaCompartilhadaTemplate() {
         <h3>Escolham, votem e debatam o proximo dorama</h3>
         <p class="muted">Adicione candidatos, veja o humor do grupo, fixe o escolhido como dorama oficial e abra debate no mural.</p>
       </div>
+      <form id="club-search-form" class="search-bar" style="margin-bottom:8px">
+        <input name="q" placeholder="🔎 Buscar no TMDB (qualquer dorama/filme, com capa)" value="${esc(clubAddSearch.query)}" autocomplete="off" />
+        <button class="btn" type="submit">Buscar</button>
+      </form>
+      ${clubAddSearch.loading ? `<p class="muted" style="margin:0 0 8px">Buscando…</p>` : ""}
+      ${clubAddSearch.results.length ? `<div class="search-results">${clubAddSearch.results.slice(0, 8).map((d) => `<button type="button" class="search-result" data-club-add-tmdb="${d.tmdbId}" data-media="${esc(d.mediaType || "")}"><img src="${esc(thumb(d.cover) || POSTER_PLACEHOLDER)}" alt="" loading="lazy" /><span class="search-result-info"><strong>${esc(d.title)}</strong><small>${esc(midiaEtiqueta(d))}${d.year ? ` · ${d.year}` : ""}</small></span></button>`).join("")}</div>` : ""}
       <form id="lista-add-form" class="club-choice-form">
         <select name="dramaId">
-          <option value="">Adicionar da minha lista...</option>
+          <option value="">Ou pegar da minha lista...</option>
           ${meusDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("")}
         </select>
-        <input name="manualTitle" placeholder="Ou escreva um dorama novo" />
-        <button class="btn" type="submit">Adicionar candidato</button>
+        <input name="manualTitle" placeholder="Ou escreva um nome avulso" />
+        <button class="btn secondary" type="submit">Adicionar candidato</button>
       </form>
     </section>`;
   if (clubSocial.for !== state.club.id) return addForm + `<div class="empty">Carregando...</div>`;
@@ -7026,6 +7033,10 @@ function bindShell() {
     const data = Object.fromEntries(new FormData(e.currentTarget));
     handleListAdd(data.dramaId, data.manualTitle);
   });
+  listen(document.querySelector("#club-search-form"), "submit", runClubSearch);
+  document.querySelectorAll("[data-club-add-tmdb]").forEach((button) => {
+    listen(button, "click", () => handleClubAddTmdb(button.dataset.clubAddTmdb));
+  });
   document.querySelectorAll("[data-list-vote]").forEach((button) => {
     listen(button, "click", () => handleListVote(button.dataset.listVote, button.dataset.vote));
   });
@@ -7406,6 +7417,7 @@ async function loadClubFeed() {
 
 async function loadClubSocial() {
   if (!state.club) return;
+  clubAddSearch = { query: "", loading: false, results: [] }; // limpa busca ao trocar de clube
   clubSocial = { ...clubSocial, for: state.club.id };
   const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [] };
   try {
@@ -8242,6 +8254,41 @@ async function handleListAdd(dramaId, manualTitle = "") {
     toast(`${payload.title} entrou na sala de escolha.`);
   } catch {
     toast("Nao consegui adicionar na sala de escolha.");
+  }
+}
+
+async function runClubSearch(event) {
+  event.preventDefault();
+  const q = String(new FormData(event.currentTarget).get("q") || "").trim();
+  if (!q) return;
+  if (!tmdbReady()) { toast("Busca indisponível (TMDB sem token)."); return; }
+  clubAddSearch = { query: q, loading: true, results: [] };
+  render();
+  try {
+    clubAddSearch = { query: q, loading: false, results: await searchDramas(q) };
+  } catch {
+    clubAddSearch = { query: q, loading: false, results: [] };
+    toast("Não consegui buscar agora.");
+  }
+  render();
+}
+// Adiciona um resultado do TMDB (com capa) direto na sala de escolha do clube.
+async function handleClubAddTmdb(tmdbId) {
+  const brief = clubAddSearch.results.find((d) => d.tmdbId === Number(tmdbId));
+  if (!brief || !state.club) return;
+  if ((clubSocial.list || []).some((it) => (brief.tmdbId && it.tmdb_id && Number(it.tmdb_id) === brief.tmdbId) || (it.title || "").toLowerCase() === brief.title.toLowerCase())) {
+    toast(`${brief.title} já está na sala de escolha.`);
+    return;
+  }
+  toast("Adicionando…");
+  try {
+    await clubListAdd(state.club.id, { title: brief.title, tmdbId: brief.tmdbId, cover: brief.cover || null });
+    clubSocial.list = await clubListFeed(state.club.id);
+    clubAddSearch = { query: "", loading: false, results: [] };
+    render();
+    toast(`${brief.title} entrou na sala de escolha 🗳️`);
+  } catch {
+    toast("Não consegui adicionar.");
   }
 }
 
