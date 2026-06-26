@@ -1298,6 +1298,11 @@ textarea:focus {
   flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 0;
   border-radius: 50%; font-size: 1.2rem;
 }
+.chat-spoiler-on {
+  margin-top: 12px; margin-bottom: -4px; padding: 8px 12px; border-radius: 10px;
+  font-size: 0.8rem; font-weight: 700; text-align: center;
+  background: color-mix(in srgb, #f59e0b 16%, transparent); color: #b45309;
+}
 
 /* Spoiler como borrão que revela ao tocar */
 .chat-spoiler-blur { cursor: pointer; position: relative; display: inline-block; }

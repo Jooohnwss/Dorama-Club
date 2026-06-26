@@ -2691,10 +2691,14 @@ function clubeChatTemplate() {
   const lista = messages.length
     ? messages.map((m, i) => chatBubbleHtml(m, messages[i - 1])).join("")
     : `<div class="empty">Chat vazio. Manda a primeira mensagem ao vivo! 💬</div>`;
+  const hint = clubChatSpoilerOn
+    ? `<div class="chat-spoiler-on">🔒 Spoiler ligado — sua mensagem vai <b>borrada</b> até tocarem pra ver</div>`
+    : "";
   const composer = `
+    ${hint}
     <form id="club-chat-form" class="chat-composer">
-      <button type="button" class="chat-spoiler-toggle ${clubChatSpoilerOn ? "on" : ""}" data-chat-spoiler title="${clubChatSpoilerOn ? "Spoiler ligado" : "Marcar como spoiler"}">🔒</button>
-      <input id="clubChatBody" name="body" placeholder="Mensagem ao vivo…" autocomplete="off" value="${esc(chatDraft)}" required />
+      <button type="button" class="chat-spoiler-toggle ${clubChatSpoilerOn ? "on" : ""}" data-chat-spoiler title="${clubChatSpoilerOn ? "Spoiler ligado (toque pra desligar)" : "Marcar a mensagem como spoiler"}" aria-label="Marcar spoiler">🔒</button>
+      <input id="clubChatBody" name="body" placeholder="${clubChatSpoilerOn ? "Mensagem com spoiler…" : "Mensagem ao vivo…"}" autocomplete="off" value="${esc(chatDraft)}" required />
       <input type="hidden" name="hasSpoiler" value="${clubChatSpoilerOn ? "1" : ""}" />
       <button class="btn chat-send" type="submit" aria-label="Enviar">➤</button>
     </form>`;
