@@ -2529,70 +2529,67 @@ function clubeCicloTemplate() {
 }
 
 function listaCompartilhadaTemplate(votingOpen = true, minhasSug = 0, canManage = false) {
-  const meusDramas = state.dramas.filter((d) => d.tmdbId);
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando…</div>`;
   const cheio = minhasSug >= 2;
-  const buscaAdd = cheio
-    ? `<div class="empty" style="margin-top:8px">Você já sugeriu 2 doramas 💡 Apague um abaixo pra trocar.</div>`
+  const lista = clubSocial.list || [];
+  const total = lista.length;
+  const membros = Math.max(1, Number(clubSocial.cycle?.members_count || clubMembers.length || 1));
+  const comQuota = Number(clubSocial.cycle?.members_with_quota || 0);
+
+  const busca = cheio
+    ? `<p class="choice-full">✅ Você já deu suas 2 sugestões. Apague uma abaixo pra trocar.</p>`
     : `
-      <form id="club-search-form" class="search-bar" style="margin-bottom:8px">
-        <input name="q" placeholder="🔎 Buscar no TMDB (com capa)" value="${esc(clubAddSearch.query)}" autocomplete="off" />
+      <form id="club-search-form" class="search-bar choice-search">
+        <input name="q" placeholder="🔎 Buscar dorama no TMDB…" value="${esc(clubAddSearch.query)}" autocomplete="off" />
         <button class="btn" type="submit">Buscar</button>
       </form>
-      ${clubAddSearch.loading ? `<p class="muted" style="margin:0 0 8px">Buscando…</p>` : ""}
-      ${clubAddSearch.results.length ? `<div class="search-results">${clubAddSearch.results.slice(0, 8).map((d) => `<button type="button" class="search-result" data-club-add-tmdb="${d.tmdbId}" data-media="${esc(d.mediaType || "")}"><img src="${esc(thumb(d.cover) || POSTER_PLACEHOLDER)}" alt="" loading="lazy" /><span class="search-result-info"><strong>${esc(d.title)}</strong><small>${esc(midiaEtiqueta(d))}${d.year ? ` · ${d.year}` : ""}</small></span></button>`).join("")}</div>` : ""}
-      <form id="lista-add-form" class="club-choice-form">
-        <select name="dramaId">
-          <option value="">Ou pegar da minha lista...</option>
-          ${meusDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("")}
-        </select>
-        <input name="manualTitle" placeholder="Ou escreva um nome avulso" />
-        <button class="btn secondary" type="submit">Sugerir (${minhasSug}/2)</button>
-      </form>`;
-  const addForm = `
-    <section class="club-choice-panel">
-      <div>
-        <span class="club-eyebrow">${icon("play")} ${votingOpen ? "Votação dos próximos" : "Sugeridos"}</span>
-        <h3>${votingOpen ? "Votem no próximo dorama do clube" : "Sugiram o próximo (2 por pessoa)"}</h3>
-        <p class="muted">${votingOpen ? "Todo mundo já sugeriu. O mais votado entra quando o clube terminar o dorama atual." : "Cada um adiciona até 2 candidatos. Quando todos sugerirem, a votação abre sozinha."}</p>
-      </div>
-      ${buscaAdd}
-    </section>`;
-  if (clubSocial.for !== state.club.id) return addForm + `<div class="empty">Carregando...</div>`;
-  if (!clubSocial.list.length) return addForm + `<div class="empty">Nenhum sugerido ainda. Comecem a sugerir o próximo dorama! 🎬</div>`;
+      ${clubAddSearch.loading ? `<p class="muted" style="margin:6px 0">Buscando…</p>` : ""}
+      ${clubAddSearch.results.length ? `<div class="search-results">${clubAddSearch.results.slice(0, 8).map((d) => `<button type="button" class="search-result" data-club-add-tmdb="${d.tmdbId}" data-media="${esc(d.mediaType || "")}"><img src="${esc(thumb(d.cover) || POSTER_PLACEHOLDER)}" alt="" loading="lazy" /><span class="search-result-info"><strong>${esc(d.title)}</strong><small>${esc(midiaEtiqueta(d))}${d.year ? ` · ${d.year}` : ""}</small></span></button>`).join("")}</div>` : ""}`;
 
   // Líder (só quando a votação está aberta).
   const peso = { "Quero muito": 2, "Já vi, mas vejo de novo": 1, "Tanto faz": 0, "Não tenho psicológico": -1, "Não me chama pra sofrer": -2 };
   const score = (item) => Object.entries(item.votes || {}).reduce((s, [v, n]) => s + (peso[v] || 0) * Number(n), 0);
   let liderId = null;
-  if (votingOpen) {
+  if (votingOpen && total) {
     let best = -Infinity;
-    for (const it of clubSocial.list) { const sc = score(it); if (sc > best) { best = sc; liderId = it.id; } }
+    for (const it of lista) { const sc = score(it); if (sc > best) { best = sc; liderId = it.id; } }
   }
 
-  const itens = clubSocial.list
-    .map((item) => {
-      const votos = item.votes || {};
-      const chips = Object.entries(votos).map(([v, n]) => `<span class="chip">${esc(v)}: ${n}</span>`).join("");
-      const botoes = LISTA_VOTOS.map((v) => `<button class="${item.my_vote === v ? "mine" : ""}" data-list-vote="${item.id}" data-vote="${esc(v)}">${esc(v)}</button>`).join("");
-      return `
-      <div class="card club-choice-card ${liderId === item.id ? "leading" : ""}">
-        <div class="club-choice-head">
-          ${item.cover ? `<img src="${esc(item.cover)}" alt="" />` : `<span class="club-choice-placeholder">${icon("play")}</span>`}
-          <div>
+  const cards = lista.map((item) => {
+    const totalVotos = Object.values(item.votes || {}).reduce((s, n) => s + Number(n), 0);
+    const botoes = LISTA_VOTOS.map((v) => `<button class="${item.my_vote === v ? "mine" : ""}" data-list-vote="${item.id}" data-vote="${esc(v)}">${esc(v)}</button>`).join("");
+    return `
+      <article class="sug-card ${liderId === item.id ? "leading" : ""}">
+        <div class="sug-top">
+          ${item.cover ? `<img src="${esc(item.cover)}" alt="" loading="lazy" />` : `<span class="sug-noimg">🎬</span>`}
+          <div class="sug-main">
             <strong>${liderId === item.id ? "🏆 " : ""}${esc(item.title)}</strong>
-            ${item.added_by_name ? `<span class="muted">sugerido por ${esc(item.added_by_name)}</span>` : ""}
+            <small>sugerido por ${esc(item.added_by_name || "alguém")}${votingOpen ? ` · ${totalVotos} voto${totalVotos === 1 ? "" : "s"}` : ""}</small>
+          </div>
+          <div class="sug-actions">
+            ${canManage ? `<button data-list-feature="${item.id}" title="Fixar como atual">📌</button>` : ""}
+            <button data-list-debate="${item.id}" title="Debater no mural">${icon("club")}</button>
+            <button data-list-remove="${item.id}" title="Tirar">${icon("trash")}</button>
           </div>
         </div>
-        ${votingOpen ? `<div class="chips">${chips || '<span class="muted">sem votos ainda</span>'}</div><div class="mini-actions voto-row">${botoes}</div>` : ""}
-        <div class="mini-actions">
-          ${canManage ? `<button data-list-feature="${item.id}">${icon("play")} Fixar</button>` : ""}
-          <button data-list-debate="${item.id}">${icon("club")} Debater</button>
-          <button data-list-remove="${item.id}">${icon("trash")} Tirar</button>
-        </div>
-      </div>`;
-    })
-    .join("");
-  return addForm + `<section class="grid cards">${itens}</section>`;
+        ${votingOpen ? `<div class="mini-actions voto-row sug-votos">${botoes}</div>` : ""}
+      </article>`;
+  }).join("");
+
+  const progresso = votingOpen
+    ? `<span class="choice-prog ok">✅ Todos sugeriram — votem!</span>`
+    : `<span class="choice-prog">${comQuota}/${membros} já sugeriram 2${comQuota < membros ? ` · faltam ${membros - comQuota}` : " · quase!"}</span>`;
+
+  return `
+    <section class="choice-box ${votingOpen ? "voting" : ""}">
+      <div class="choice-box-head">
+        <h3>${votingOpen ? "🗳️ Votação dos próximos" : "💡 Sugeridos pra votação"}</h3>
+        <span class="choice-count">${total} dorama${total === 1 ? "" : "s"}</span>
+      </div>
+      <p class="choice-sub">${votingOpen ? "Todo mundo sugeriu! O mais votado entra quando o clube terminar o atual." : `Cada um sugere 2 doramas. Quando todos sugerirem, a votação abre sozinha.`} ${progresso}</p>
+      ${busca}
+      ${total ? `<div class="choice-cards">${cards}</div>` : `<div class="empty" style="margin-top:10px">Ninguém sugeriu ainda. Seja ${gx("o primeiro", "a primeira", "a primeira pessoa")}! 🎬</div>`}
+    </section>`;
 }
 
 function clubeDestaqueTemplate() {

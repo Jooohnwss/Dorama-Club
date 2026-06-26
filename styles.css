@@ -953,10 +953,53 @@ textarea:focus {
 .ciclo-banner strong { display: block; font-size: 0.98rem; }
 .ciclo-banner small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.8rem; }
 .ciclo-hint { margin: 10px 0 0; font-size: 0.78rem; }
-.club-choice-card.leading {
+
+/* Caixa de Sugeridos / Votação */
+.choice-box {
+  margin-top: 14px; padding: 16px; border-radius: 18px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 92%, transparent);
+}
+.choice-box.voting {
+  border-color: color-mix(in srgb, var(--cor-primaria) 40%, var(--cor-borda));
+  background: color-mix(in srgb, var(--cor-primaria) 7%, var(--cor-superficie));
+}
+.choice-box-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.choice-box-head h3 { margin: 0; font-size: 1.05rem; }
+.choice-count { font-weight: 800; font-size: 0.8rem; color: var(--cor-texto-suave); }
+.choice-sub { margin: 6px 0 12px; font-size: 0.84rem; color: var(--cor-texto-suave); font-weight: 600; }
+.choice-prog {
+  display: inline-block; margin-top: 4px; padding: 2px 9px; border-radius: 999px;
+  font-weight: 800; font-size: 0.76rem;
+  background: color-mix(in srgb, var(--cor-texto-suave) 14%, transparent); color: var(--cor-texto);
+}
+.choice-prog.ok { background: color-mix(in srgb, #22c55e 22%, transparent); color: #15803d; }
+.choice-full { margin: 0 0 6px; font-weight: 700; font-size: 0.84rem; color: #15803d; }
+.choice-search { margin-bottom: 8px; }
+.choice-cards { display: grid; gap: 10px; margin-top: 12px; }
+.sug-card {
+  padding: 10px; border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie);
+}
+.sug-card.leading {
   border-color: color-mix(in srgb, #eab308 55%, var(--cor-borda));
   background: color-mix(in srgb, #eab308 10%, var(--cor-superficie));
 }
+.sug-top { display: flex; align-items: center; gap: 10px; }
+.sug-top img { width: 44px; height: 62px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+.sug-noimg { width: 44px; height: 62px; border-radius: 8px; display: grid; place-items: center; font-size: 1.3rem; background: var(--cor-superficie-2); flex-shrink: 0; }
+.sug-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sug-main strong { font-size: 0.95rem; line-height: 1.2; }
+.sug-main small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.78rem; }
+.sug-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.sug-actions button {
+  width: 34px; height: 34px; display: grid; place-items: center; padding: 0;
+  border-radius: 10px; background: var(--cor-superficie-2); color: var(--cor-texto-suave);
+}
+.sug-actions button:hover { color: var(--cor-texto); }
+.sug-actions .ico { width: 16px; height: 16px; }
+.sug-votos { margin-top: 10px; }
 
 /* Doramas em comum (chips, não bloco colado) */
 .comum-card { display: grid; gap: 8px; }
