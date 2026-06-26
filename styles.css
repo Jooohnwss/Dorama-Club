@@ -987,6 +987,18 @@ textarea:focus {
 .mural-spoiler-field input { width: 48px; border: 0; background: transparent; padding: 0; text-align: center; }
 .mural-composer-row .btn { flex: 0 0 auto; }
 
+.mural-filter {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  margin: 0 0 12px; padding-bottom: 2px;
+}
+.mural-filter::-webkit-scrollbar { display: none; }
+.mural-fchip {
+  flex: 0 0 auto; white-space: nowrap;
+  padding: 7px 13px; border-radius: 999px; font-weight: 800; font-size: 0.82rem;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); color: var(--cor-texto-suave);
+}
+.mural-fchip.on { background: var(--cor-primaria); color: var(--cor-primaria-texto); border-color: transparent; }
+
 .mural-list { display: grid; gap: 12px; }
 .mural-post {
   padding: 14px; border-radius: 16px;

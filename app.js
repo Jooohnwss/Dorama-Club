@@ -49,6 +49,7 @@ import {
   clubListVote,
   clubListRemove,
   clubCurrentFeaturedDrama,
+  clubFeaturedHistory,
   clubCycle,
   clubOpenVoting,
   clubCloseVoting,
@@ -368,6 +369,7 @@ let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 let clubTab = "inicio"; // aba interna da tela Doramigas (lobby)
 let revealedPosts = new Set(); // posts cujo spoiler o leitor escolheu ver
+let clubMuralFilter = null; // null = dorama atual; "all" = tudo; ou um tmdb_id
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
 let clubDebateDraft = null; // dorama avulso da lista do clube para abrir debate no mural
 let listSort = "recente"; // ordenação da Minhas listas
@@ -3020,19 +3022,24 @@ function diarioCompartilhadoTemplate() {
 }
 
 function commentFormTemplate() {
-  const meusDramas = state.dramas.filter((d) => d.tmdbId);
   const debateText = clubDebateDraft ? `Debate sobre ${clubDebateDraft.title}: ` : "";
+  const clubDramas = clubSocial.clubDramas || [];
+  const ativo = clubDramas.find((d) => d.status === "active");
+  // Opções = doramas DO CLUBE (atual + finalizados), não os pessoais.
+  const opcoes = clubDramas
+    .filter((d) => d.tmdb_id || d.title)
+    .map((d) => `<option value="tmdb:${d.tmdb_id || ""}:${esc(d.title)}" ${!clubDebateDraft && ativo && d === ativo ? "selected" : ""}>${d.status === "active" ? "🎬 " : ""}${esc(d.title)}${d.status === "active" ? " (assistindo)" : " (finalizado)"}</option>`)
+    .join("");
   return `
     <section class="mural-composer">
       <div class="mural-composer-top">${muralAvatar(state.profile?.name)}<strong>Conta o surto pras doramigas…</strong></div>
       <form id="comment-form">
         <textarea id="commentBody" name="body" placeholder="Gente, o episódio de hoje… 😭" required>${esc(debateText)}</textarea>
-        <div class="frases">${FRASES_DORAMEIRA.map((f) => `<button type="button" class="frase" data-frase="${esc(f)}">${esc(f)}</button>`).join("")}</div>
         <div class="mural-composer-row">
           <select id="commentDrama" name="dramaId" aria-label="Sobre qual dorama">
-            <option value="">🎬 Geral</option>
             ${clubDebateDraft ? `<option value="__club_draft" selected>${esc(clubDebateDraft.title)} (escolha)</option>` : ""}
-            ${meusDramas.map((d) => `<option value="${d.id}" ${commentDraft === d.id ? "selected" : ""}>${esc(d.title)}</option>`).join("")}
+            ${opcoes || ""}
+            <option value="" ${!ativo && !clubDebateDraft ? "selected" : ""}>🎬 Geral (sem dorama)</option>
           </select>
           <label class="mural-spoiler-field" title="0 = sem spoiler">🔒 ep <input id="commentSpoiler" name="spoiler" type="number" min="0" value="0" /></label>
           <button class="btn" type="submit">Publicar</button>
@@ -3052,8 +3059,23 @@ function podeVerComentario(item) {
 
 function clubFeedTemplate() {
   if (clubFeedFor !== state.club.id) return `<div class="empty">Carregando o mural…</div>`;
-  if (!clubFeedItems.length) return `<div class="empty">Ninguém surtou ainda. Seja a primeira! 💜</div>`;
-  return `<section class="mural-list">${clubFeedItems.map((item) => muralPostCard(item, { canDelete: true })).join("")}</section>`;
+  const clubDramas = clubSocial.clubDramas || [];
+  const ativo = clubDramas.find((d) => d.status === "active");
+  // Por padrão mostra o mural do dorama ATUAL (thread aberta). "Tudo" e os
+  // finalizados ficam acessíveis nas abas — o antigo continua revisitável.
+  const filtro = clubMuralFilter !== null ? clubMuralFilter : (ativo?.tmdb_id ? String(ativo.tmdb_id) : "all");
+  const abas = [["all", "Tudo"]].concat(
+    clubDramas.filter((d) => d.tmdb_id).map((d) => [String(d.tmdb_id), `${d.status === "active" ? "🎬 " : "✓ "}${d.title}`]),
+  );
+  const filtroRow = abas.length > 1
+    ? `<div class="mural-filter">${abas.map(([k, l]) => `<button class="mural-fchip ${filtro === k ? "on" : ""}" type="button" data-mural-filter="${esc(k)}">${esc(l)}</button>`).join("")}</div>`
+    : "";
+  const itens = filtro === "all" ? clubFeedItems : clubFeedItems.filter((i) => String(i.tmdb_id || "") === String(filtro));
+  if (!itens.length) {
+    const nomeDrama = abas.find(([k]) => k === filtro)?.[1] || "";
+    return filtroRow + `<div class="empty">${filtro === "all" ? "Ninguém surtou ainda. Seja a primeira! 💜" : `Nenhum surto sobre ${esc(nomeDrama.replace(/^[🎬✓]\s*/, ""))} ainda. Comecem! 💜`}</div>`;
+  }
+  return filtroRow + `<section class="mural-list">${itens.map((item) => muralPostCard(item, { canDelete: true })).join("")}</section>`;
 }
 
 const coupleStatusLabel = { wishlist: "Queremos ver", watching: "Assistindo juntos", watched: "Já vimos", favorite: "Favorito do casal" };
@@ -7072,6 +7094,9 @@ function bindShell() {
   document.querySelectorAll("[data-reveal-post]").forEach((button) => {
     listen(button, "click", () => { revealedPosts.add(button.dataset.revealPost); render(); });
   });
+  document.querySelectorAll("[data-mural-filter]").forEach((button) => {
+    listen(button, "click", () => { clubMuralFilter = button.dataset.muralFilter; render(); });
+  });
   document.querySelectorAll("[data-react]").forEach((button) => {
     listen(button, "click", () => handleToggleReaction(button.dataset.react, button.dataset.emoji));
   });
@@ -7474,10 +7499,11 @@ async function loadClubFeed() {
 async function loadClubSocial() {
   if (!state.club) return;
   clubAddSearch = { query: "", loading: false, results: [] }; // limpa busca ao trocar de clube
+  clubMuralFilter = null;
   clubSocial = { ...clubSocial, for: state.club.id };
-  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [], cycle: null };
+  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [], cycle: null, clubDramas: [] };
   try {
-    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle, clubDramasHist] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -7493,8 +7519,9 @@ async function loadClubSocial() {
       clubChallengesFeed(state.club.id).catch(() => []),
       clubChatFeed(state.club.id).catch(() => []),
       clubCycle(state.club.id).catch(() => null),
+      clubFeaturedHistory(state.club.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle, clubDramas: clubDramasHist };
   } catch {
     clubSocial = empty;
   }
@@ -8693,13 +8720,12 @@ async function handlePostComment(event) {
     tmdbId = clubDebateDraft.tmdbId ?? null;
     dramaTitle = clubDebateDraft.title;
     spoilerEpisode = Number(data.spoiler) || 0;
-  } else if (data.dramaId) {
-    const drama = state.dramas.find((d) => d.id === data.dramaId);
-    if (drama) {
-      tmdbId = drama.tmdbId ?? null;
-      dramaTitle = drama.title;
-      spoilerEpisode = Number(data.spoiler) || 0;
-    }
+  } else if (String(data.dramaId || "").startsWith("tmdb:")) {
+    // valor = "tmdb:<id>:<título>" (dorama DO CLUBE)
+    const partes = String(data.dramaId).split(":");
+    tmdbId = Number(partes[1]) || null;
+    dramaTitle = partes.slice(2).join(":") || null;
+    spoilerEpisode = Number(data.spoiler) || 0;
   }
   try {
     await postComment(authUser.id, state.club.id, { body, tmdbId, dramaTitle, spoilerEpisode });

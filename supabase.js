@@ -1089,6 +1089,17 @@ export async function clubListRemove(listId) {
 }
 
 // ---------- Dorama em destaque do clube ----------
+// Histórico de doramas do clube (atual + finalizados) — pro mural por dorama.
+export async function clubFeaturedHistory(clubId) {
+  const { data, error } = await supabase
+    .from("club_featured_dramas")
+    .select("tmdb_id, title, cover, status, starts_at")
+    .eq("club_id", clubId)
+    .order("starts_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
 export async function clubCurrentFeaturedDrama(clubId) {
   const { data, error } = await supabase.rpc("club_current_featured_drama", { p_club: clubId });
   if (error) throw error;
