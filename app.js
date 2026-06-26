@@ -1672,9 +1672,8 @@ async function compartilharDorama(id, opts = {}) {
 
 function handleMoodShare(tag) {
   const m = moods.find((x) => x.tag === tag);
-  if (!m || !state.club) return;
-  registrarAtividade(`${state.profile?.name || "Alguém"} está no clima de "${m.label}" hoje ${m.emoji}`);
-  toast("Contado pras doramigas! 💜");
+  if (!m) return;
+  toast("Humor do dia anotado 💜");
 }
 
 function sugerirNoHome(tag) {
@@ -1851,8 +1850,6 @@ const moodGenres = {
 };
 
 function sugerirPorHumor(tag) {
-  const mood = moods.find((item) => item.tag === tag);
-  if (mood && state.club) registrarAtividade(`${state.profile?.name || "Alguém"} está no clima: ${mood.emoji} ${mood.label}`);
   const generos = moodGenres[tag] || [];
   const combina = (drama) => (drama.genres || []).some((g) => generos.includes(g));
   // Prioriza o que ela ainda não viu (quero assistir), depois qualquer um.
@@ -2938,7 +2935,7 @@ function doramaDoMesTemplate() {
 
 function atividadesTemplate() {
   if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando o feed…</div>`;
-  if (!clubSocial.activities.length) return `<div class="empty">Sem novidades ainda. Adicione ou termine um dorama pra movimentar o clube! ✨</div>`;
+  if (!clubSocial.activities.length) return `<div class="empty">Sem novidades do clube ainda. Fixem o dorama, abram uma enquete, marquem um evento ou uma missão. ✨</div>`;
   return `<section class="grid">${clubSocial.activities
     .map((a) => `<div class="card"><strong style="font-weight:600">${esc(a.text)}</strong><span class="muted">${timeAgo(a.created_at)}</span></div>`)
     .join("")}</section>`;
@@ -7325,7 +7322,6 @@ function addDrama(event) {
   search = { query: "", loading: false, results: [], selected: null, error: "" };
   manualAdd = false;
   syncDrama(drama);
-  registrarAtividade(`${state.profile?.name || "Alguém"} ${drama.status === "watching" ? "começou" : "adicionou"} ${drama.title}${drama.status === "watching" ? "" : ` em ${statusLabel(drama.status)}`}.`);
   setState({ dramas: [drama, ...state.dramas], view: "lists", activeList: data.status });
   toast(`${drama.title} entrou em ${statusLabel(data.status)}.`);
 }
@@ -7381,7 +7377,6 @@ function setEpisode(id, alvo) {
   saveState();
   syncDrama(updated);
   if (justFinished) {
-    registrarAtividade(`${state.profile?.name || "Alguém"} terminou ${updated.title} — ${fraseFim()}`);
     // Spec seção 7: ao terminar, abrir avaliação (nota, choro, surto, raiva, recomenda).
     modal = { type: "detail", id };
     render();
@@ -7429,7 +7424,6 @@ function moverStatus(id, novo) {
   });
   if (!updated) return;
   syncDrama(updated);
-  if (novo === "finished") registrarAtividade(`${state.profile?.name || "Alguém"} terminou ${updated.title} — ${fraseFim()}`);
   setState({ dramas });
   toast(`Movido para ${statusLabel(novo)}.`);
 }
@@ -8261,8 +8255,8 @@ async function handleDeleteCoupleLetter(id) {
 
 // Registra uma atividade no feed do clube (silencioso; só se logado e num clube).
 function registrarAtividade(text) {
-  if (!cloudOn() || !state.club) return;
-  logActivity(authUser.id, state.club.id, text).catch(() => {});
+  if (!cloudOn() || !state.club) return Promise.resolve();
+  return logActivity(authUser.id, state.club.id, text).catch(() => {});
 }
 
 async function handlePickMonth(dramaId) {
@@ -8366,6 +8360,8 @@ async function handleSetClubFeaturedFromList(listId) {
       "week",
     );
     clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id);
+    await registrarAtividade(`🎬 ${state.profile?.name || "Alguém"} fixou ${item.title} como dorama do clube`);
+    clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
     clubTab = "doramas";
     render();
     toast(`${item.title} virou o dorama do clube.`);
@@ -8434,9 +8430,15 @@ async function handleClubFeaturedCheckin(episode, status) {
 }
 // "Terminei" (ou reabrir) — marca o check-in como finished mantendo o ep. atual.
 async function handleClubFinish(v) {
+  const titulo = clubSocial.featured?.title || "o dorama do clube";
   const ep = Number(clubSocial.featured?.my_episode || 0);
   await handleClubFeaturedCheckin(ep, v === "1" ? "finished" : "watching");
-  if (v === "1" && (clubSocial.cycle?.phase === "voting")) toast("Todos terminaram! Votação aberta 🗳️");
+  if (v === "1") {
+    await registrarAtividade(`🏁 ${state.profile?.name || "Alguém"} terminou ${titulo}`);
+    clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
+    render();
+    if (clubSocial.cycle?.phase === "voting") toast("Todos terminaram! Votação aberta 🗳️");
+  }
 }
 async function handleClubOpenVoting() {
   if (!state.club) return;
@@ -8456,6 +8458,8 @@ async function handleClubCloseVoting() {
     clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
     clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id).catch(() => clubSocial.featured);
     clubSocial.list = await clubListFeed(state.club.id).catch(() => clubSocial.list);
+    if (clubSocial.featured?.title) await registrarAtividade(`🏆 Novo dorama do clube: ${clubSocial.featured.title}`);
+    clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
     render();
     toast("Novo dorama do clube definido! 🎬");
   } catch (e) { console.error(e); toast("Só dono/moderador pode fechar a votação."); }
@@ -8476,7 +8480,9 @@ async function handleCreateClubPoll(event) {
   }
   try {
     await createClubPoll(state.club.id, question, options);
+    await registrarAtividade(`🗳️ ${state.profile?.name || "Alguém"} abriu a enquete: ${question}`);
     clubSocial.polls = await clubPollsFeed(state.club.id);
+    clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
     clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
     event.currentTarget.reset();
     render();
@@ -8541,7 +8547,9 @@ async function handleCreateClubEvent(event) {
       dramaTitle,
       startsAt,
     });
+    await registrarAtividade(`📅 ${state.profile?.name || "Alguém"} marcou: ${title}`);
     clubSocial.events = await clubEventsFeed(state.club.id);
+    clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
     clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
     event.currentTarget.reset();
     render();
@@ -8598,7 +8606,9 @@ async function handleCreateClubChallenge(event) {
       points: Number(data.points) || 10,
       endsAt,
     });
+    await registrarAtividade(`🎯 ${state.profile?.name || "Alguém"} criou a missão: ${title}`);
     await refreshClubPointsAndChallenges();
+    clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
     event.currentTarget.reset();
     render();
     toast("Desafio criado no clube.");
