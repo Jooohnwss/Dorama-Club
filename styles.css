@@ -1284,16 +1284,20 @@ textarea:focus {
 .chat-composer {
   display: flex; align-items: center; gap: 8px; margin-top: 12px;
 }
-.chat-composer input[type="text"], .chat-composer input:not([type]) {
-  flex: 1; min-width: 0; height: 44px; border-radius: 999px;
+.chat-composer input {
+  flex: 1 1 auto; min-width: 0; height: 44px; border-radius: 999px;
   padding: 0 16px; border: 1px solid var(--cor-borda); background: var(--cor-superficie);
 }
-.chat-spoiler-toggle {
-  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; font-size: 1.1rem;
+/* .chat-composer prefixado pra ganhar do .btn{width:100%} do mobile */
+.chat-composer .chat-spoiler-toggle {
+  flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border-radius: 50%; font-size: 1.1rem;
   border: 1px solid var(--cor-borda); background: var(--cor-superficie-2);
 }
-.chat-spoiler-toggle.on { background: color-mix(in srgb, #f59e0b 22%, transparent); border-color: #f59e0b; }
-.chat-send { flex: 0 0 auto; width: 44px; min-height: 44px; padding: 0; border-radius: 50%; font-size: 1.1rem; }
+.chat-composer .chat-spoiler-toggle.on { background: color-mix(in srgb, #f59e0b 22%, transparent); border-color: #f59e0b; }
+.chat-composer .chat-send {
+  flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 0;
+  border-radius: 50%; font-size: 1.2rem;
+}
 
 /* Spoiler como borrão que revela ao tocar */
 .chat-spoiler-blur { cursor: pointer; position: relative; display: inline-block; }
