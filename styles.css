@@ -791,6 +791,113 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.3);
 }
 
+.club-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  gap: 14px;
+  align-items: stretch;
+  margin: 8px 0 14px;
+}
+
+.club-hero-main,
+.club-hero-side {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: color-mix(in srgb, var(--cor-superficie) 92%, transparent);
+  padding: 18px;
+}
+
+.club-hero-main {
+  display: grid;
+  gap: 10px;
+  border-left: 5px solid var(--cor-primaria);
+}
+
+.club-hero-main h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.6vw, 2.2rem);
+}
+
+.club-hero-main p,
+.club-hero-side span {
+  margin: 0;
+}
+
+.club-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--cor-primaria);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.club-hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.club-hero-side strong {
+  font-size: 1.1rem;
+}
+
+.club-stats {
+  margin-top: 0;
+}
+
+.club-member-card {
+  display: grid;
+  gap: 6px;
+}
+
+.club-featured-card {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.club-featured-card h3 {
+  margin: 4px 0 8px;
+  font-size: 1.28rem;
+}
+
+.club-featured-info {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.club-featured-info img {
+  width: 74px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: var(--raio-sm);
+  border: 1px solid var(--cor-borda);
+}
+
+.club-featured-form,
+.club-checkin-form {
+  margin: 0;
+}
+
+.club-checkins {
+  display: grid;
+  gap: 8px;
+}
+
+.club-checkin-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-sm);
+  background: var(--cor-superficie-2);
+}
+
 .list-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -3871,6 +3978,19 @@ textarea:focus {
 
 /* ---------- Mobile ---------- */
 @media (max-width: 860px) {
+  .club-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .club-featured-info,
+  .club-checkin-row {
+    align-items: flex-start;
+  }
+
+  .club-checkin-row {
+    flex-direction: column;
+  }
+
   .shell {
     /* minmax(0,1fr): a coluna NÃO pode expandir além da tela pra caber um
        conteúdo largo (era o que deixava a Diversão "diminuível" no pinch). */

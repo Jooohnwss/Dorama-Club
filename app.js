@@ -14,6 +14,7 @@ import {
   resetPassword,
   updatePassword,
   renameClub,
+  updateClubDetails,
   saveTheme,
   loadDramas,
   upsertDrama,
@@ -47,6 +48,9 @@ import {
   clubListAdd,
   clubListVote,
   clubListRemove,
+  clubCurrentFeaturedDrama,
+  setClubFeaturedDrama,
+  saveClubDramaCheckin,
   loadFavoritos,
   addFavorito,
   deleteFavorito,
@@ -481,7 +485,7 @@ function trocarClubeAtivo(club) {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null };
   addingClub = false;
 }
 
@@ -517,7 +521,7 @@ function marcarClubeVisto() {
   clubHasNews = false;
 }
 // Social do clube (feed automático, dorama do mês, ranking, diário compartilhado).
-let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
+let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null };
 // Espaço "Nós dois" (carregado sob demanda).
 let coupleFor = null;
 let coupleMembers = [];
@@ -2073,7 +2077,7 @@ function clubFormsTemplate() {
   `;
 }
 
-function clubTemplate() {
+function legacyClubTemplate() {
   if (!state.clubs || state.clubs.length === 0 || addingClub) {
     return clubFormsTemplate();
   }
@@ -2129,6 +2133,140 @@ function clubTemplate() {
       ${subtabs.map(([k, l]) => `<button class="${clubTab === k ? "active" : ""}" data-club-tab="${k}">${l}</button>`).join("")}
     </div>
     ${conteudo[clubTab] || conteudo.mural}
+  `;
+}
+
+function clubRoleLabel(role) {
+  return { owner: "Dono", moderator: "Moderador", member: "Membro" }[role] || "Membro";
+}
+
+function currentClubMember() {
+  if (!authUser) return null;
+  return clubMembers.find((member) => member.user_id === authUser.id) || null;
+}
+
+function mapClubRow(club) {
+  if (!club) return null;
+  return {
+    id: club.id,
+    name: club.name,
+    code: club.code,
+    owner_id: club.owner_id || null,
+    description: club.description || "",
+    rules: club.rules || "",
+  };
+}
+
+function clubFeaturedDrama() {
+  if (clubSocial.for === state.club?.id && clubSocial.featured) return clubSocial.featured;
+  if (clubSocial.for !== state.club?.id || !clubSocial.picks?.length) return null;
+  return clubSocial.picks[0] || null;
+}
+
+function clubHeaderTemplate() {
+  const totalMembros = clubMembersFor === state.club.id ? clubMembers.length : "...";
+  const meuCargo = clubRoleLabel(currentClubMember()?.role || (state.club.owner_id === authUser?.id ? "owner" : "member"));
+  const destaque = clubFeaturedDrama();
+  const description = state.club.description || "Clube sem descricao ainda. Use a aba Sobre para combinar o clima da comunidade.";
+  const totalPosts = clubFeedFor === state.club.id ? clubFeedItems.length : "...";
+  const totalLista = clubSocial.for === state.club.id ? clubSocial.list.length : "...";
+  const totalVotos = clubSocial.for === state.club.id ? clubSocial.picks.length : "...";
+
+  return `
+    <section class="club-hero">
+      <div class="club-hero-main">
+        <span class="club-eyebrow">${icon("club")} Clube ativo</span>
+        <h2>${esc(state.club.name)}</h2>
+        <p>${esc(description)}</p>
+        <div class="chips">
+          <span class="chip">${totalMembros} membros</span>
+          <span class="chip">${esc(meuCargo)}</span>
+          <span class="chip">Codigo ${esc(state.club.code)}</span>
+        </div>
+      </div>
+      <div class="club-hero-side">
+        <span class="muted">${clubSocial.featured ? "Dorama oficial do clube" : "Dorama em disputa"}</span>
+        <strong>${destaque ? esc(destaque.title) : "Escolham o dorama do mes"}</strong>
+        <span class="muted">${clubSocial.featured ? `Meu check-in: ep. ${Number(destaque.my_episode || 0)}` : destaque ? `${destaque.votos} voto(s) agora` : "A enquete fica na aba Doramas."}</span>
+        <div class="mini-actions">
+          <button data-club-tab="doramas">${icon("play")} Ver doramas</button>
+          <button data-copy-code>${icon("share")} Copiar codigo</button>
+        </div>
+      </div>
+    </section>
+    <section class="grid stats club-stats">
+      <div class="stat"><span class="muted">Mural</span><strong>${totalPosts}</strong><span class="muted">posts recentes</span></div>
+      <div class="stat"><span class="muted">Lista</span><strong>${totalLista}</strong><span class="muted">sugestoes</span></div>
+      <div class="stat"><span class="muted">Votacao</span><strong>${totalVotos}</strong><span class="muted">opcoes no mes</span></div>
+    </section>
+  `;
+}
+
+function clubAboutTemplate() {
+  const rules = state.club.rules || "Sem regras cadastradas ainda. Sugestao: avisar spoilers, respeitar opinioes e manter o clima leve.";
+  const membros = clubMembers.length
+    ? clubMembers
+        .map((member) => `<div class="card club-member-card"><strong>${esc(member.name || "(sem nome)")}</strong>${member.nickname ? `<span class="muted">${esc(member.nickname)}</span>` : ""}<span class="chip">${clubRoleLabel(member.role)}</span></div>`)
+        .join("")
+    : `<div class="empty">Carregando membros...</div>`;
+
+  return `
+    <div class="section-title"><h2>Sobre o clube</h2><button class="btn ghost" data-edit-club-about>${icon("detail")} Editar</button></div>
+    <section class="grid cards">
+      <div class="card"><span class="muted">Descricao</span><p>${esc(state.club.description || "Ainda sem descricao.")}</p></div>
+      <div class="card"><span class="muted">Regras</span><p>${esc(rules)}</p></div>
+    </section>
+    <div class="section-title"><h2>Membros (${clubMembers.length || "..."})</h2></div>
+    <section class="grid cards">${membros}</section>
+    <div class="section-title"><h2>Convidar e gerenciar</h2></div>
+    <section class="grid cards">
+      <button class="card" data-share-club><strong>Chamar doramiga no WhatsApp</strong><p class="muted">Envia o codigo ${esc(state.club.code)}</p></button>
+      <button class="card" data-rename-club><strong>Renomear clube</strong><p class="muted">Ajusta o nome que aparece no topo.</p></button>
+      <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">Voce deixa de ver este clube.</p></button>
+    </section>
+  `;
+}
+
+function clubTemplate() {
+  if (!state.clubs || state.clubs.length === 0 || addingClub) {
+    return clubFormsTemplate();
+  }
+
+  if (!["feed", "doramas", "ranking", "sobre"].includes(clubTab)) clubTab = "feed";
+
+  const switcher = `
+    <div class="tabs">
+      ${state.clubs.map((c) => `<button class="${state.club?.id === c.id ? "active" : ""}" data-switch-club="${c.id}">${esc(c.name)}</button>`).join("")}
+      <button data-add-club>+ Outro</button>
+    </div>`;
+
+  const subtabs = [
+    ["feed", "Feed"],
+    ["doramas", "Doramas"],
+    ["ranking", "Ranking"],
+    ["sobre", "Sobre"],
+  ];
+
+  const conteudo = {
+    feed: `${commentFormTemplate()}${clubFeedTemplate()}<div class="section-title"><h2>Novidades automaticas</h2></div>${atividadesTemplate()}<div class="section-title"><h2>Diario compartilhado</h2></div>${diarioCompartilhadoTemplate()}`,
+    doramas: `
+      <div class="section-title"><h2>Dorama do clube</h2></div>${clubeDestaqueTemplate()}
+      <div class="section-title"><h2>Dorama do mes</h2></div>${doramaDoMesTemplate()}
+      <div class="section-title"><h2>Doramas em comum</h2></div>${doramasEmComumTemplate()}
+      <div class="section-title"><h2>Lista compartilhada</h2></div>${listaCompartilhadaTemplate()}`,
+    ranking: `
+      <div class="section-title"><h2>Ranking do clube</h2></div>${rankingClubeTemplate()}
+      <div class="section-title"><h2>Doramigas compativeis</h2></div>${compatibilidadeTemplate()}`,
+    sobre: clubAboutTemplate(),
+  };
+
+  return `
+    ${switcher}
+    ${clubHeaderTemplate()}
+    <div class="tabs club-subtabs">
+      ${subtabs.map(([k, l]) => `<button class="${clubTab === k ? "active" : ""}" data-club-tab="${k}">${l}</button>`).join("")}
+    </div>
+    ${conteudo[clubTab] || conteudo.feed}
   `;
 }
 
@@ -2220,6 +2358,76 @@ function listaCompartilhadaTemplate() {
     })
     .join("");
   return addForm + `<section class="grid cards">${itens}</section>`;
+}
+
+function clubeDestaqueTemplate() {
+  const meusDramas = state.dramas.filter((d) => d.tmdbId);
+  const featured = clubSocial.featured;
+  const options = meusDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+  const fixarForm = `
+    <form id="club-featured-form" class="search-bar club-featured-form">
+      <select name="dramaId" required>
+        <option value="">Fixar dorama do clube...</option>
+        ${options}
+      </select>
+      <select name="periodType">
+        <option value="week">Semana</option>
+        <option value="month">Mes</option>
+        <option value="free">Livre</option>
+      </select>
+      <button class="btn" type="submit">Fixar</button>
+    </form>`;
+
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando dorama do clube...</div>`;
+  if (!featured) {
+    return `
+      <section class="card club-featured-card">
+        <div>
+          <span class="muted">Ainda sem dorama oficial</span>
+          <h3>Escolham um foco para assistir juntas</h3>
+          <p class="muted">Use a votacao mensal ou a lista compartilhada para decidir, depois fixe aqui.</p>
+        </div>
+        ${fixarForm}
+      </section>`;
+  }
+
+  const checkins = Array.isArray(featured.checkins) ? featured.checkins : [];
+  const media = checkins.length ? Math.round(checkins.reduce((sum, row) => sum + Number(row.current_episode || 0), 0) / checkins.length) : 0;
+  const rows = checkins.length
+    ? checkins
+        .map((row) => `<div class="club-checkin-row"><strong>${esc(row.name || row.nickname || "Membro")}</strong><span class="muted">ep. ${Number(row.current_episode || 0)} · ${esc(row.status || "watching")}</span></div>`)
+        .join("")
+    : `<div class="empty">Ninguem fez check-in ainda.</div>`;
+
+  return `
+    <section class="card club-featured-card">
+      <div class="club-featured-info">
+        ${featured.cover ? `<img src="${esc(featured.cover)}" alt="" />` : ""}
+        <div>
+          <span class="muted">Dorama oficial do clube</span>
+          <h3>${esc(featured.title)}</h3>
+          <div class="chips">
+            <span class="chip">${featured.period_type === "month" ? "Mes" : featured.period_type === "free" ? "Livre" : "Semana"}</span>
+            <span class="chip">Media ep. ${media}</span>
+            <span class="chip">${checkins.length} check-ins</span>
+          </div>
+        </div>
+      </div>
+      <form id="club-checkin-form" class="search-bar club-checkin-form">
+        <input name="episode" type="number" min="0" value="${Number(featured.my_episode || 0)}" aria-label="Episodio atual" />
+        <select name="status">
+          ${[
+            ["watching", "Assistindo"],
+            ["paused", "Pausado"],
+            ["finished", "Finalizado"],
+            ["dropped", "Dropado"],
+          ].map(([value, label]) => `<option value="${value}" ${featured.my_status === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+        <button class="btn" type="submit">Salvar check-in</button>
+      </form>
+      <div class="club-checkins">${rows}</div>
+      ${fixarForm}
+    </section>`;
 }
 
 function doramaDoMesTemplate() {
@@ -5996,7 +6204,7 @@ async function handleLogout() {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null };
   coupleFor = null;
   coupleMembers = [];
   coupleDramas = [];
@@ -6167,6 +6375,7 @@ function bindShell() {
     listen(button, "click", () => handleComentarSurto(button.dataset.comentarSurto));
   });
   listen(document.querySelector("[data-rename-club]"), "click", handleRenameClub);
+  listen(document.querySelector("[data-edit-club-about]"), "click", handleEditClubAbout);
   document.querySelectorAll("[data-switch-club]").forEach((button) => {
     listen(button, "click", () => handleSwitchClub(button.dataset.switchClub));
   });
@@ -6408,6 +6617,16 @@ function bindShell() {
     e.preventDefault();
     const dramaId = new FormData(e.currentTarget).get("dramaId");
     if (dramaId) handlePickMonth(dramaId);
+  });
+  listen(document.querySelector("#club-featured-form"), "submit", (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.currentTarget));
+    if (data.dramaId) handleSetClubFeatured(data.dramaId, data.periodType);
+  });
+  listen(document.querySelector("#club-checkin-form"), "submit", (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.currentTarget));
+    handleClubFeaturedCheckin(data.episode, data.status);
   });
   listen(document.querySelector("#casal-form"), "submit", handleAddCasal);
   document.querySelectorAll("[data-del-casal]").forEach((button) => {
@@ -6738,9 +6957,9 @@ async function loadClubFeed() {
 async function loadClubSocial() {
   if (!state.club) return;
   clubSocial = { ...clubSocial, for: state.club.id };
-  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [] };
+  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null };
   try {
-    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -6749,8 +6968,9 @@ async function loadClubSocial() {
       clubDramas(state.club.id),
       clubListFeed(state.club.id),
       clubCompatibility(state.club.id),
+      clubCurrentFeaturedDrama(state.club.id).catch(() => null),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured };
   } catch {
     clubSocial = empty;
   }
@@ -7574,6 +7794,31 @@ async function handleListRemove(listId) {
   }
 }
 
+async function handleSetClubFeatured(dramaId, periodType) {
+  const drama = state.dramas.find((d) => d.id === dramaId);
+  if (!drama || !state.club) return;
+  try {
+    await setClubFeaturedDrama(state.club.id, drama, periodType || "week");
+    clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id);
+    render();
+    toast(`${drama.title} virou o dorama do clube.`);
+  } catch (error) {
+    toast(error?.message?.includes("permissao") ? "So dono ou moderador pode fixar o dorama do clube." : "Nao consegui fixar esse dorama.");
+  }
+}
+
+async function handleClubFeaturedCheckin(episode, status) {
+  if (!clubSocial.featured?.id) return;
+  try {
+    await saveClubDramaCheckin(clubSocial.featured.id, episode, status);
+    clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id);
+    render();
+    toast("Check-in salvo no clube.");
+  } catch {
+    toast("Nao consegui salvar seu check-in.");
+  }
+}
+
 async function handlePostComment(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(event.currentTarget));
@@ -7618,7 +7863,7 @@ async function handleCreateClub(event) {
   const name = String(new FormData(event.currentTarget).get("name") || "").trim();
   try {
     const club = await createClub(name);
-    const c = { id: club.id, name: club.name, code: club.code };
+    const c = mapClubRow(club);
     state.clubs = [...(state.clubs || []), c];
     trocarClubeAtivo(c);
     setState({ club: c });
@@ -7634,7 +7879,7 @@ async function handleJoinClub(event) {
   const code = String(new FormData(event.currentTarget).get("code") || "").trim();
   try {
     const club = await joinClub(code);
-    const c = { id: club.id, name: club.name, code: club.code };
+    const c = mapClubRow(club);
     state.clubs = [...(state.clubs || []).filter((x) => x.id !== c.id), c];
     trocarClubeAtivo(c);
     setState({ club: c });
@@ -7675,6 +7920,23 @@ async function handleRenameClub() {
     toast("Nome do clube atualizado.");
   } catch (error) {
     toast(error?.message?.includes("criou") ? "Só quem criou o clube pode renomear." : "Não consegui renomear.");
+  }
+}
+
+async function handleEditClubAbout() {
+  if (!state.club) return;
+  const description = await perguntar("Descricao curta do clube:", state.club.description || "", { ok: "Salvar" });
+  if (description === null || description === undefined) return;
+  const rules = await perguntar("Regras do clube:", state.club.rules || "", { ok: "Salvar" });
+  if (rules === null || rules === undefined) return;
+  try {
+    await updateClubDetails(state.club.id, { description: description.trim(), rules: rules.trim() });
+    state.club = { ...state.club, description: description.trim(), rules: rules.trim() };
+    state.clubs = (state.clubs || []).map((club) => (club.id === state.club.id ? state.club : club));
+    setState({ club: state.club, clubs: state.clubs });
+    toast("Sobre do clube atualizado.");
+  } catch (error) {
+    toast(error?.message?.includes("permissao") ? "So o dono do clube pode editar isso." : "Nao consegui salvar o sobre do clube.");
   }
 }
 
@@ -7827,7 +8089,7 @@ async function hydrateFromCloud() {
   clubMembers = [];
   try {
     const clubs = await myClubs();
-    state.clubs = clubs.map((c) => ({ id: c.id, name: c.name, code: c.code }));
+    state.clubs = clubs.map(mapClubRow).filter(Boolean);
     const ativoId = state.club?.id;
     state.club = state.clubs.find((c) => c.id === ativoId) || state.clubs[0] || null;
   } catch {

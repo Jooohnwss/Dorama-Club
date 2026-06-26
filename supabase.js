@@ -64,6 +64,15 @@ export async function renameClub(clubId, name) {
   if (error) throw error;
 }
 
+export async function updateClubDetails(clubId, payload) {
+  const { error } = await supabase.rpc("update_club_details", {
+    p_club: clubId,
+    p_description: payload.description || "",
+    p_rules: payload.rules || "",
+  });
+  if (error) throw error;
+}
+
 // ---------- PERFIL ----------
 export async function loadProfile(userId) {
   const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
@@ -1076,6 +1085,34 @@ export async function clubListVote(listId, vote) {
 
 export async function clubListRemove(listId) {
   const { error } = await supabase.rpc("club_list_remove", { p_list: listId });
+  if (error) throw error;
+}
+
+// ---------- Dorama em destaque do clube ----------
+export async function clubCurrentFeaturedDrama(clubId) {
+  const { data, error } = await supabase.rpc("club_current_featured_drama", { p_club: clubId });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] || null : data || null;
+}
+
+export async function setClubFeaturedDrama(clubId, drama, periodType = "week") {
+  const { data, error } = await supabase.rpc("set_club_featured_drama", {
+    p_club: clubId,
+    p_tmdb: drama.tmdbId ?? null,
+    p_title: drama.title,
+    p_cover: drama.cover || null,
+    p_period_type: periodType,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function saveClubDramaCheckin(featuredId, episode, status) {
+  const { error } = await supabase.rpc("save_club_drama_checkin", {
+    p_featured: featuredId,
+    p_episode: Number(episode) || 0,
+    p_status: status || "watching",
+  });
   if (error) throw error;
 }
 
