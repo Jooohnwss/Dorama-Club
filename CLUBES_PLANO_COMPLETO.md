@@ -896,7 +896,7 @@ Depois disso, o clube ja fica com cara de comunidade. Chat, eventos e ranking en
   - Concluir desafio com prova opcional.
   - Dono/moderador pode encerrar desafio.
 - Pendente:
-  - Rodar `supabase/34 - clubes-pontos-e-desafios.sql` no Supabase.
+  - Usuario confirmou que rodou a migracao 34 no Supabase em 2026-06-26.
   - Validar pontos criando/votando em enquete, fazendo check-in, confirmando evento e concluindo desafio.
 
 ### 2026-06-26 - Codex, chat
@@ -914,5 +914,5 @@ Depois disso, o clube ja fica com cara de comunidade. Chat, eventos e ranking en
   - Dono/moderador pode apagar mensagens.
   - Mensagem no chat gera ponto quando a migracao 34 ja existe.
 - Pendente:
-  - Rodar `supabase/35 - clubes-chat.sql` no Supabase, depois da 34.
+  - Usuario confirmou que rodou a migracao 35 no Supabase em 2026-06-26.
   - Validar enviando e apagando mensagens no clube.
