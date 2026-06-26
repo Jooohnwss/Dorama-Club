@@ -916,3 +916,21 @@ Depois disso, o clube ja fica com cara de comunidade. Chat, eventos e ranking en
 - Pendente:
   - Usuario confirmou que rodou a migracao 35 no Supabase em 2026-06-26.
   - Validar enviando e apagando mensagens no clube.
+
+### 2026-06-26 - Codex, visual e fluxo de doramas
+
+- Melhorada a navegacao interna do clube:
+  - `Feed` virou `Mural`.
+  - `Doramas` virou `Escolha`.
+  - `Eventos` virou `Agenda`.
+  - `Desafios` virou `Missoes`.
+- Melhorada a area de escolha de doramas:
+  - `Lista compartilhada` virou `Sala de escolha e debate`.
+  - Agora da para adicionar candidato a dorama pela lista pessoal ou digitando um titulo livre.
+  - Cada candidato tem acoes diretas:
+    - votar,
+    - fixar como dorama oficial,
+    - abrir debate no mural,
+    - remover da lista.
+- O botao `Debater` abre o mural com o dorama ja selecionado e texto inicial de debate.
+- Sem migracao nova: reaproveita `club_list`, `comments` e `club_featured_dramas`.

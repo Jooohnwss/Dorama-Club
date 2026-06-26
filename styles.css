@@ -898,6 +898,69 @@ textarea:focus {
   background: var(--cor-superficie-2);
 }
 
+.club-choice-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: 14px;
+  align-items: end;
+  padding: 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: color-mix(in srgb, var(--cor-superficie) 94%, transparent);
+}
+
+.club-choice-panel h3 {
+  margin: 5px 0 6px;
+  font-size: 1.2rem;
+}
+
+.club-choice-panel p {
+  margin: 0;
+}
+
+.club-choice-form {
+  display: grid;
+  gap: 8px;
+}
+
+.club-choice-card {
+  display: grid;
+  gap: 11px;
+}
+
+.club-choice-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.club-choice-head img,
+.club-choice-placeholder {
+  flex: 0 0 auto;
+  width: 52px;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--raio-sm);
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie-2);
+}
+
+.club-choice-head img {
+  object-fit: cover;
+}
+
+.club-choice-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--cor-primaria);
+}
+
+.club-choice-head > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
 .club-poll-form-card {
   max-width: none;
 }
@@ -4126,8 +4189,13 @@ textarea:focus {
   }
 
   .club-featured-info,
+  .club-choice-panel,
   .club-checkin-row {
     align-items: flex-start;
+  }
+
+  .club-choice-panel {
+    grid-template-columns: 1fr;
   }
 
   .club-checkin-row {
