@@ -55,6 +55,10 @@ import {
   createClubPoll,
   voteClubPoll,
   closeClubPoll,
+  clubEventsFeed,
+  createClubEvent,
+  setClubEventRsvp,
+  cancelClubEvent,
   loadFavoritos,
   addFavorito,
   deleteFavorito,
@@ -489,7 +493,7 @@ function trocarClubeAtivo(club) {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [] };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [] };
   addingClub = false;
 }
 
@@ -525,7 +529,7 @@ function marcarClubeVisto() {
   clubHasNews = false;
 }
 // Social do clube (feed automático, dorama do mês, ranking, diário compartilhado).
-let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [] };
+let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [] };
 // Espaço "Nós dois" (carregado sob demanda).
 let coupleFor = null;
 let coupleMembers = [];
@@ -2174,7 +2178,7 @@ function clubHeaderTemplate() {
   const description = state.club.description || "Clube sem descricao ainda. Use a aba Sobre para combinar o clima da comunidade.";
   const totalPosts = clubFeedFor === state.club.id ? clubFeedItems.length : "...";
   const totalLista = clubSocial.for === state.club.id ? clubSocial.list.length : "...";
-  const totalVotos = clubSocial.for === state.club.id ? clubSocial.picks.length : "...";
+  const totalEventos = clubSocial.for === state.club.id ? clubSocial.events.length : "...";
 
   return `
     <section class="club-hero">
@@ -2201,9 +2205,18 @@ function clubHeaderTemplate() {
     <section class="grid stats club-stats">
       <div class="stat"><span class="muted">Mural</span><strong>${totalPosts}</strong><span class="muted">posts recentes</span></div>
       <div class="stat"><span class="muted">Lista</span><strong>${totalLista}</strong><span class="muted">sugestoes</span></div>
-      <div class="stat"><span class="muted">Votacao</span><strong>${totalVotos}</strong><span class="muted">opcoes no mes</span></div>
+      <div class="stat"><span class="muted">Eventos</span><strong>${totalEventos}</strong><span class="muted">agenda do clube</span></div>
     </section>
   `;
+}
+
+function formatDateTimeShort(value) {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return String(value);
+  }
 }
 
 function clubAboutTemplate() {
@@ -2236,7 +2249,7 @@ function clubTemplate() {
     return clubFormsTemplate();
   }
 
-  if (!["feed", "doramas", "ranking", "sobre"].includes(clubTab)) clubTab = "feed";
+  if (!["feed", "doramas", "eventos", "ranking", "sobre"].includes(clubTab)) clubTab = "feed";
 
   const switcher = `
     <div class="tabs">
@@ -2247,6 +2260,7 @@ function clubTemplate() {
   const subtabs = [
     ["feed", "Feed"],
     ["doramas", "Doramas"],
+    ["eventos", "Eventos"],
     ["ranking", "Ranking"],
     ["sobre", "Sobre"],
   ];
@@ -2262,6 +2276,7 @@ function clubTemplate() {
     ranking: `
       <div class="section-title"><h2>Ranking do clube</h2></div>${rankingClubeTemplate()}
       <div class="section-title"><h2>Doramigas compativeis</h2></div>${compatibilidadeTemplate()}`,
+    eventos: clubeEventosTemplate(),
     sobre: clubAboutTemplate(),
   };
 
@@ -2484,6 +2499,92 @@ function clubeEnquetesTemplate() {
           <div class="mini-actions">
             <span class="muted">${total} voto(s)</span>
             ${canClose ? `<button data-close-poll="${poll.id}">Encerrar</button>` : ""}
+          </div>
+        </article>`;
+    })
+    .join("");
+
+  return form + `<section class="grid">${cards}</section>`;
+}
+
+function clubeEventosTemplate() {
+  const meusDramas = state.dramas.filter((d) => d.tmdbId);
+  const featuredOption = clubSocial.featured
+    ? `<option value="featured:${clubSocial.featured.tmdb_id || ""}:${esc(clubSocial.featured.title)}">${esc(clubSocial.featured.title)} (dorama do clube)</option>`
+    : "";
+  const dramaOptions = meusDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
+  const form = `
+    <section class="form-card club-event-form-card">
+      <form id="club-event-form" class="form-grid">
+        <div class="field">
+          <label for="clubEventType">Tipo</label>
+          <select id="clubEventType" name="type">
+            <option value="watch_party">Watch party</option>
+            <option value="marathon">Maratona</option>
+            <option value="debate">Debate</option>
+            <option value="vote">Votacao</option>
+            <option value="other">Outro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="clubEventStarts">Quando</label>
+          <input id="clubEventStarts" name="startsAt" type="datetime-local" required />
+        </div>
+        <div class="field full">
+          <label for="clubEventTitle">Titulo</label>
+          <input id="clubEventTitle" name="title" placeholder="Maratona do ep. 1 ao 4" required />
+        </div>
+        <div class="field">
+          <label for="clubEventDrama">Dorama ligado</label>
+          <select id="clubEventDrama" name="dramaId">
+            <option value="">Sem dorama especifico</option>
+            ${featuredOption}
+            ${dramaOptions}
+          </select>
+        </div>
+        <div class="field full">
+          <label for="clubEventDescription">Detalhes</label>
+          <textarea id="clubEventDescription" name="description" placeholder="Combinado, episodios, plataforma, regra de spoiler..."></textarea>
+        </div>
+        <div class="actions field full">
+          <button class="btn" type="submit">Criar evento</button>
+        </div>
+      </form>
+    </section>`;
+
+  if (clubSocial.for !== state.club.id) return form + `<div class="empty">Carregando eventos...</div>`;
+  if (!clubSocial.events.length) return form + `<div class="empty">Nenhum evento marcado ainda. Crie uma watch party para o clube se encontrar.</div>`;
+
+  const typeLabel = { watch_party: "Watch party", marathon: "Maratona", debate: "Debate", vote: "Votacao", other: "Evento" };
+  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
+  const cards = clubSocial.events
+    .map((event) => {
+      const cancelled = event.status === "cancelled";
+      const buttons = [
+        ["going", "Vou"],
+        ["maybe", "Talvez"],
+        ["not_going", "Nao vou"],
+      ]
+        .map(([value, label]) => `<button class="${event.my_status === value ? "mine" : ""}" data-event-rsvp="${event.id}" data-rsvp="${value}" ${cancelled ? "disabled" : ""}>${label}</button>`)
+        .join("");
+      return `
+        <article class="card club-event-card ${cancelled ? "is-cancelled" : ""}">
+          <div class="comment-head">
+            <strong>${esc(event.title)}</strong>
+            <span class="chip">${esc(typeLabel[event.type] || "Evento")}</span>
+          </div>
+          <span class="muted">${formatDateTimeShort(event.starts_at)}${event.author ? ` · criado por ${esc(event.author)}` : ""}</span>
+          ${event.drama_title ? `<span class="chip">${esc(event.drama_title)}</span>` : ""}
+          ${event.description ? `<p>${esc(event.description)}</p>` : ""}
+          <div class="chips">
+            <span class="chip">${Number(event.going || 0)} vou</span>
+            <span class="chip">${Number(event.maybe || 0)} talvez</span>
+            <span class="chip">${Number(event.not_going || 0)} nao vou</span>
+            ${cancelled ? `<span class="chip">Cancelado</span>` : ""}
+          </div>
+          <div class="mini-actions">
+            ${buttons}
+            ${canManage && !cancelled ? `<button data-cancel-event="${event.id}">Cancelar</button>` : ""}
           </div>
         </article>`;
     })
@@ -6266,7 +6367,7 @@ async function handleLogout() {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [] };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [] };
   coupleFor = null;
   coupleMembers = [];
   coupleDramas = [];
@@ -6697,6 +6798,13 @@ function bindShell() {
   document.querySelectorAll("[data-close-poll]").forEach((button) => {
     listen(button, "click", () => handleCloseClubPoll(button.dataset.closePoll));
   });
+  listen(document.querySelector("#club-event-form"), "submit", handleCreateClubEvent);
+  document.querySelectorAll("[data-event-rsvp]").forEach((button) => {
+    listen(button, "click", () => handleClubEventRsvp(button.dataset.eventRsvp, button.dataset.rsvp));
+  });
+  document.querySelectorAll("[data-cancel-event]").forEach((button) => {
+    listen(button, "click", () => handleCancelClubEvent(button.dataset.cancelEvent));
+  });
   listen(document.querySelector("#casal-form"), "submit", handleAddCasal);
   document.querySelectorAll("[data-del-casal]").forEach((button) => {
     listen(button, "click", () => handleDeleteCasal(button.dataset.delCasal));
@@ -7026,9 +7134,9 @@ async function loadClubFeed() {
 async function loadClubSocial() {
   if (!state.club) return;
   clubSocial = { ...clubSocial, for: state.club.id };
-  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [] };
+  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [] };
   try {
-    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -7039,8 +7147,9 @@ async function loadClubSocial() {
       clubCompatibility(state.club.id),
       clubCurrentFeaturedDrama(state.club.id).catch(() => null),
       clubPollsFeed(state.club.id).catch(() => []),
+      clubEventsFeed(state.club.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events };
   } catch {
     clubSocial = empty;
   }
@@ -7932,6 +8041,69 @@ async function handleCloseClubPoll(pollId) {
     toast("Enquete encerrada.");
   } catch (error) {
     toast(error?.message?.includes("permissao") ? "So dono ou moderador pode encerrar." : "Nao consegui encerrar.");
+  }
+}
+
+async function handleCreateClubEvent(event) {
+  event.preventDefault();
+  if (!state.club) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  let tmdbId = null;
+  let dramaTitle = "";
+  if (String(data.dramaId || "").startsWith("featured:")) {
+    const parts = String(data.dramaId).split(":");
+    tmdbId = Number(parts[1]) || null;
+    dramaTitle = clubSocial.featured?.title || "";
+  } else if (data.dramaId) {
+    const drama = state.dramas.find((d) => d.id === data.dramaId);
+    if (drama) {
+      tmdbId = drama.tmdbId ?? null;
+      dramaTitle = drama.title;
+    }
+  }
+  const title = String(data.title || "").trim();
+  const startsAt = data.startsAt ? new Date(String(data.startsAt)).toISOString() : "";
+  if (!title || !startsAt) {
+    toast("Preencha titulo e data do evento.");
+    return;
+  }
+  try {
+    await createClubEvent(state.club.id, {
+      type: data.type,
+      title,
+      description: String(data.description || "").trim(),
+      tmdbId,
+      dramaTitle,
+      startsAt,
+    });
+    clubSocial.events = await clubEventsFeed(state.club.id);
+    event.currentTarget.reset();
+    render();
+    toast("Evento criado no clube.");
+  } catch (error) {
+    toast(error?.message || "Nao consegui criar o evento.");
+  }
+}
+
+async function handleClubEventRsvp(eventId, status) {
+  try {
+    await setClubEventRsvp(eventId, status);
+    clubSocial.events = await clubEventsFeed(state.club.id);
+    render();
+  } catch {
+    toast("Nao consegui salvar sua presenca.");
+  }
+}
+
+async function handleCancelClubEvent(eventId) {
+  if (!(await confirmar("Cancelar este evento?", { ok: "Cancelar", danger: true }))) return;
+  try {
+    await cancelClubEvent(eventId);
+    clubSocial.events = await clubEventsFeed(state.club.id);
+    render();
+    toast("Evento cancelado.");
+  } catch (error) {
+    toast(error?.message?.includes("permissao") ? "So dono ou moderador pode cancelar." : "Nao consegui cancelar.");
   }
 }
 

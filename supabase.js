@@ -1143,6 +1143,37 @@ export async function closeClubPoll(pollId) {
   if (error) throw error;
 }
 
+// ---------- Eventos do clube ----------
+export async function clubEventsFeed(clubId) {
+  const { data, error } = await supabase.rpc("club_events_feed", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createClubEvent(clubId, event) {
+  const { data, error } = await supabase.rpc("create_club_event", {
+    p_club: clubId,
+    p_type: event.type || "watch_party",
+    p_title: event.title,
+    p_description: event.description || "",
+    p_tmdb: event.tmdbId ?? null,
+    p_drama_title: event.dramaTitle || null,
+    p_starts_at: event.startsAt,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function setClubEventRsvp(eventId, status) {
+  const { error } = await supabase.rpc("set_club_event_rsvp", { p_event: eventId, p_status: status });
+  if (error) throw error;
+}
+
+export async function cancelClubEvent(eventId) {
+  const { error } = await supabase.rpc("cancel_club_event", { p_event: eventId });
+  if (error) throw error;
+}
+
 // ---------- Favoritos especiais ----------
 export async function loadFavoritos(userId) {
   const { data, error } = await supabase.from("favoritos").select("*").eq("user_id", userId).order("created_at", { ascending: false });

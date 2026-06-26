@@ -957,6 +957,30 @@ textarea:focus {
   opacity: 0.82;
 }
 
+.club-event-form-card {
+  max-width: none;
+}
+
+.club-event-card {
+  display: grid;
+  gap: 9px;
+}
+
+.club-event-card p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.club-event-card.is-cancelled {
+  opacity: 0.72;
+}
+
+.club-event-card .mini-actions button.mine {
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria);
+  background: color-mix(in srgb, var(--cor-primaria) 14%, transparent);
+}
+
 .list-toolbar {
   display: flex;
   flex-wrap: wrap;

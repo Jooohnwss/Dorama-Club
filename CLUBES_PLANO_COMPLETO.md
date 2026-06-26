@@ -778,7 +778,7 @@ Para sair do "ta muito ruim" rapido:
 
 1. Criar Feed + posts + comentarios. Status: iniciado usando o mural atual de comentarios.
 2. Criar Dorama da semana. Status: feito no app + migracao 31 rodada no Supabase.
-3. Criar Enquete simples. Status: implementado no codigo + migracao 32 criada; falta rodar no Supabase.
+3. Criar Enquete simples. Status: feito no app + migracao 32 rodada no Supabase.
 4. Melhorar topo do clube. Status: feito no app, com painel/resumo do clube.
 5. Criar aba Membros/Sobre. Status: feito no app + migracao 30.
 
@@ -823,7 +823,7 @@ Depois disso, o clube ja fica com cara de comunidade. Chat, eventos e ranking en
 
 ### Proximo bloco sugerido
 
-- Rodar `supabase/32 - clubes-enquetes-livres.sql`.
+- Rodar `supabase/33 - clubes-eventos-e-presenca.sql`.
 - Eventos/maratonas com data e presenca.
 - Chat do clube.
 - Pontos e desafios semanais.
@@ -847,5 +847,24 @@ Depois disso, o clube ja fica com cara de comunidade. Chat, eventos e ranking en
   - Ver resultados com barra de progresso.
   - Dono/moderador pode encerrar enquete.
 - Pendente:
-  - Rodar `supabase/32 - clubes-enquetes-livres.sql` no Supabase.
+  - Usuario confirmou que rodou a migracao 32 no Supabase em 2026-06-26.
   - Validar criando uma enquete real no clube.
+
+### 2026-06-26 - Codex, eventos
+
+- Criada a migracao `33 - clubes-eventos-e-presenca.sql`.
+  - Tabela `club_events`.
+  - Tabela `club_event_rsvps`.
+  - RPC `create_club_event`.
+  - RPC `set_club_event_rsvp`.
+  - RPC `cancel_club_event`.
+  - RPC `club_events_feed`.
+- Implementado no app:
+  - Nova aba `Eventos` dentro do clube.
+  - Criar watch party, maratona, debate, votacao ou evento livre.
+  - Vincular evento a um dorama da lista ou ao dorama oficial do clube.
+  - Confirmar presenca: vou, talvez, nao vou.
+  - Dono/moderador pode cancelar evento.
+- Pendente:
+  - Rodar `supabase/33 - clubes-eventos-e-presenca.sql` no Supabase.
+  - Validar criando um evento real no clube.
