@@ -8252,8 +8252,9 @@ async function handleListAdd(dramaId, manualTitle = "") {
     clubSocial.list = await clubListFeed(state.club.id);
     render();
     toast(`${payload.title} entrou na sala de escolha.`);
-  } catch {
-    toast("Nao consegui adicionar na sala de escolha.");
+  } catch (e) {
+    console.error("clubListAdd", e);
+    toast(`Erro: ${e?.message || e?.hint || "não consegui adicionar"}`);
   }
 }
 
@@ -8287,8 +8288,9 @@ async function handleClubAddTmdb(tmdbId) {
     clubAddSearch = { query: "", loading: false, results: [] };
     render();
     toast(`${brief.title} entrou na sala de escolha 🗳️`);
-  } catch {
-    toast("Não consegui adicionar.");
+  } catch (e) {
+    console.error("clubListAdd", e);
+    toast(`Erro: ${e?.message || e?.hint || "não consegui adicionar"}`);
   }
 }
 
