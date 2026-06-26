@@ -953,6 +953,18 @@ textarea:focus {
 .ciclo-banner strong { display: block; font-size: 0.98rem; }
 .ciclo-banner small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.8rem; }
 
+/* Doramas em comum (chips, não bloco colado) */
+.comum-card { display: grid; gap: 8px; }
+.comum-titulo { font-weight: 850; font-size: 0.9rem; }
+.comum-titulo em { color: var(--cor-texto-suave); font-weight: 700; font-style: normal; font-size: 0.82rem; }
+.comum-lista { display: flex; flex-wrap: wrap; gap: 6px; }
+.comum-chip {
+  padding: 5px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 700;
+  background: var(--cor-superficie-2); border: 1px solid var(--cor-borda); color: var(--cor-texto);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.comum-chip.more { background: transparent; color: var(--cor-texto-suave); }
+
 .club-member-card {
   display: grid;
   gap: 6px;

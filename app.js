@@ -2410,12 +2410,15 @@ function doramasEmComumTemplate() {
     "Melhor pra ver juntas": dados.filter((d) => Number(d.wishlist) >= 2 && Number(d.finished) === 0),
     "Só uma viu": dados.filter((d) => Number(d.membros) === 1 && Number(d.finished) >= 1),
   };
+  const emoji = { "Todo mundo já viu": "✅", "Todo mundo quer ver": "💖", "Melhor pra ver juntas": "🍿", "Só uma viu": "👀" };
   const blocos = Object.entries(grupos)
     .filter(([, lista]) => lista.length)
-    .map(
-      ([titulo, lista]) =>
-        `<div class="card"><span class="muted">${titulo}</span>${lista.map((d) => `<strong style="font-weight:600">${esc(d.title)}</strong>`).join("")}</div>`,
-    )
+    .map(([titulo, lista]) => {
+      const mostra = lista.slice(0, 8);
+      const resto = lista.length - mostra.length;
+      const chips = mostra.map((d) => `<span class="comum-chip">${esc(d.title)}</span>`).join("");
+      return `<div class="card comum-card"><span class="comum-titulo">${emoji[titulo] || "🎬"} ${esc(titulo)} <em>(${lista.length})</em></span><div class="comum-lista">${chips}${resto > 0 ? `<span class="comum-chip more">+${resto}</span>` : ""}</div></div>`;
+    })
     .join("");
   return blocos ? `<section class="grid cards">${blocos}</section>` : `<div class="empty">Ainda sem doramas em comum o bastante. Adicionem mais! ✨</div>`;
 }
