@@ -84,6 +84,7 @@ export async function loadProfile(userId) {
     photo: data.photo || "",
     since: data.since ? String(data.since) : "",
     type: data.type || "",
+    gender: data.gender || "",
     inviteCode: data.invite_code || "",
     invitedBy: data.invited_by || null,
     tema: data.tema || "",
@@ -121,6 +122,7 @@ export async function saveProfile(userId, profile) {
     photo: profile.photo || "",
     since: profile.since ? Number(profile.since) : null,
     type: profile.type || "",
+    gender: profile.gender || null,
   };
   const { error } = await supabase.from("profiles").upsert(row);
   if (error) throw error;

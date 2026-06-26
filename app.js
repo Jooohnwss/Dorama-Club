@@ -727,6 +727,15 @@ function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
 
+// Tratamento conforme o gênero escolhido no perfil. Padrão: feminino
+// (a comunidade nasceu como "doramigas"). gx("Bem-vindo","Bem-vinda","Boas-vindas")
+function gx(masc, fem, neutro) {
+  const g = state?.profile?.gender;
+  if (g === "ele") return masc;
+  if (g === "neutro") return neutro != null ? neutro : fem;
+  return fem;
+}
+
 // ---------- Ícones (SVG inline, herdam a cor com currentColor) ----------
 const ICONS = {
   home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/>',
@@ -3089,7 +3098,7 @@ function clubFeedTemplate() {
   const itens = filtro === "all" ? clubFeedItems : clubFeedItems.filter((i) => String(i.tmdb_id || "") === String(filtro));
   if (!itens.length) {
     const nomeDrama = abas.find(([k]) => k === filtro)?.[1] || "";
-    return filtroRow + `<div class="empty">${filtro === "all" ? "Ninguém surtou ainda. Seja a primeira! 💜" : `Nenhum surto sobre ${esc(nomeDrama.replace(/^[🎬✓]\s*/, ""))} ainda. Comecem! 💜`}</div>`;
+    return filtroRow + `<div class="empty">${filtro === "all" ? `Ninguém surtou ainda. Seja ${gx("o primeiro", "a primeira", "a primeira pessoa")}! 💜` : `Nenhum surto sobre ${esc(nomeDrama.replace(/^[🎬✓]\s*/, ""))} ainda. Comecem! 💜`}</div>`;
   }
   return filtroRow + `<section class="mural-list">${itens.map((item) => muralPostCard(item, { canDelete: true })).join("")}</section>`;
 }
@@ -5898,9 +5907,9 @@ function profileTemplate() {
         ${titulosGanhos()[0] ? `<span class="chip" style="margin-top:8px;display:inline-flex">🏆 ${esc(titulosGanhos()[0])}</span>` : ""}
       </div>
     </div>
-    <div class="section-title"><h2>🔗 Convidar amigas</h2></div>
+    <div class="section-title"><h2>🔗 Convidar ${gx("amigos", "amigas", "gente")}</h2></div>
     <section class="form-card">
-      <p class="muted" style="margin:0 0 10px">Seu código de convite: <strong style="color:var(--cor-texto)">${esc(profile.inviteCode || "—")}</strong>. Cada amiga que entrar pelo seu link fica registrada como convidada por você.</p>
+      <p class="muted" style="margin:0 0 10px">Seu código de convite: <strong style="color:var(--cor-texto)">${esc(profile.inviteCode || "—")}</strong>. Cada pessoa que entrar pelo seu link fica registrada como ${gx("convidado", "convidada", "convidada(o)")} por você.</p>
       <div class="actions" style="margin:0">
         <button class="btn" type="button" data-invite-share>${icon("share")} Convidar no WhatsApp</button>
         <button class="btn ghost" type="button" data-invite-copy>Copiar link</button>
@@ -6266,6 +6275,14 @@ function profileFields(profile = {}) {
       <label for="nickname">Apelido</label>
       <input id="nickname" name="nickname" value="${profile.nickname || ""}" placeholder="Dorameira Sofredora" />
     </div>
+    <div class="field">
+      <label for="gender">Como te chamamos?</label>
+      <select id="gender" name="gender">
+        <option value="ela" ${profile.gender === "ela" || !profile.gender ? "selected" : ""}>No feminino (ela)</option>
+        <option value="ele" ${profile.gender === "ele" ? "selected" : ""}>No masculino (ele)</option>
+        <option value="neutro" ${profile.gender === "neutro" ? "selected" : ""}>Neutro / tanto faz</option>
+      </select>
+    </div>
     <div class="field full">
       <label>Foto de perfil</label>
       <div class="avatar-edit">
@@ -6278,11 +6295,11 @@ function profileFields(profile = {}) {
       </div>
     </div>
     <div class="field">
-      <label for="since">Dorameira desde</label>
+      <label for="since">${gx("Dorameiro", "Dorameira", "No mundo dos doramas")} desde</label>
       <input id="since" name="since" type="number" min="1950" max="2026" value="${profile.since || "2018"}" />
     </div>
     <div class="field full">
-      <label for="type">Tipo de dorameira</label>
+      <label for="type">Tipo de ${gx("dorameiro", "dorameira", "fã de dorama")}</label>
       <select id="type" name="type">
         ${dramaTypes.map((type) => `<option ${profile.type === type ? "selected" : ""}>${type}</option>`).join("")}
       </select>
@@ -7351,7 +7368,7 @@ async function saveProfile(event) {
   modal = null;
   setState({ profile: data, view: "home" });
   resolveInvite();
-  toast(`Bem-vinda, ${data.name}.`);
+  toast(`${gx("Bem-vindo", "Bem-vinda", "Que bom te ver")}, ${data.name}.`);
 }
 
 function addDrama(event) {
