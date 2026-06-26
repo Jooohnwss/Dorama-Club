@@ -1261,6 +1261,35 @@ export async function deleteClubChatMessage(messageId) {
   if (error) throw error;
 }
 
+// ---------- Realtime do clube: chat ao vivo + presença (quem está online) ----------
+export function subscribeClubRealtime(clubId, { onChatInsert, onChatDelete, onPresence, me } = {}) {
+  if (!supabase) return null;
+  const channel = supabase.channel(`club:${clubId}`, {
+    config: { presence: { key: me?.id || "anon" } },
+  });
+  channel
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "club_chat_messages", filter: `club_id=eq.${clubId}` }, (payload) => onChatInsert?.(payload.new))
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "club_chat_messages", filter: `club_id=eq.${clubId}` }, (payload) => onChatDelete?.(payload.old?.id))
+    .on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState();
+      const online = [];
+      for (const key of Object.keys(state)) {
+        for (const p of state[key]) online.push(p);
+      }
+      onPresence?.(online);
+    })
+    .subscribe(async (status) => {
+      if (status === "SUBSCRIBED" && me?.id) {
+        try { await channel.track({ user_id: me.id, name: me.name || "Membro" }); } catch { /* ignore */ }
+      }
+    });
+  return channel;
+}
+
+export function unsubscribeChannel(channel) {
+  if (channel && supabase) supabase.removeChannel(channel);
+}
+
 // ---------- Favoritos especiais ----------
 export async function loadFavoritos(userId) {
   const { data, error } = await supabase.from("favoritos").select("*").eq("user_id", userId).order("created_at", { ascending: false });

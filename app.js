@@ -71,6 +71,8 @@ import {
   clubChatFeed,
   createClubChatMessage,
   deleteClubChatMessage,
+  subscribeClubRealtime,
+  unsubscribeChannel,
   loadFavoritos,
   addFavorito,
   deleteFavorito,
@@ -370,6 +372,12 @@ let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 let clubTab = "inicio"; // aba interna da tela Doramigas (lobby)
 let revealedPosts = new Set(); // posts cujo spoiler o leitor escolheu ver
 let clubMuralFilter = null; // null = dorama atual; "all" = tudo; ou um tmdb_id
+let clubChannel = null; // canal Realtime do clube (chat + presença)
+let clubChannelFor = null; // id do clube cujo canal está ativo
+let clubOnline = []; // [{user_id, name}] presentes agora
+let clubChatSpoilerOn = false; // toggle de spoiler no compositor do chat
+let chatDraft = ""; // texto do chat preservado entre re-renders
+let revealedChat = new Set(); // mensagens de spoiler reveladas pelo leitor
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
 let clubDebateDraft = null; // dorama avulso da lista do clube para abrir debate no mural
 let listSort = "recente"; // ordenação da Minhas listas
@@ -2643,50 +2651,54 @@ function clubeDestaqueTemplate() {
     </section>`;
 }
 
-function clubeChatTemplate() {
-  const form = `
-    <section class="form-card club-chat-form-card">
-      <form id="club-chat-form" class="form-grid">
-        <div class="field full">
-          <label for="clubChatBody">Mensagem no chat</label>
-          <textarea id="clubChatBody" name="body" placeholder="Combinem a maratona, mandem teorias, surtem juntas..." required></textarea>
-        </div>
-        <div class="field">
-          <label for="clubChatEpisode">Spoiler até ep.</label>
-          <input id="clubChatEpisode" name="episodeNumber" type="number" min="0" value="0" />
-        </div>
-        <label class="check-row">
-          <input name="hasSpoiler" type="checkbox" />
-          <span>Tem spoiler</span>
-        </label>
-        <div class="actions field full">
-          <button class="btn" type="submit">Enviar</button>
-        </div>
-      </form>
-    </section>`;
+function chatBubbleHtml(msg, prev) {
+  const mine = authUser && msg.user_id === authUser.id;
+  const spoiler = msg.has_spoiler || Number(msg.episode_number || 0) > 0;
+  const revelado = mine || revealedChat.has(msg.id);
+  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club?.owner_id === authUser?.id;
+  const podeApagar = mine || canManage;
+  const nome = msg.author || msg.nickname || clubMembers.find((m) => m.user_id === msg.user_id)?.name || "Membro";
+  const mesmoAutor = prev && prev.user_id === msg.user_id;
+  const corpo = spoiler && !revelado
+    ? `<span class="chat-spoiler-blur" data-reveal-chat="${msg.id}"><span class="csb-text">${esc(msg.body)}</span><span class="csb-hint">🔒 toque pra revelar</span></span>`
+    : `<span>${esc(msg.body)}</span>`;
+  return `
+    <article class="club-chat-message ${mine ? "mine" : ""}" data-msg="${msg.id}">
+      ${!mine && !mesmoAutor ? `<span class="chat-author" style="color:${AVATAR_CORES[hashStr(nome) % AVATAR_CORES.length]}">${esc(nome)}</span>` : ""}
+      <p>${corpo}</p>
+      <span class="chat-foot"><span class="chat-time">${timeAgo(msg.created_at)}</span>${podeApagar ? `<button class="chat-del" data-del-chat="${msg.id}" title="Apagar">${icon("trash")}</button>` : ""}</span>
+    </article>`;
+}
 
-  if (clubSocial.for !== state.club.id) return form + `<div class="empty">Carregando chat...</div>`;
-  const messages = [...(clubSocial.chat || [])].reverse();
-  if (!messages.length) return form + `<div class="empty">Chat vazio. Mande a primeira mensagem do clube.</div>`;
-  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
-  const list = messages
-    .map((msg, i) => {
-      const mine = authUser && msg.user_id === authUser.id;
-      const spoiler = msg.has_spoiler || Number(msg.episode_number || 0) > 0;
-      const podeApagar = mine || canManage;
-      const nome = msg.author || msg.nickname || "Membro";
-      const prev = messages[i - 1];
-      const mesmoAutor = prev && prev.user_id === msg.user_id;
-      return `
-        <article class="club-chat-message ${mine ? "mine" : ""}">
-          ${!mine && !mesmoAutor ? `<span class="chat-author" style="color:${AVATAR_CORES[hashStr(nome) % AVATAR_CORES.length]}">${esc(nome)}</span>` : ""}
-          ${spoiler ? `<span class="chip chat-spoiler">🔒 Spoiler${Number(msg.episode_number || 0) ? ` até ep. ${Number(msg.episode_number || 0)}` : ""}</span>` : ""}
-          <p>${esc(msg.body)}</p>
-          <span class="chat-foot"><span class="chat-time">${timeAgo(msg.created_at)}</span>${podeApagar ? `<button class="chat-del" data-del-chat="${msg.id}" title="Apagar">${icon("trash")}</button>` : ""}</span>
-        </article>`;
-    })
-    .join("");
-  return form + `<section class="club-chat-list">${list}</section>`;
+function chatOnlineBarHtml() {
+  const onlineIds = new Set(clubOnline.map((p) => p.user_id));
+  const membros = clubMembers.length ? clubMembers : clubOnline.map((p) => ({ user_id: p.user_id, name: p.name }));
+  const nOnline = membros.filter((m) => onlineIds.has(m.user_id)).length;
+  const av = (m) => {
+    const on = onlineIds.has(m.user_id);
+    const ini = (String(m.name || "?").trim().charAt(0) || "?").toUpperCase();
+    return `<span class="chat-onav ${on ? "on" : "off"}" title="${esc(m.name || "Membro")} ${on ? "(online)" : "(offline)"}" style="background:${AVATAR_CORES[hashStr(m.name || "?") % AVATAR_CORES.length]}">${esc(ini)}</span>`;
+  };
+  return `<div class="chat-online">
+    <span class="chat-online-count"><span class="dot ${nOnline ? "on" : ""}"></span>${nOnline} online${membros.length ? ` de ${membros.length}` : ""}</span>
+    <div class="chat-onavs">${membros.map(av).join("")}</div>
+  </div>`;
+}
+
+function clubeChatTemplate() {
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando chat…</div>`;
+  const messages = [...(clubSocial.chat || [])].reverse(); // antigas em cima, novas embaixo
+  const lista = messages.length
+    ? messages.map((m, i) => chatBubbleHtml(m, messages[i - 1])).join("")
+    : `<div class="empty">Chat vazio. Manda a primeira mensagem ao vivo! 💬</div>`;
+  const composer = `
+    <form id="club-chat-form" class="chat-composer">
+      <button type="button" class="chat-spoiler-toggle ${clubChatSpoilerOn ? "on" : ""}" data-chat-spoiler title="${clubChatSpoilerOn ? "Spoiler ligado" : "Marcar como spoiler"}">🔒</button>
+      <input id="clubChatBody" name="body" placeholder="Mensagem ao vivo…" autocomplete="off" value="${esc(chatDraft)}" required />
+      <input type="hidden" name="hasSpoiler" value="${clubChatSpoilerOn ? "1" : ""}" />
+      <button class="btn chat-send" type="submit" aria-label="Enviar">➤</button>
+    </form>`;
+  return `${chatOnlineBarHtml()}<section class="club-chat-list" id="club-chat-list">${lista}</section>${composer}`;
 }
 
 function clubeEnquetesTemplate() {
@@ -6691,6 +6703,7 @@ async function handleAuthSubmit(event) {
 }
 
 async function handleLogout() {
+  teardownClubRealtime();
   await signOut();
   authUser = null;
   state.profile = null;
@@ -7170,9 +7183,18 @@ function bindShell() {
     listen(button, "click", () => handleCloseClubChallenge(button.dataset.closeChallenge));
   });
   listen(document.querySelector("#club-chat-form"), "submit", handleCreateClubChatMessage);
+  const chatInput = document.querySelector("#clubChatBody");
+  if (chatInput) {
+    listen(chatInput, "input", () => { chatDraft = chatInput.value; });
+  }
+  listen(document.querySelector("[data-chat-spoiler]"), "click", () => { clubChatSpoilerOn = !clubChatSpoilerOn; render(); });
+  document.querySelectorAll("[data-reveal-chat]").forEach((b) => listen(b, "click", () => { revealedChat.add(b.dataset.revealChat); render(); }));
   document.querySelectorAll("[data-del-chat]").forEach((button) => {
     listen(button, "click", () => handleDeleteClubChatMessage(button.dataset.delChat));
   });
+  // chat sempre rolado pro fim (mensagem mais nova).
+  const chatList = document.querySelector("#club-chat-list");
+  if (chatList) chatList.scrollTop = chatList.scrollHeight;
   listen(document.querySelector("#casal-form"), "submit", handleAddCasal);
   document.querySelectorAll("[data-del-casal]").forEach((button) => {
     listen(button, "click", () => handleDeleteCasal(button.dataset.delCasal));
@@ -7204,6 +7226,7 @@ function bindShell() {
   if (state.view === "club" && state.club && clubMembersFor !== state.club.id) loadClubMembers();
   if (state.view === "club" && state.club && clubFeedFor !== state.club.id) loadClubFeed();
   if (state.view === "club" && state.club && clubSocial.for !== state.club.id) loadClubSocial();
+  if (state.view === "club" && state.club) ensureClubRealtime(); else teardownClubRealtime();
   if (state.space === "couple" && state.couple && coupleFor !== state.couple.id) loadCoupleData();
   if (state.space === "couple" && state.couple && coupleSection === "certificados" && coupleFor === state.couple.id && coupleRuntimesFor !== state.couple.id) loadCoupleRuntimes();
   if (state.space === "couple" && state.couple && coupleSection === "diversao" && coupleFor === state.couple.id && coupleQuizFor !== `${state.couple.id}:${semanaAtual()}`) loadCoupleQuizData();
@@ -7500,6 +7523,8 @@ async function loadClubSocial() {
   if (!state.club) return;
   clubAddSearch = { query: "", loading: false, results: [] }; // limpa busca ao trocar de clube
   clubMuralFilter = null;
+  chatDraft = "";
+  clubChatSpoilerOn = false;
   clubSocial = { ...clubSocial, for: state.club.id };
   const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [], cycle: null, clubDramas: [] };
   try {
@@ -7526,6 +7551,57 @@ async function loadClubSocial() {
     clubSocial = empty;
   }
   render();
+}
+
+// ---------- Chat ao vivo + presença (Realtime) ----------
+function ensureClubRealtime() {
+  if (!cloudOn() || !state.club || state.view !== "club") { teardownClubRealtime(); return; }
+  if (clubChannelFor === state.club.id && clubChannel) return;
+  teardownClubRealtime();
+  clubChannelFor = state.club.id;
+  clubChannel = subscribeClubRealtime(state.club.id, {
+    me: { id: authUser?.id, name: state.profile?.name || state.profile?.nickname || "Membro" },
+    onChatInsert: onRealtimeChatInsert,
+    onChatDelete: onRealtimeChatDelete,
+    onPresence: onRealtimePresence,
+  });
+}
+function teardownClubRealtime() {
+  if (clubChannel) unsubscribeChannel(clubChannel);
+  clubChannel = null;
+  clubChannelFor = null;
+  clubOnline = [];
+}
+function onRealtimeChatInsert(row) {
+  if (!row || !state.club || (clubSocial.chat || []).some((m) => m.id === row.id)) return;
+  const nome = clubMembers.find((m) => m.user_id === row.user_id)?.name
+    || (row.user_id === authUser?.id ? (state.profile?.name || "Você") : "Membro");
+  const msg = { ...row, author: nome };
+  const prev = (clubSocial.chat || [])[0]; // mais recente atual = anterior na exibição
+  clubSocial.chat = [msg, ...(clubSocial.chat || [])];
+  const list = document.querySelector("#club-chat-list");
+  if (state.view === "club" && clubTab === "chat" && list) {
+    list.insertAdjacentHTML("beforeend", chatBubbleHtml(msg, prev));
+    bindChatNode(list.lastElementChild);
+    list.scrollTop = list.scrollHeight;
+  }
+}
+function onRealtimeChatDelete(id) {
+  if (!id) return;
+  clubSocial.chat = (clubSocial.chat || []).filter((m) => m.id !== id);
+  document.querySelector(`.club-chat-message[data-msg="${id}"]`)?.remove();
+}
+function onRealtimePresence(online) {
+  clubOnline = online || [];
+  if (state.view === "club" && clubTab === "chat") {
+    const bar = document.querySelector(".chat-online");
+    if (bar) bar.outerHTML = chatOnlineBarHtml();
+  }
+}
+function bindChatNode(node) {
+  if (!node) return;
+  node.querySelectorAll("[data-del-chat]").forEach((b) => listen(b, "click", () => handleDeleteClubChatMessage(b.dataset.delChat)));
+  node.querySelectorAll("[data-reveal-chat]").forEach((b) => listen(b, "click", () => { revealedChat.add(b.dataset.revealChat); render(); }));
 }
 
 async function loadCoupleData() {
@@ -8677,22 +8753,21 @@ async function handleCreateClubChatMessage(event) {
   const data = Object.fromEntries(new FormData(event.currentTarget));
   const body = String(data.body || "").trim();
   if (!body) return;
+  const spoiler = Boolean(data.hasSpoiler);
+  chatDraft = "";
+  clubChatSpoilerOn = false;
   try {
-    await createClubChatMessage(state.club.id, {
-      body,
-      hasSpoiler: Boolean(data.hasSpoiler),
-      episodeNumber: Number(data.episodeNumber) || 0,
-    });
+    await createClubChatMessage(state.club.id, { body, hasSpoiler: spoiler, episodeNumber: 0 });
+    // Recarrega como fallback (o Realtime já adiciona ao vivo; dedup por id evita repetir).
     const [chat, points] = await Promise.all([
       clubChatFeed(state.club.id).catch(() => clubSocial.chat || []),
       clubPointsRanking(state.club.id).catch(() => clubSocial.points || []),
     ]);
     clubSocial.chat = chat;
     clubSocial.points = points;
-    event.currentTarget.reset();
     render();
   } catch (error) {
-    toast(error?.message || "Nao consegui enviar a mensagem.");
+    toast(error?.message || "Não consegui enviar a mensagem.");
   }
 }
 

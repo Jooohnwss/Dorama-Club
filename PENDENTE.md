@@ -113,6 +113,11 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - **37 - clube-ciclo-de-temporada.sql**: o **Ciclo do clube** (assistindo agora → votação 10 dias quando todos terminam → próximo dorama). Cria `clubs.cycle_phase/cycle_voting_ends_at` + funções `club_cycle`, `club_open_voting`, `club_close_voting`, `club_elect_winner`.
 - Onde: SQL Editor → New query → cola → Run (rode a 36 e depois a 37).
 
+### 1s. Rodar a migração 39 (chat do clube ao vivo)
+- **39 - clube-chat-realtime.sql**: adiciona `club_chat_messages` à publicação do Realtime pra as mensagens chegarem **ao vivo** (sem recarregar). A presença (quem está online) é via canal do Realtime, não precisa de tabela.
+- Sem ela: o chat ainda funciona, mas só atualiza ao recarregar (não é ao vivo).
+- Onde: SQL Editor → New query → cola → Run.
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:
