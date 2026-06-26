@@ -108,6 +108,11 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Pra quê: cada um cadastra o **próprio** Telegram nos Ajustes; o botão abre a conversa com o outro
 - Sem isso: salvar o Telegram pessoal dá erro (coluna não existe). **Privado no banco, nunca no código.**
 
+### 1r. Rodar as migrações 36 e 37 (clube)
+- **36 - corrige-club-list-feed-id-ambiguo.sql**: conserta a Sala de Escolha (erro "column reference id is ambiguous" ao adicionar/listar candidato). **Sem ela, a sala de escolha fica vazia/dá erro.**
+- **37 - clube-ciclo-de-temporada.sql**: o **Ciclo do clube** (assistindo agora → votação 10 dias quando todos terminam → próximo dorama). Cria `clubs.cycle_phase/cycle_voting_ends_at` + funções `club_cycle`, `club_open_voting`, `club_close_voting`, `club_elect_winner`.
+- Onde: SQL Editor → New query → cola → Run (rode a 36 e depois a 37).
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

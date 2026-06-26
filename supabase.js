@@ -1095,6 +1095,21 @@ export async function clubCurrentFeaturedDrama(clubId) {
   return Array.isArray(data) ? data[0] || null : data || null;
 }
 
+// ---- Ciclo de temporada do clube ----
+export async function clubCycle(clubId) {
+  const { data, error } = await supabase.rpc("club_cycle", { p_club: clubId });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] || null : data || null;
+}
+export async function clubOpenVoting(clubId) {
+  const { error } = await supabase.rpc("club_open_voting", { p_club: clubId });
+  if (error) throw error;
+}
+export async function clubCloseVoting(clubId) {
+  const { error } = await supabase.rpc("club_close_voting", { p_club: clubId });
+  if (error) throw error;
+}
+
 export async function setClubFeaturedDrama(clubId, drama, periodType = "week") {
   const { data, error } = await supabase.rpc("set_club_featured_drama", {
     p_club: clubId,

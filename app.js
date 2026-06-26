@@ -49,6 +49,9 @@ import {
   clubListVote,
   clubListRemove,
   clubCurrentFeaturedDrama,
+  clubCycle,
+  clubOpenVoting,
+  clubCloseVoting,
   setClubFeaturedDrama,
   saveClubDramaCheckin,
   clubPollsFeed,
@@ -2341,11 +2344,9 @@ function clubTemplate() {
     feed: `${commentFormTemplate()}${clubFeedTemplate()}<div class="section-title"><h2>Novidades automáticas</h2></div>${atividadesTemplate()}<div class="section-title"><h2>Diário compartilhado</h2></div>${diarioCompartilhadoTemplate()}`,
     chat: clubeChatTemplate(),
     doramas: `
-      <div class="section-title"><h2>Dorama do clube</h2></div>${clubeDestaqueTemplate()}
+      ${clubeCicloTemplate()}
       <div class="section-title"><h2>Enquetes do clube</h2></div>${clubeEnquetesTemplate()}
-      <div class="section-title"><h2>Dorama do mes</h2></div>${doramaDoMesTemplate()}
-      <div class="section-title"><h2>Doramas em comum</h2></div>${doramasEmComumTemplate()}
-      <div class="section-title"><h2>Sala de escolha e debate</h2></div>${listaCompartilhadaTemplate()}`,
+      <div class="section-title"><h2>Doramas em comum</h2></div>${doramasEmComumTemplate()}`,
     ranking: `
       <div class="section-title"><h2>Ranking do clube</h2></div>${rankingClubeTemplate()}
       <div class="section-title"><h2>Ranking de pontos</h2></div>${clubPointsTemplate()}
@@ -2453,6 +2454,60 @@ function legacyListaCompartilhadaTemplate() {
     })
     .join("");
   return addForm + `<section class="grid cards">${itens}</section>`;
+}
+
+function diasRestantes(dateStr) {
+  if (!dateStr) return null;
+  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+}
+
+// Ciclo de temporada: assistindo agora (com progresso) + votação dos próximos.
+function clubeCicloTemplate() {
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando o ciclo do clube…</div>`;
+  const cycle = clubSocial.cycle || { phase: "watching", members_count: clubMembers.length, finished_count: 0 };
+  const featured = clubSocial.featured;
+  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
+  const membros = Math.max(1, Number(cycle.members_count || clubMembers.length || 1));
+  const terminaram = Number(cycle.finished_count || 0);
+  const pct = Math.min(100, Math.round((terminaram / membros) * 100));
+  const euTerminei = featured && featured.my_status === "finished";
+  const votando = cycle.phase === "voting";
+
+  const assistindo = featured
+    ? `<section class="ciclo-now">
+        <div class="ciclo-now-head">
+          ${featured.cover ? `<img src="${esc(featured.cover)}" alt="" />` : `<span class="ciclo-emoji">🎬</span>`}
+          <div class="ciclo-now-info">
+            <span class="clf-eyebrow">🎬 Assistindo agora</span>
+            <strong>${esc(featured.title)}</strong>
+            <small>Você no ep. ${Number(featured.my_episode || 0)}${euTerminei ? " · ✓ você terminou" : ""}</small>
+          </div>
+        </div>
+        <div class="ciclo-prog">
+          <div class="ciclo-bar"><i style="width:${pct}%"></i></div>
+          <small>${terminaram}/${membros} terminaram${votando ? " · todos prontos! 🎉" : ""}</small>
+        </div>
+        <form id="club-checkin-form" class="ciclo-checkin">
+          <input name="episode" type="number" min="0" value="${Number(featured.my_episode || 0)}" aria-label="Meu episódio" />
+          <input type="hidden" name="status" value="${euTerminei ? "finished" : "watching"}" />
+          <button class="btn secondary" type="submit">Salvar ep.</button>
+          <button class="btn ${euTerminei ? "ghost" : ""}" type="button" data-club-finish="${euTerminei ? "0" : "1"}">${euTerminei ? "Reabrir" : "✓ Terminei"}</button>
+        </form>
+      </section>`
+    : `<section class="ciclo-now"><span class="clf-eyebrow">🎬 Assistindo agora</span><p class="muted" style="margin:8px 0 0">Nenhum dorama oficial ainda. Adicionem candidatos abaixo e ${canManage ? "fixem o primeiro (botão Fixar)" : "votem"}.</p></section>`;
+
+  const prazo = diasRestantes(cycle.voting_ends_at);
+  const banner = votando
+    ? `<div class="ciclo-banner open">
+         <div><strong>🗳️ Votação aberta</strong><small>${prazo != null ? (prazo > 0 ? `fecha em ${prazo} dia${prazo > 1 ? "s" : ""}` : "fecha hoje") : "vote nos próximos"}</small></div>
+         ${canManage ? `<button class="btn ghost" type="button" data-club-close-voting>Fechar e eleger</button>` : ""}
+       </div>`
+    : `<div class="ciclo-banner">
+         <div><strong>🗳️ Próximos doramas</strong><small>a votação abre quando todos terminarem o atual</small></div>
+         ${canManage ? `<button class="btn ghost" type="button" data-club-open-voting>Abrir votação já</button>` : ""}
+       </div>`;
+
+  return `${assistindo}${banner}${listaCompartilhadaTemplate()}`;
 }
 
 function listaCompartilhadaTemplate() {
@@ -7037,6 +7092,9 @@ function bindShell() {
   document.querySelectorAll("[data-club-add-tmdb]").forEach((button) => {
     listen(button, "click", () => handleClubAddTmdb(button.dataset.clubAddTmdb));
   });
+  document.querySelectorAll("[data-club-finish]").forEach((b) => listen(b, "click", () => handleClubFinish(b.dataset.clubFinish)));
+  listen(document.querySelector("[data-club-open-voting]"), "click", handleClubOpenVoting);
+  listen(document.querySelector("[data-club-close-voting]"), "click", handleClubCloseVoting);
   document.querySelectorAll("[data-list-vote]").forEach((button) => {
     listen(button, "click", () => handleListVote(button.dataset.listVote, button.dataset.vote));
   });
@@ -7419,9 +7477,9 @@ async function loadClubSocial() {
   if (!state.club) return;
   clubAddSearch = { query: "", loading: false, results: [] }; // limpa busca ao trocar de clube
   clubSocial = { ...clubSocial, for: state.club.id };
-  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [] };
+  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [], cycle: null };
   try {
-    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -7436,8 +7494,9 @@ async function loadClubSocial() {
       clubPointsRanking(state.club.id).catch(() => []),
       clubChallengesFeed(state.club.id).catch(() => []),
       clubChatFeed(state.club.id).catch(() => []),
+      clubCycle(state.club.id).catch(() => null),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle };
   } catch {
     clubSocial = empty;
   }
@@ -8362,12 +8421,41 @@ async function handleClubFeaturedCheckin(episode, status) {
   try {
     await saveClubDramaCheckin(clubSocial.featured.id, episode, status);
     clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id);
+    clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
     clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
     render();
     toast("Check-in salvo no clube.");
   } catch {
-    toast("Nao consegui salvar seu check-in.");
+    toast("Não consegui salvar seu check-in.");
   }
+}
+// "Terminei" (ou reabrir) — marca o check-in como finished mantendo o ep. atual.
+async function handleClubFinish(v) {
+  const ep = Number(clubSocial.featured?.my_episode || 0);
+  await handleClubFeaturedCheckin(ep, v === "1" ? "finished" : "watching");
+  if (v === "1" && (clubSocial.cycle?.phase === "voting")) toast("Todos terminaram! Votação aberta 🗳️");
+}
+async function handleClubOpenVoting() {
+  if (!state.club) return;
+  try {
+    await clubOpenVoting(state.club.id);
+    clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
+    render();
+    toast("Votação aberta 🗳️");
+  } catch (e) { console.error(e); toast("Só dono/moderador pode abrir a votação."); }
+}
+async function handleClubCloseVoting() {
+  if (!state.club) return;
+  const ok = await confirmar("Fechar a votação agora?", { sub: "O candidato mais votado vira o próximo dorama do clube.", ok: "Fechar e eleger" });
+  if (!ok) return;
+  try {
+    await clubCloseVoting(state.club.id);
+    clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
+    clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id).catch(() => clubSocial.featured);
+    clubSocial.list = await clubListFeed(state.club.id).catch(() => clubSocial.list);
+    render();
+    toast("Novo dorama do clube definido! 🎬");
+  } catch (e) { console.error(e); toast("Só dono/moderador pode fechar a votação."); }
 }
 
 async function handleCreateClubPoll(event) {
