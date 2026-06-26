@@ -1174,6 +1174,44 @@ export async function cancelClubEvent(eventId) {
   if (error) throw error;
 }
 
+// ---------- Pontos e desafios do clube ----------
+export async function clubPointsRanking(clubId) {
+  const { data, error } = await supabase.rpc("club_points_ranking", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function clubChallengesFeed(clubId) {
+  const { data, error } = await supabase.rpc("club_challenges_feed", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createClubChallenge(clubId, challenge) {
+  const { data, error } = await supabase.rpc("create_club_challenge", {
+    p_club: clubId,
+    p_title: challenge.title,
+    p_description: challenge.description || "",
+    p_points: Number(challenge.points) || 10,
+    p_ends_at: challenge.endsAt || null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function completeClubChallenge(challengeId, proofText) {
+  const { error } = await supabase.rpc("complete_club_challenge", {
+    p_challenge: challengeId,
+    p_proof_text: proofText || "",
+  });
+  if (error) throw error;
+}
+
+export async function closeClubChallenge(challengeId) {
+  const { error } = await supabase.rpc("close_club_challenge", { p_challenge: challengeId });
+  if (error) throw error;
+}
+
 // ---------- Favoritos especiais ----------
 export async function loadFavoritos(userId) {
   const { data, error } = await supabase.from("favoritos").select("*").eq("user_id", userId).order("created_at", { ascending: false });

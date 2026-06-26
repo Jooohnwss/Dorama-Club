@@ -981,6 +981,36 @@ textarea:focus {
   background: color-mix(in srgb, var(--cor-primaria) 14%, transparent);
 }
 
+.club-points-card,
+.club-challenge-card {
+  display: grid;
+  gap: 9px;
+}
+
+.club-challenge-card p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.club-challenge-card.is-closed {
+  opacity: 0.72;
+}
+
+.club-challenge-form-card {
+  max-width: none;
+}
+
+.club-challenge-complete {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.club-challenge-complete input {
+  min-width: 0;
+  flex: 1;
+}
+
 .list-toolbar {
   display: flex;
   flex-wrap: wrap;

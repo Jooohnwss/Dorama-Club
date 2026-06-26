@@ -870,3 +870,31 @@ Depois disso, o clube ja fica com cara de comunidade. Chat, eventos e ranking en
 ### Proximo bloco em andamento
 
 - Pontos e desafios semanais do clube.
+
+### 2026-06-26 - Codex, pontos e desafios
+
+- Criada a migracao `34 - clubes-pontos-e-desafios.sql`.
+  - Tabela `club_points_ledger`.
+  - Tabela `club_challenges`.
+  - Tabela `club_challenge_entries`.
+  - RPC `grant_club_points`.
+  - RPC `club_points_ranking`.
+  - RPC `club_challenges_feed`.
+  - RPC `create_club_challenge`.
+  - RPC `complete_club_challenge`.
+  - RPC `close_club_challenge`.
+- A migracao tambem atualiza RPCs ja existentes para pontuar automaticamente:
+  - criar enquete,
+  - votar em enquete,
+  - check-in do dorama oficial,
+  - criar evento,
+  - confirmar presenca em evento.
+- Implementado no app:
+  - Nova aba `Desafios`.
+  - Ranking de pontos do clube.
+  - Criar desafios com pontos e data limite opcional.
+  - Concluir desafio com prova opcional.
+  - Dono/moderador pode encerrar desafio.
+- Pendente:
+  - Rodar `supabase/34 - clubes-pontos-e-desafios.sql` no Supabase.
+  - Validar pontos criando/votando em enquete, fazendo check-in, confirmando evento e concluindo desafio.

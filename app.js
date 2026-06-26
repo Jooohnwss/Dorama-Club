@@ -59,6 +59,11 @@ import {
   createClubEvent,
   setClubEventRsvp,
   cancelClubEvent,
+  clubPointsRanking,
+  clubChallengesFeed,
+  createClubChallenge,
+  completeClubChallenge,
+  closeClubChallenge,
   loadFavoritos,
   addFavorito,
   deleteFavorito,
@@ -493,7 +498,7 @@ function trocarClubeAtivo(club) {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [] };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [] };
   addingClub = false;
 }
 
@@ -529,7 +534,7 @@ function marcarClubeVisto() {
   clubHasNews = false;
 }
 // Social do clube (feed automático, dorama do mês, ranking, diário compartilhado).
-let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [] };
+let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [] };
 // Espaço "Nós dois" (carregado sob demanda).
 let coupleFor = null;
 let coupleMembers = [];
@@ -2249,7 +2254,7 @@ function clubTemplate() {
     return clubFormsTemplate();
   }
 
-  if (!["feed", "doramas", "eventos", "ranking", "sobre"].includes(clubTab)) clubTab = "feed";
+  if (!["feed", "doramas", "eventos", "desafios", "ranking", "sobre"].includes(clubTab)) clubTab = "feed";
 
   const switcher = `
     <div class="tabs">
@@ -2261,6 +2266,7 @@ function clubTemplate() {
     ["feed", "Feed"],
     ["doramas", "Doramas"],
     ["eventos", "Eventos"],
+    ["desafios", "Desafios"],
     ["ranking", "Ranking"],
     ["sobre", "Sobre"],
   ];
@@ -2275,8 +2281,10 @@ function clubTemplate() {
       <div class="section-title"><h2>Lista compartilhada</h2></div>${listaCompartilhadaTemplate()}`,
     ranking: `
       <div class="section-title"><h2>Ranking do clube</h2></div>${rankingClubeTemplate()}
+      <div class="section-title"><h2>Ranking de pontos</h2></div>${clubPointsTemplate()}
       <div class="section-title"><h2>Doramigas compativeis</h2></div>${compatibilidadeTemplate()}`,
     eventos: clubeEventosTemplate(),
+    desafios: clubeDesafiosTemplate(),
     sobre: clubAboutTemplate(),
   };
 
@@ -2591,6 +2599,79 @@ function clubeEventosTemplate() {
     .join("");
 
   return form + `<section class="grid">${cards}</section>`;
+}
+
+function clubPointsTemplate() {
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando pontos...</div>`;
+  const rows = clubSocial.points || [];
+  if (!rows.length) return `<div class="empty">Ainda sem pontos. Votos, eventos, check-ins e desafios vao movimentar esse ranking.</div>`;
+  return `<section class="grid cards">${rows
+    .map((row, index) => `<div class="card club-points-card"><span class="muted">#${index + 1}</span><strong>${esc(row.name || "Membro")}</strong><div class="chips"><span class="chip">${Number(row.points || 0)} pts</span><span class="chip">${Number(row.actions || 0)} acoes</span></div></div>`)
+    .join("")}</section>`;
+}
+
+function clubeDesafiosTemplate() {
+  const form = `
+    <section class="form-card club-challenge-form-card">
+      <form id="club-challenge-form" class="form-grid">
+        <div class="field">
+          <label for="clubChallengePoints">Pontos</label>
+          <input id="clubChallengePoints" name="points" type="number" min="1" max="100" value="10" />
+        </div>
+        <div class="field">
+          <label for="clubChallengeEnds">Termina em</label>
+          <input id="clubChallengeEnds" name="endsAt" type="datetime-local" />
+        </div>
+        <div class="field full">
+          <label for="clubChallengeTitle">Novo desafio</label>
+          <input id="clubChallengeTitle" name="title" placeholder="Assistir 3 episodios essa semana" required />
+        </div>
+        <div class="field full">
+          <label for="clubChallengeDescription">Detalhes</label>
+          <textarea id="clubChallengeDescription" name="description" placeholder="O que vale, ate quando, como contar..."></textarea>
+        </div>
+        <div class="actions field full">
+          <button class="btn" type="submit">Criar desafio</button>
+        </div>
+      </form>
+    </section>`;
+
+  if (clubSocial.for !== state.club.id) return form + `<div class="empty">Carregando desafios...</div>`;
+  const challenges = clubSocial.challenges || [];
+  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
+  const cards = challenges.length
+    ? challenges
+        .map((challenge) => {
+          const closed = challenge.status !== "active";
+          const done = Boolean(challenge.completed_by_me);
+          return `
+            <article class="card club-challenge-card ${closed ? "is-closed" : ""}">
+              <div class="comment-head">
+                <strong>${esc(challenge.title)}</strong>
+                <span class="chip">${Number(challenge.points || 0)} pts</span>
+              </div>
+              ${challenge.description ? `<p>${esc(challenge.description)}</p>` : ""}
+              <div class="chips">
+                <span class="chip">${Number(challenge.completions || 0)} concluiu</span>
+                ${challenge.ends_at ? `<span class="chip">ate ${formatDateTimeShort(challenge.ends_at)}</span>` : ""}
+                ${done ? `<span class="chip">Concluido por voce</span>` : ""}
+                ${closed ? `<span class="chip">Encerrado</span>` : ""}
+              </div>
+              <form class="club-challenge-complete" data-challenge-complete="${challenge.id}">
+                <input name="proof" placeholder="Prova opcional: ep. 4 visto, teoria postada..." value="${esc(challenge.my_proof || "")}" ${closed ? "disabled" : ""} />
+                <button class="btn secondary" type="submit" ${closed ? "disabled" : ""}>${done ? "Atualizar" : "Concluir"}</button>
+              </form>
+              <div class="mini-actions">
+                ${canManage && !closed ? `<button data-close-challenge="${challenge.id}">Encerrar</button>` : ""}
+              </div>
+            </article>`;
+        })
+        .join("")
+    : `<div class="empty">Nenhum desafio ativo ainda. Crie uma missao semanal para o clube.</div>`;
+
+  return `
+    <div class="section-title"><h2>Ranking de pontos</h2></div>${clubPointsTemplate()}
+    <div class="section-title"><h2>Desafios semanais</h2></div>${form}<section class="grid">${cards}</section>`;
 }
 
 function doramaDoMesTemplate() {
@@ -6367,7 +6448,7 @@ async function handleLogout() {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [] };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [] };
   coupleFor = null;
   coupleMembers = [];
   coupleDramas = [];
@@ -6805,6 +6886,13 @@ function bindShell() {
   document.querySelectorAll("[data-cancel-event]").forEach((button) => {
     listen(button, "click", () => handleCancelClubEvent(button.dataset.cancelEvent));
   });
+  listen(document.querySelector("#club-challenge-form"), "submit", handleCreateClubChallenge);
+  document.querySelectorAll("[data-challenge-complete]").forEach((form) => {
+    listen(form, "submit", handleCompleteClubChallenge);
+  });
+  document.querySelectorAll("[data-close-challenge]").forEach((button) => {
+    listen(button, "click", () => handleCloseClubChallenge(button.dataset.closeChallenge));
+  });
   listen(document.querySelector("#casal-form"), "submit", handleAddCasal);
   document.querySelectorAll("[data-del-casal]").forEach((button) => {
     listen(button, "click", () => handleDeleteCasal(button.dataset.delCasal));
@@ -7134,9 +7222,9 @@ async function loadClubFeed() {
 async function loadClubSocial() {
   if (!state.club) return;
   clubSocial = { ...clubSocial, for: state.club.id };
-  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [] };
+  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [] };
   try {
-    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -7148,8 +7236,10 @@ async function loadClubSocial() {
       clubCurrentFeaturedDrama(state.club.id).catch(() => null),
       clubPollsFeed(state.club.id).catch(() => []),
       clubEventsFeed(state.club.id).catch(() => []),
+      clubPointsRanking(state.club.id).catch(() => []),
+      clubChallengesFeed(state.club.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges };
   } catch {
     clubSocial = empty;
   }
@@ -7991,6 +8081,7 @@ async function handleClubFeaturedCheckin(episode, status) {
   try {
     await saveClubDramaCheckin(clubSocial.featured.id, episode, status);
     clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id);
+    clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
     render();
     toast("Check-in salvo no clube.");
   } catch {
@@ -8014,6 +8105,7 @@ async function handleCreateClubPoll(event) {
   try {
     await createClubPoll(state.club.id, question, options);
     clubSocial.polls = await clubPollsFeed(state.club.id);
+    clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
     event.currentTarget.reset();
     render();
     toast("Enquete criada no clube.");
@@ -8026,6 +8118,7 @@ async function handleVoteClubPoll(pollId, optionId) {
   try {
     await voteClubPoll(pollId, optionId);
     clubSocial.polls = await clubPollsFeed(state.club.id);
+    clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
     render();
   } catch {
     toast("Nao consegui registrar seu voto.");
@@ -8077,6 +8170,7 @@ async function handleCreateClubEvent(event) {
       startsAt,
     });
     clubSocial.events = await clubEventsFeed(state.club.id);
+    clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
     event.currentTarget.reset();
     render();
     toast("Evento criado no clube.");
@@ -8089,6 +8183,7 @@ async function handleClubEventRsvp(eventId, status) {
   try {
     await setClubEventRsvp(eventId, status);
     clubSocial.events = await clubEventsFeed(state.club.id);
+    clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
     render();
   } catch {
     toast("Nao consegui salvar sua presenca.");
@@ -8104,6 +8199,65 @@ async function handleCancelClubEvent(eventId) {
     toast("Evento cancelado.");
   } catch (error) {
     toast(error?.message?.includes("permissao") ? "So dono ou moderador pode cancelar." : "Nao consegui cancelar.");
+  }
+}
+
+async function refreshClubPointsAndChallenges() {
+  if (!state.club) return;
+  const [points, challenges] = await Promise.all([
+    clubPointsRanking(state.club.id).catch(() => []),
+    clubChallengesFeed(state.club.id).catch(() => []),
+  ]);
+  clubSocial.points = points;
+  clubSocial.challenges = challenges;
+}
+
+async function handleCreateClubChallenge(event) {
+  event.preventDefault();
+  if (!state.club) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const title = String(data.title || "").trim();
+  if (!title) return;
+  const endsAt = data.endsAt ? new Date(String(data.endsAt)).toISOString() : null;
+  try {
+    await createClubChallenge(state.club.id, {
+      title,
+      description: String(data.description || "").trim(),
+      points: Number(data.points) || 10,
+      endsAt,
+    });
+    await refreshClubPointsAndChallenges();
+    event.currentTarget.reset();
+    render();
+    toast("Desafio criado no clube.");
+  } catch (error) {
+    toast(error?.message || "Nao consegui criar o desafio.");
+  }
+}
+
+async function handleCompleteClubChallenge(event) {
+  event.preventDefault();
+  const challengeId = event.currentTarget.dataset.challengeComplete;
+  const proof = String(new FormData(event.currentTarget).get("proof") || "").trim();
+  try {
+    await completeClubChallenge(challengeId, proof);
+    await refreshClubPointsAndChallenges();
+    render();
+    toast("Desafio concluido. Pontos registrados.");
+  } catch {
+    toast("Nao consegui concluir o desafio.");
+  }
+}
+
+async function handleCloseClubChallenge(challengeId) {
+  if (!(await confirmar("Encerrar este desafio?", { ok: "Encerrar" }))) return;
+  try {
+    await closeClubChallenge(challengeId);
+    await refreshClubPointsAndChallenges();
+    render();
+    toast("Desafio encerrado.");
+  } catch (error) {
+    toast(error?.message?.includes("permissao") ? "So dono ou moderador pode encerrar." : "Nao consegui encerrar.");
   }
 }
 
