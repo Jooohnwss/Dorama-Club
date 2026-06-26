@@ -823,8 +823,6 @@ Depois disso, o clube ja fica com cara de comunidade. Chat, eventos e ranking en
 
 ### Proximo bloco sugerido
 
-- Rodar `supabase/33 - clubes-eventos-e-presenca.sql`.
-- Eventos/maratonas com data e presenca.
 - Chat do clube.
 - Pontos e desafios semanais.
 
@@ -866,5 +864,9 @@ Depois disso, o clube ja fica com cara de comunidade. Chat, eventos e ranking en
   - Confirmar presenca: vou, talvez, nao vou.
   - Dono/moderador pode cancelar evento.
 - Pendente:
-  - Rodar `supabase/33 - clubes-eventos-e-presenca.sql` no Supabase.
+  - Usuario confirmou que rodou a migracao 33 no Supabase em 2026-06-26.
   - Validar criando um evento real no clube.
+
+### Proximo bloco em andamento
+
+- Pontos e desafios semanais do clube.
