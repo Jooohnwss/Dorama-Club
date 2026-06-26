@@ -2263,7 +2263,7 @@ function clubLobbyTemplate() {
          <span class="clf-body"><span class="clf-eyebrow">🎬 Dorama do clube</span><strong>${esc(featured.title)}</strong><small>Seu check-in: ep. ${Number(featured.my_episode || 0)}</small></span>
          <span class="cl-go">›</span>
        </button>`
-    : `<button class="club-lobby-card highlight" type="button" data-club-tab="doramas"><span class="cl-ico">🎬</span><span class="cl-body"><strong>Escolham o dorama do clube</strong><small class="muted">Ninguém fixou um ainda — abram a Escolha</small></span><span class="cl-go">escolher ›</span></button>`;
+    : `<button class="club-lobby-feature" type="button" data-club-tab="doramas"><span class="clf-emoji">🎬</span><span class="clf-body"><span class="clf-eyebrow">🎬 Dorama do clube</span><strong>Escolham o dorama do clube</strong><small>Ninguém fixou um ainda — abram a Escolha</small></span><span class="cl-go">›</span></button>`;
 
   return `
     ${featureCard}
