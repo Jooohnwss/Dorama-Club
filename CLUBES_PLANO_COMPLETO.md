@@ -778,7 +778,7 @@ Para sair do "ta muito ruim" rapido:
 
 1. Criar Feed + posts + comentarios. Status: iniciado usando o mural atual de comentarios.
 2. Criar Dorama da semana. Status: feito no app + migracao 31 rodada no Supabase.
-3. Criar Enquete simples. Status: ja existe votacao mensal; falta evoluir para enquetes livres.
+3. Criar Enquete simples. Status: implementado no codigo + migracao 32 criada; falta rodar no Supabase.
 4. Melhorar topo do clube. Status: feito no app, com painel/resumo do clube.
 5. Criar aba Membros/Sobre. Status: feito no app + migracao 30.
 
@@ -823,7 +823,29 @@ Depois disso, o clube ja fica com cara de comunidade. Chat, eventos e ranking en
 
 ### Proximo bloco sugerido
 
-- Enquetes livres alem da votacao mensal.
+- Rodar `supabase/32 - clubes-enquetes-livres.sql`.
 - Eventos/maratonas com data e presenca.
 - Chat do clube.
 - Pontos e desafios semanais.
+
+### 2026-06-26 - Codex
+
+- Commit criado antes de avancar:
+  - `c6c535a` - `Melhora clubes com sobre e dorama em destaque`.
+- Criada a migracao `32 - clubes-enquetes-livres.sql`.
+  - Tabela `club_polls`.
+  - Tabela `club_poll_options`.
+  - Tabela `club_poll_votes`.
+  - RPC `create_club_poll`.
+  - RPC `vote_club_poll`.
+  - RPC `close_club_poll`.
+  - RPC `club_polls_feed`.
+- Implementado no app:
+  - Secao "Enquetes do clube" na aba Doramas.
+  - Criar enquete com opcoes por linha.
+  - Votar em uma opcao.
+  - Ver resultados com barra de progresso.
+  - Dono/moderador pode encerrar enquete.
+- Pendente:
+  - Rodar `supabase/32 - clubes-enquetes-livres.sql` no Supabase.
+  - Validar criando uma enquete real no clube.

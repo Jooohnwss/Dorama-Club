@@ -51,6 +51,10 @@ import {
   clubCurrentFeaturedDrama,
   setClubFeaturedDrama,
   saveClubDramaCheckin,
+  clubPollsFeed,
+  createClubPoll,
+  voteClubPoll,
+  closeClubPoll,
   loadFavoritos,
   addFavorito,
   deleteFavorito,
@@ -485,7 +489,7 @@ function trocarClubeAtivo(club) {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [] };
   addingClub = false;
 }
 
@@ -521,7 +525,7 @@ function marcarClubeVisto() {
   clubHasNews = false;
 }
 // Social do clube (feed automático, dorama do mês, ranking, diário compartilhado).
-let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null };
+let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [] };
 // Espaço "Nós dois" (carregado sob demanda).
 let coupleFor = null;
 let coupleMembers = [];
@@ -2251,6 +2255,7 @@ function clubTemplate() {
     feed: `${commentFormTemplate()}${clubFeedTemplate()}<div class="section-title"><h2>Novidades automaticas</h2></div>${atividadesTemplate()}<div class="section-title"><h2>Diario compartilhado</h2></div>${diarioCompartilhadoTemplate()}`,
     doramas: `
       <div class="section-title"><h2>Dorama do clube</h2></div>${clubeDestaqueTemplate()}
+      <div class="section-title"><h2>Enquetes do clube</h2></div>${clubeEnquetesTemplate()}
       <div class="section-title"><h2>Dorama do mes</h2></div>${doramaDoMesTemplate()}
       <div class="section-title"><h2>Doramas em comum</h2></div>${doramasEmComumTemplate()}
       <div class="section-title"><h2>Lista compartilhada</h2></div>${listaCompartilhadaTemplate()}`,
@@ -2428,6 +2433,63 @@ function clubeDestaqueTemplate() {
       <div class="club-checkins">${rows}</div>
       ${fixarForm}
     </section>`;
+}
+
+function clubeEnquetesTemplate() {
+  const form = `
+    <section class="form-card club-poll-form-card">
+      <form id="club-poll-form" class="form-grid">
+        <div class="field full">
+          <label for="clubPollQuestion">Nova enquete</label>
+          <input id="clubPollQuestion" name="question" placeholder="Qual dorama vamos assistir depois?" required />
+        </div>
+        <div class="field full">
+          <label for="clubPollOptions">Opcoes, uma por linha</label>
+          <textarea id="clubPollOptions" name="options" placeholder="Dorama A&#10;Dorama B&#10;Dorama C" required></textarea>
+        </div>
+        <div class="actions field full">
+          <button class="btn" type="submit">Criar enquete</button>
+        </div>
+      </form>
+    </section>`;
+
+  if (clubSocial.for !== state.club.id) return form + `<div class="empty">Carregando enquetes...</div>`;
+  if (!clubSocial.polls.length) return form + `<div class="empty">Nenhuma enquete livre ainda. Crie a primeira decisao do clube.</div>`;
+
+  const cards = clubSocial.polls
+    .map((poll) => {
+      const total = Number(poll.total_votes || 0);
+      const options = Array.isArray(poll.options) ? poll.options : [];
+      const canClose = poll.status === "active" && (currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id);
+      const optionRows = options
+        .map((option) => {
+          const votes = Number(option.votes || 0);
+          const pct = total ? Math.round((votes / total) * 100) : 0;
+          const mine = poll.my_option === option.id;
+          return `
+            <button class="club-poll-option ${mine ? "mine" : ""}" data-poll-vote="${poll.id}" data-option-id="${option.id}" ${poll.status !== "active" ? "disabled" : ""}>
+              <span><strong>${esc(option.label)}</strong><em>${votes} voto(s)</em></span>
+              <b style="width:${pct}%"></b>
+            </button>`;
+        })
+        .join("");
+      return `
+        <article class="card club-poll-card">
+          <div class="comment-head">
+            <strong>${esc(poll.question)}</strong>
+            <span class="muted">${poll.status === "active" ? "Aberta" : "Encerrada"}</span>
+          </div>
+          ${poll.author ? `<span class="muted">criada por ${esc(poll.author)} · ${timeAgo(poll.created_at)}</span>` : `<span class="muted">${timeAgo(poll.created_at)}</span>`}
+          <div class="club-poll-options">${optionRows}</div>
+          <div class="mini-actions">
+            <span class="muted">${total} voto(s)</span>
+            ${canClose ? `<button data-close-poll="${poll.id}">Encerrar</button>` : ""}
+          </div>
+        </article>`;
+    })
+    .join("");
+
+  return form + `<section class="grid">${cards}</section>`;
 }
 
 function doramaDoMesTemplate() {
@@ -6204,7 +6266,7 @@ async function handleLogout() {
   clubMembersFor = null;
   clubFeedItems = [];
   clubFeedFor = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null };
+  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [] };
   coupleFor = null;
   coupleMembers = [];
   coupleDramas = [];
@@ -6628,6 +6690,13 @@ function bindShell() {
     const data = Object.fromEntries(new FormData(e.currentTarget));
     handleClubFeaturedCheckin(data.episode, data.status);
   });
+  listen(document.querySelector("#club-poll-form"), "submit", handleCreateClubPoll);
+  document.querySelectorAll("[data-poll-vote]").forEach((button) => {
+    listen(button, "click", () => handleVoteClubPoll(button.dataset.pollVote, button.dataset.optionId));
+  });
+  document.querySelectorAll("[data-close-poll]").forEach((button) => {
+    listen(button, "click", () => handleCloseClubPoll(button.dataset.closePoll));
+  });
   listen(document.querySelector("#casal-form"), "submit", handleAddCasal);
   document.querySelectorAll("[data-del-casal]").forEach((button) => {
     listen(button, "click", () => handleDeleteCasal(button.dataset.delCasal));
@@ -6957,9 +7026,9 @@ async function loadClubFeed() {
 async function loadClubSocial() {
   if (!state.club) return;
   clubSocial = { ...clubSocial, for: state.club.id };
-  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null };
+  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [] };
   try {
-    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -6969,8 +7038,9 @@ async function loadClubSocial() {
       clubListFeed(state.club.id),
       clubCompatibility(state.club.id),
       clubCurrentFeaturedDrama(state.club.id).catch(() => null),
+      clubPollsFeed(state.club.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls };
   } catch {
     clubSocial = empty;
   }
@@ -7816,6 +7886,52 @@ async function handleClubFeaturedCheckin(episode, status) {
     toast("Check-in salvo no clube.");
   } catch {
     toast("Nao consegui salvar seu check-in.");
+  }
+}
+
+async function handleCreateClubPoll(event) {
+  event.preventDefault();
+  if (!state.club) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const question = String(data.question || "").trim();
+  const options = String(data.options || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!question || options.length < 2) {
+    toast("Crie uma pergunta com pelo menos duas opcoes.");
+    return;
+  }
+  try {
+    await createClubPoll(state.club.id, question, options);
+    clubSocial.polls = await clubPollsFeed(state.club.id);
+    event.currentTarget.reset();
+    render();
+    toast("Enquete criada no clube.");
+  } catch (error) {
+    toast(error?.message || "Nao consegui criar a enquete.");
+  }
+}
+
+async function handleVoteClubPoll(pollId, optionId) {
+  try {
+    await voteClubPoll(pollId, optionId);
+    clubSocial.polls = await clubPollsFeed(state.club.id);
+    render();
+  } catch {
+    toast("Nao consegui registrar seu voto.");
+  }
+}
+
+async function handleCloseClubPoll(pollId) {
+  if (!(await confirmar("Encerrar esta enquete?", { ok: "Encerrar" }))) return;
+  try {
+    await closeClubPoll(pollId);
+    clubSocial.polls = await clubPollsFeed(state.club.id);
+    render();
+    toast("Enquete encerrada.");
+  } catch (error) {
+    toast(error?.message?.includes("permissao") ? "So dono ou moderador pode encerrar." : "Nao consegui encerrar.");
   }
 }
 

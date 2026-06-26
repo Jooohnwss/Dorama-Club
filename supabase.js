@@ -1116,6 +1116,33 @@ export async function saveClubDramaCheckin(featuredId, episode, status) {
   if (error) throw error;
 }
 
+// ---------- Enquetes livres do clube ----------
+export async function clubPollsFeed(clubId) {
+  const { data, error } = await supabase.rpc("club_polls_feed", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createClubPoll(clubId, question, options) {
+  const { data, error } = await supabase.rpc("create_club_poll", {
+    p_club: clubId,
+    p_question: question,
+    p_options: options,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function voteClubPoll(pollId, optionId) {
+  const { error } = await supabase.rpc("vote_club_poll", { p_poll: pollId, p_option: optionId });
+  if (error) throw error;
+}
+
+export async function closeClubPoll(pollId) {
+  const { error } = await supabase.rpc("close_club_poll", { p_poll: pollId });
+  if (error) throw error;
+}
+
 // ---------- Favoritos especiais ----------
 export async function loadFavoritos(userId) {
   const { data, error } = await supabase.from("favoritos").select("*").eq("user_id", userId).order("created_at", { ascending: false });
