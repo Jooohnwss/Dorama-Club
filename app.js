@@ -2883,8 +2883,8 @@ function clubeEventosTemplate() {
 
 // Como se ganha ponto no clube (chat e mural são só interação, não pontuam).
 const CLUB_PONTOS_LEGENDA = [
-  ["🎬", "Check-in do episódio", 3],
-  ["🏁", "Terminar o dorama", 10],
+  ["🎬", "Cada episódio acompanhado (check-in)", "+1"],
+  ["🏁", "Terminar o dorama (8 pra quem termina 1º)", 5],
   ["🗳️", "Votar no próximo dorama", 2],
   ["📅", "Criar um encontro", 5],
   ["✅", "Confirmar presença num encontro", 2],
@@ -2896,28 +2896,27 @@ function clubRotinasTemplate() {
   if (!featured) return `<div class="empty">Quando o clube tiver um dorama, as rotinas aparecem aqui. 🎬</div>`;
   const desde = new Date(featured.starts_at || 0).getTime() - 1000;
   const led = (clubSocial.myPoints || []).filter((l) => new Date(l.created_at).getTime() >= desde);
-  const fez = (st) => led.some((l) => l.source_type === st);
+  const cont = (st) => led.filter((l) => l.source_type === st).length;
+  const eps = cont("episode");
+  const terminou = led.some((l) => l.source_type === "drama_finish" || l.source_type === "finish_first");
+  const ptsCiclo = led.reduce((s, l) => s + Number(l.points || 0), 0);
   const rotinas = [
-    { st: "drama_checkin", emoji: "🎬", nome: "Fazer check-in do episódio", pts: 3 },
-    { st: "vote_next", emoji: "🗳️", nome: "Votar no próximo dorama", pts: 2 },
-    { st: "event_rsvp", emoji: "📅", nome: "Confirmar presença num encontro", pts: 2 },
-    { st: "drama_finish", emoji: "🏁", nome: "Terminar o dorama", pts: 10 },
+    { emoji: "🎬", nome: "Acompanhar episódios", estado: `${eps} ep${eps === 1 ? "" : "s"} · +${eps}`, ok: eps > 0 },
+    { emoji: "🗳️", nome: "Votar no próximo dorama", estado: cont("vote_next") ? `feito · +${cont("vote_next") * 2}` : "+2 cada", ok: cont("vote_next") > 0 },
+    { emoji: "📅", nome: "Confirmar presença num encontro", estado: cont("event_rsvp") ? `${cont("event_rsvp")}x · +${cont("event_rsvp") * 2}` : "+2 cada", ok: cont("event_rsvp") > 0 },
+    { emoji: "🏁", nome: "Terminar o dorama (1º ganha +8)", estado: terminou ? "feito ✓" : "+5/+8", ok: terminou },
   ];
-  const feitas = rotinas.filter((r) => fez(r.st)).length;
   return `
-    <p class="muted" style="margin:0 0 10px;font-size:.84rem">Rotinas de <strong>${esc(featured.title)}</strong> — reiniciam quando o clube troca de dorama. Não precisa criar nada, vão pontuando sozinhas. ✨</p>
+    <p class="muted" style="margin:0 0 10px;font-size:.84rem">Você ganha mais pontos <strong>se acompanhar mais</strong> (cada episódio = +1). Reinicia quando o clube troca de dorama (<strong>${esc(featured.title)}</strong>). ✨</p>
     <section class="rotinas">
-      ${rotinas.map((r) => {
-        const ok = fez(r.st);
-        return `<div class="rotina ${ok ? "ok" : ""}"><span class="rot-emoji">${ok ? "✅" : r.emoji}</span><div class="rot-txt"><strong>${esc(r.nome)}</strong><small>${ok ? "feito ✓" : "ainda não"}</small></div><span class="rot-pts">+${r.pts}</span></div>`;
-      }).join("")}
+      ${rotinas.map((r) => `<div class="rotina ${r.ok ? "ok" : ""}"><span class="rot-emoji">${r.ok ? "✅" : r.emoji}</span><div class="rot-txt"><strong>${esc(r.nome)}</strong><small>${esc(r.estado)}</small></div></div>`).join("")}
     </section>
-    <p class="rotinas-resumo">Você cumpriu <strong>${feitas}/${rotinas.length}</strong> rotinas deste dorama.</p>`;
+    <p class="rotinas-resumo">Você fez <strong>${ptsCiclo} pts</strong> com este dorama${eps > 0 ? ` (${eps} episódios)` : ""}.</p>`;
 }
 function clubPontosResumoMeu() {
   const led = clubSocial.myPoints || [];
   if (!led.length) return "";
-  const rotulo = { drama_checkin: "🎬 Check-ins", drama_finish: "🏁 Terminou", vote_next: "🗳️ Votos no próximo", challenge: "🎯 Missões", poll_create: "✍️ Enquetes", poll_vote: "🗳️ Votos", event_create: "📅 Encontros criados", event_rsvp: "✅ Presenças" };
+  const rotulo = { episode: "🎬 Episódios", drama_checkin: "🎬 Check-ins", drama_finish: "🏁 Terminou", finish_first: "🏁 Terminou 1º", vote_next: "🗳️ Votos no próximo", challenge: "🎯 Missões", poll_create: "✍️ Enquetes", poll_vote: "🗳️ Votos", event_create: "📅 Encontros criados", event_rsvp: "✅ Presenças" };
   const por = {};
   let total = 0;
   for (const l of led) {
