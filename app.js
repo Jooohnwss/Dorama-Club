@@ -2254,7 +2254,6 @@ function clubLobbyTemplate() {
   const lastChat = (clubSocial.chat || [])[0];
   const totalPosts = clubFeedFor === state.club.id ? clubFeedItems.length : 0;
   const lastPost = clubFeedItems[0];
-  const desafio = (clubSocial.challenges || []).find((c) => c.status === "active");
   const limite = new Date(Date.now() - 3600000);
   const prox = (clubSocial.events || [])
     .filter((e) => e.status !== "cancelled" && new Date(e.starts_at) >= limite)
@@ -2280,15 +2279,18 @@ function clubLobbyTemplate() {
        </button>`
     : `<button class="club-lobby-feature" type="button" data-club-tab="doramas"><span class="clf-emoji">🎬</span><span class="clf-body"><span class="clf-eyebrow">🎬 Dorama do clube</span><strong>Escolham o dorama do clube</strong><small>Ninguém fixou um ainda — abram a Escolha</small></span><span class="cl-go">›</span></button>`;
 
+  const cyc = clubSocial.cycle || {};
+  const escolhaTxt = cyc.voting_open
+    ? `<small>🗳️ Votação aberta — votem no próximo!</small>`
+    : `<small class="muted">${Number(cyc.members_with_quota || 0)}/${Number(cyc.members_count || clubMembers.length || 1)} já sugeriram 2</small>`;
   return `
     ${featureCard}
     <div class="club-lobby-grid">
       ${tile("💬", "Chat", lastChat ? `<small>${esc(lastChat.author || "alguém")}: ${corte(lastChat.body, 38)}</small>` : `<small class="muted">Sem mensagens — comecem a conversa</small>`, "chat", "abrir")}
       ${tile("📌", "Mural", lastPost ? `<small>${totalPosts} post(s) · último por ${esc(lastPost.author || "alguém")}</small>` : `<small class="muted">Ninguém surtou ainda</small>`, "feed", "ver")}
-      ${tile("🎯", "Missão da semana", desafio ? `<small>${corte(desafio.title, 34)} · +${Number(desafio.points || 0)} pts</small>` : `<small class="muted">Nenhuma missão ativa</small>`, "desafios", "ver")}
-      ${tile("📅", "Próximo evento", prox ? `<small>${corte(prox.title, 28)} · ${esc(formatDateTimeShort(prox.starts_at))}</small>` : `<small class="muted">Nada agendado</small>`, "eventos", "agenda")}
+      ${tile("🗳️", "Próximo dorama", escolhaTxt, "doramas", "ver")}
+      ${tile("📅", "Próximo encontro", prox ? `<small>${corte(prox.title, 28)} · ${esc(formatDateTimeShort(prox.starts_at))}</small>` : `<small class="muted">Nada agendado</small>`, "eventos", "agenda")}
       ${tile("🏆", "Ranking", meu ? `<small>Você: ${Number(meu.points || 0)} pts · ${minhaIdx + 1}º lugar</small>` : (lider ? `<small>Líder: ${esc(lider.name)} (${Number(lider.points || 0)} pts)</small>` : `<small class="muted">Sem pontos ainda</small>`), "ranking", "ver")}
-      ${tile("🗳️", "Enquetes", (clubSocial.polls || []).length ? `<small>${(clubSocial.polls || []).filter((p) => p.status === "active").length} aberta(s)</small>` : `<small class="muted">Sem enquetes</small>`, "doramas", "votar")}
     </div>
   `;
 }
