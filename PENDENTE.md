@@ -126,6 +126,10 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - **43 - clube-rotinas-pontos.sql**: terminar o dorama (+10) e votar no próximo (+2) passam a dar pontos. As "missões" viram rotinas fixas do dorama (sem precisar criar desafio) e reiniciam quando o clube troca de dorama.
 - Onde: SQL Editor → New query → cola → Run.
 
+### 1v. Rodar a migração 46 (bolinha de novidade do clube)
+- **46 - clube-ultima-novidade.sql**: cria `club_last_news_at` pra a bolinha da aba Doramigas acender com qualquer novidade do clube (mural, novidades automáticas, chat, eventos) — não só posts do mural.
+- Onde: SQL Editor → New query → cola → Run.
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

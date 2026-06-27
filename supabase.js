@@ -262,6 +262,13 @@ export async function clubLatestComment(clubId) {
   return data?.created_at || null;
 }
 
+// Instante da coisa mais recente do clube (mural, novidades, chat, eventos).
+export async function clubLastNewsAt(clubId) {
+  const { data, error } = await supabase.rpc("club_last_news_at", { p_club: clubId });
+  if (error) return null;
+  return data || null;
+}
+
 export async function postComment(userId, clubId, comment) {
   const { error } = await supabase.from("comments").insert({
     club_id: clubId,

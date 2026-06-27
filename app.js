@@ -26,6 +26,7 @@ import {
   leaveClub,
   clubFeed,
   clubLatestComment,
+  clubLastNewsAt,
   postComment,
   deleteOwnComment,
   loadSurtos,
@@ -536,7 +537,8 @@ async function checarNovidadesClube() {
   clubHasNews = false;
   if (!cloudOn() || !state.club) return;
   try {
-    const ultimo = await clubLatestComment(state.club.id);
+    // Última coisa que rolou no clube (mural, novidades, chat, eventos).
+    const ultimo = await clubLastNewsAt(state.club.id).catch(() => null) || await clubLatestComment(state.club.id);
     if (!ultimo) return;
     const visto = localStorage.getItem(SEEN_CLUB_KEY) || "";
     clubHasNews = new Date(ultimo).getTime() > new Date(visto || 0).getTime();
@@ -2550,6 +2552,7 @@ function clubeCicloTemplate() {
           <button class="btn ${euTerminei ? "ghost" : ""}" type="button" data-club-finish="${euTerminei ? "0" : "1"}">${euTerminei ? "Reabrir" : "✓ Terminei"}</button>
         </form>
         <p class="ciclo-hint muted">Cada um marca o seu episódio. Quando <strong>todos</strong> marcarem "Terminei", o mais votado entra como próximo.</p>
+        ${canManage && Number(cycle.candidates_count || 0) > 0 && terminaram < membros ? `<button class="btn ghost ciclo-pular" type="button" data-club-close-voting>⏭️ Pular pro próximo (dono)</button>` : ""}
       </section>`
     : `<section class="ciclo-now"><span class="clf-eyebrow">🎬 Assistindo agora</span><p class="muted" style="margin:8px 0 0">Nenhum dorama oficial ainda. ${canManage ? "Sugiram abaixo e fixem o primeiro (botão Fixar)." : "Sugiram o primeiro abaixo."}</p></section>`;
 
@@ -3156,8 +3159,15 @@ function commentFormTemplate() {
 function podeVerComentario(item) {
   if (!item.spoiler_episode) return true;
   if (authUser && item.user_id === authUser.id) return true;
-  const meu = state.dramas.find((d) => d.tmdbId && item.tmdb_id && d.tmdbId === item.tmdb_id);
-  return Boolean(meu && Number(meu.currentEpisode || 0) >= item.spoiler_episode);
+  // Maior episódio entre: a lista pessoal E o check-in do clube (do dorama atual).
+  let meuEp = 0;
+  const pessoal = state.dramas.find((d) => d.tmdbId && item.tmdb_id && d.tmdbId === item.tmdb_id);
+  if (pessoal) meuEp = Number(pessoal.currentEpisode || 0);
+  const f = clubSocial.featured;
+  if (f && item.tmdb_id && Number(f.tmdb_id) === Number(item.tmdb_id)) {
+    meuEp = Math.max(meuEp, Number(f.my_episode || 0));
+  }
+  return meuEp >= Number(item.spoiler_episode);
 }
 
 function clubFeedTemplate() {
@@ -8663,7 +8673,7 @@ async function handleClubOpenVoting() {
 }
 async function handleClubCloseVoting() {
   if (!state.club) return;
-  const ok = await confirmar("Fechar a votação agora?", { sub: "O candidato mais votado vira o próximo dorama do clube.", ok: "Fechar e eleger" });
+  const ok = await confirmar("Pular pro próximo dorama agora?", { sub: "O candidato mais votado vira o novo dorama do clube, mesmo que nem todos tenham terminado. Use quando o ciclo travar.", ok: "Pular pro próximo" });
   if (!ok) return;
   try {
     await clubCloseVoting(state.club.id);
