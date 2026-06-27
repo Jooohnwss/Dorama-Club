@@ -2309,24 +2309,60 @@ function formatDateTimeShort(value) {
 }
 
 function clubAboutTemplate() {
-  const rules = state.club.rules || "Sem regras cadastradas ainda. Sugestão: avisar spoilers, respeitar opiniões e manter o clima leve.";
-  const membros = clubMembers.length
-    ? clubMembers
-        .map((member) => `<div class="card club-member-card"><strong>${esc(member.name || "(sem nome)")}</strong>${member.nickname ? `<span class="muted">${esc(member.nickname)}</span>` : ""}<span class="chip">${clubRoleLabel(member.role)}</span></div>`)
-        .join("")
-    : `<div class="empty">Carregando membros...</div>`;
+  const rules = state.club.rules || "Sem regras ainda. Sugestão: avisar spoilers, respeitar opiniões e manter o clima leve. 💜";
+  const dramas = clubSocial.for === state.club.id ? (clubSocial.clubDramas || []) : [];
+  const assistidos = dramas.filter((d) => d.status !== "active");
+  const membros = clubMembers.length;
+
+  const conquistas = [
+    { emoji: "🎬", n: dramas.length, label: dramas.length === 1 ? "dorama escolhido junto" : "doramas escolhidos juntos" },
+    { emoji: "🏁", n: assistidos.length, label: assistidos.length === 1 ? "maratona concluída" : "maratonas concluídas" },
+    { emoji: "👥", n: membros, label: membros === 1 ? "membro" : "membros" },
+  ];
+
+  const dramaCards = dramas.length
+    ? `<section class="sobre-dramas">${dramas.map((d) => `
+        <div class="sobre-drama">
+          ${d.cover ? `<img src="${esc(d.cover)}" alt="" loading="lazy" />` : `<span class="sobre-drama-noimg">🎬</span>`}
+          <strong>${esc(d.title)}</strong>
+          <small>${d.status === "active" ? "▶️ assistindo" : "✓ já visto"}</small>
+        </div>`).join("")}</section>`
+    : `<div class="empty">Quando o clube escolher e terminar doramas, o histórico aparece aqui. 🎬</div>`;
+
+  const membersHtml = clubMembers.length
+    ? `<section class="sobre-membros">${clubMembers.map((m) => `
+        <div class="sobre-membro">
+          ${clubAvatarMini(m)}
+          <div class="sobre-membro-info"><strong>${esc(m.name || "(sem nome)")}</strong>${m.nickname ? `<small>${esc(m.nickname)}</small>` : ""}</div>
+          <span class="chip">${clubRoleLabel(m.role)}</span>
+        </div>`).join("")}</section>`
+    : `<div class="empty">Carregando membros…</div>`;
 
   return `
-    <div class="section-title"><h2>Sobre o clube</h2><button class="btn ghost" data-edit-club-about>${icon("detail")} Editar</button></div>
-    <section class="grid cards">
-      <div class="card"><span class="muted">Descrição</span><p>${esc(state.club.description || "Ainda sem descrição.")}</p></div>
-      <div class="card"><span class="muted">Regras</span><p>${esc(rules)}</p></div>
+    <div class="section-title"><h2>💜 Sobre o clube</h2><button class="btn ghost" data-edit-club-about>${icon("detail")} Editar</button></div>
+    <section class="sobre-vibe">
+      <div class="sobre-avatar">${clubEmoji(state.club)}</div>
+      <div class="sobre-vibe-txt">
+        <strong>${esc(state.club.name)}</strong>
+        <p>${esc(state.club.description || "Caprichem na descrição — é a vibe do clube. 💜 (toque em Editar)")}</p>
+      </div>
     </section>
-    <div class="section-title"><h2>Membros (${clubMembers.length || "..."})</h2></div>
-    <section class="grid cards">${membros}</section>
-    <div class="section-title"><h2>Convidar e gerenciar</h2></div>
+
+    <div class="section-title compact"><h2>🎖️ Conquistas do clube</h2></div>
+    <section class="sobre-conquistas">${conquistas.map((c) => `<div class="sobre-conq"><span class="sc-emoji">${c.emoji}</span><strong>${c.n}</strong><small>${esc(c.label)}</small></div>`).join("")}</section>
+
+    <div class="section-title compact"><h2>🏆 Doramas do clube</h2></div>
+    ${dramaCards}
+
+    <div class="section-title compact"><h2>📜 Regras</h2></div>
+    <section class="form-card"><p style="margin:0;line-height:1.5">${esc(rules)}</p></section>
+
+    <div class="section-title compact"><h2>👥 Membros (${membros || "…"})</h2></div>
+    ${membersHtml}
+
+    <div class="section-title compact"><h2>Convidar e gerenciar</h2></div>
     <section class="grid cards">
-      <button class="card" data-share-club><strong>Chamar doramiga no WhatsApp</strong><p class="muted">Envia o código ${esc(state.club.code)}</p></button>
+      <button class="card" data-share-club><strong>Chamar gente no WhatsApp</strong><p class="muted">Envia o código ${esc(state.club.code)}</p></button>
       <button class="card" data-rename-club><strong>Renomear clube</strong><p class="muted">Ajusta o nome que aparece no topo.</p></button>
       <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">Você deixa de ver este clube.</p></button>
     </section>
