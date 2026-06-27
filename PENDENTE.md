@@ -122,6 +122,10 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - **42 - clube-chat-sem-pontos.sql**: o chat deixa de dar ponto (é só interação) e apaga os pontos de chat já dados (corrige o ranking).
 - Onde: SQL Editor → New query → cola → Run.
 
+### 1u. Rodar a migração 43 (rotinas do clube pontuam)
+- **43 - clube-rotinas-pontos.sql**: terminar o dorama (+10) e votar no próximo (+2) passam a dar pontos. As "missões" viram rotinas fixas do dorama (sem precisar criar desafio) e reiniciam quando o clube troca de dorama.
+- Onde: SQL Editor → New query → cola → Run.
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

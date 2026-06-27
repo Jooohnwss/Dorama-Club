@@ -1023,6 +1023,22 @@ textarea:focus {
 .pontos-legenda li { display: flex; justify-content: space-between; gap: 10px; font-size: 0.84rem; font-weight: 600; }
 .pontos-legenda li b { color: var(--cor-primaria); white-space: nowrap; }
 
+/* Rotinas do dorama (missões automáticas) */
+.rotinas { display: grid; gap: 8px; }
+.rotina {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px; border-radius: 14px;
+  border: 1px solid var(--cor-borda); background: color-mix(in srgb, var(--cor-superficie) 90%, transparent);
+}
+.rotina.ok { border-color: color-mix(in srgb, #22c55e 45%, var(--cor-borda)); background: color-mix(in srgb, #22c55e 9%, var(--cor-superficie)); }
+.rot-emoji { font-size: 1.3rem; }
+.rot-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rot-txt strong { font-size: 0.9rem; }
+.rot-txt small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.76rem; }
+.rotina.ok .rot-txt small { color: #15803d; }
+.rot-pts { font-weight: 900; color: var(--cor-primaria); font-size: 0.9rem; }
+.rotinas-resumo { margin: 10px 0 0; font-size: 0.84rem; font-weight: 700; color: var(--cor-texto-suave); }
+
 /* ===== Sobre o clube ===== */
 .sobre-vibe {
   display: flex; align-items: center; gap: 14px; margin-bottom: 16px;

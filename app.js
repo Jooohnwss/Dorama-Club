@@ -2374,7 +2374,8 @@ function clubTemplate() {
     return clubFormsTemplate();
   }
 
-  if (!["inicio", "feed", "chat", "doramas", "eventos", "desafios", "ranking", "sobre"].includes(clubTab)) clubTab = "inicio";
+  if (clubTab === "desafios") clubTab = "ranking"; // Missões foi unida ao Ranking
+  if (!["inicio", "feed", "chat", "doramas", "eventos", "ranking", "sobre"].includes(clubTab)) clubTab = "inicio";
 
   const switcher = `
     <div class="tabs">
@@ -2388,7 +2389,6 @@ function clubTemplate() {
     ["chat", "Chat"],
     ["doramas", "Escolha"],
     ["eventos", "Agenda"],
-    ["desafios", "Missões"],
     ["ranking", "Ranking"],
     ["sobre", "Sobre"],
   ];
@@ -2404,11 +2404,10 @@ function clubTemplate() {
       ${clubeCicloTemplate()}
       <div class="section-title compact"><h2>🤝 Doramas em comum</h2></div>${doramasEmComumTemplate()}`,
     ranking: `
-      <div class="section-title"><h2>Ranking do clube</h2></div>${rankingClubeTemplate()}
-      <div class="section-title"><h2>Ranking de pontos</h2></div>${clubPointsTemplate()}
-      <div class="section-title"><h2>Doramigas compativeis</h2></div>${compatibilidadeTemplate()}`,
+      <div class="section-title"><h2>🏆 Ranking de pontos</h2></div>${clubPointsTemplate()}
+      <div class="section-title compact"><h2>🎯 Rotinas do dorama</h2></div>${clubRotinasTemplate()}
+      <div class="section-title compact"><h2>💞 Doramigas compatíveis</h2></div>${compatibilidadeTemplate()}`,
     eventos: clubeEventosTemplate(),
-    desafios: clubeDesafiosTemplate(),
     sobre: clubAboutTemplate(),
   };
 
@@ -2882,19 +2881,43 @@ function clubeEventosTemplate() {
     ${passados.length ? `<details class="ev-passados"><summary>Já rolaram (${passados.length})</summary><section class="ev-list">${passados.slice(0, 6).map((e) => eventoCard(e, false)).join("")}</section></details>` : ""}`;
 }
 
-// Como se ganha ponto no clube (o chat NÃO dá ponto — é só interação).
+// Como se ganha ponto no clube (chat e mural são só interação, não pontuam).
 const CLUB_PONTOS_LEGENDA = [
-  ["🎬", "Check-in do dorama (salvar ep.)", 3],
-  ["🎯", "Concluir uma missão", "+pts"],
-  ["✍️", "Criar uma enquete", 5],
-  ["🗳️", "Votar numa enquete", 2],
-  ["📅", "Criar um evento", 5],
-  ["✅", "Confirmar presença num evento", 2],
+  ["🎬", "Check-in do episódio", 3],
+  ["🏁", "Terminar o dorama", 10],
+  ["🗳️", "Votar no próximo dorama", 2],
+  ["📅", "Criar um encontro", 5],
+  ["✅", "Confirmar presença num encontro", 2],
 ];
+// Rotinas do dorama atual: reiniciam quando o clube troca de dorama.
+function clubRotinasTemplate() {
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando…</div>`;
+  const featured = clubSocial.featured;
+  if (!featured) return `<div class="empty">Quando o clube tiver um dorama, as rotinas aparecem aqui. 🎬</div>`;
+  const desde = new Date(featured.starts_at || 0).getTime() - 1000;
+  const led = (clubSocial.myPoints || []).filter((l) => new Date(l.created_at).getTime() >= desde);
+  const fez = (st) => led.some((l) => l.source_type === st);
+  const rotinas = [
+    { st: "drama_checkin", emoji: "🎬", nome: "Fazer check-in do episódio", pts: 3 },
+    { st: "vote_next", emoji: "🗳️", nome: "Votar no próximo dorama", pts: 2 },
+    { st: "event_rsvp", emoji: "📅", nome: "Confirmar presença num encontro", pts: 2 },
+    { st: "drama_finish", emoji: "🏁", nome: "Terminar o dorama", pts: 10 },
+  ];
+  const feitas = rotinas.filter((r) => fez(r.st)).length;
+  return `
+    <p class="muted" style="margin:0 0 10px;font-size:.84rem">Rotinas de <strong>${esc(featured.title)}</strong> — reiniciam quando o clube troca de dorama. Não precisa criar nada, vão pontuando sozinhas. ✨</p>
+    <section class="rotinas">
+      ${rotinas.map((r) => {
+        const ok = fez(r.st);
+        return `<div class="rotina ${ok ? "ok" : ""}"><span class="rot-emoji">${ok ? "✅" : r.emoji}</span><div class="rot-txt"><strong>${esc(r.nome)}</strong><small>${ok ? "feito ✓" : "ainda não"}</small></div><span class="rot-pts">+${r.pts}</span></div>`;
+      }).join("")}
+    </section>
+    <p class="rotinas-resumo">Você cumpriu <strong>${feitas}/${rotinas.length}</strong> rotinas deste dorama.</p>`;
+}
 function clubPontosResumoMeu() {
   const led = clubSocial.myPoints || [];
   if (!led.length) return "";
-  const rotulo = { drama_checkin: "🎬 Check-ins", challenge: "🎯 Missões", poll_create: "✍️ Enquetes criadas", poll_vote: "🗳️ Votos", event_create: "📅 Eventos criados", event_rsvp: "✅ Presenças" };
+  const rotulo = { drama_checkin: "🎬 Check-ins", drama_finish: "🏁 Terminou", vote_next: "🗳️ Votos no próximo", challenge: "🎯 Missões", poll_create: "✍️ Enquetes", poll_vote: "🗳️ Votos", event_create: "📅 Encontros criados", event_rsvp: "✅ Presenças" };
   const por = {};
   let total = 0;
   for (const l of led) {
