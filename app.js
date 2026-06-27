@@ -2223,7 +2223,6 @@ function clubAvatarMini(m) {
 
 function clubHeaderTemplate() {
   const totalMembros = clubMembersFor === state.club.id ? clubMembers.length : 0;
-  const meuCargo = clubRoleLabel(currentClubMember()?.role || (state.club.owner_id === authUser?.id ? "owner" : "member"));
   const cover = clubSocial.featured?.cover || clubFeaturedDrama()?.cover || "";
   const vibe = state.club.description || "Clube ainda sem vibe — caprichem na descrição na aba Sobre. 💜";
   const avatares = clubMembers.slice(0, 6).map(clubAvatarMini).join("");
@@ -2243,11 +2242,6 @@ function clubHeaderTemplate() {
       <div class="club-avatars">
         ${avatares || `<span class="muted" style="font-size:.8rem">Carregando membros…</span>`}${extra}
         <span class="club-av-count">${totalMembros || "…"} membros</span>
-      </div>
-      <div class="club-hero2-foot">
-        <span class="chip">${esc(meuCargo)}</span>
-        <span class="chip">Código ${esc(state.club.code)}</span>
-        <button class="chip chip-btn" data-copy-code>${icon("share")} Copiar código</button>
       </div>
     </section>
   `;
@@ -2724,7 +2718,8 @@ function chatOnlineBarHtml() {
   const av = (m) => {
     const on = onlineIds.has(m.user_id);
     const ini = (String(m.name || "?").trim().charAt(0) || "?").toUpperCase();
-    return `<span class="chat-onav ${on ? "on" : "off"}" title="${esc(m.name || "Membro")} ${on ? "(online)" : "(offline)"}" style="background:${AVATAR_CORES[hashStr(m.name || "?") % AVATAR_CORES.length]}">${esc(ini)}</span>`;
+    const inner = m.photo ? `<img src="${esc(m.photo)}" alt="" loading="lazy" />` : esc(ini);
+    return `<span class="chat-onav ${on ? "on" : "off"}" title="${esc(m.name || "Membro")} ${on ? "(online)" : "(offline)"}" style="background:${AVATAR_CORES[hashStr(m.name || "?") % AVATAR_CORES.length]}">${inner}</span>`;
   };
   return `<div class="chat-online">
     <span class="chat-online-count"><span class="dot ${nOnline ? "on" : ""}"></span>${nOnline} online${membros.length ? ` de ${membros.length}` : ""}</span>
