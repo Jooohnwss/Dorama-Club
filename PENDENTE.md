@@ -118,6 +118,10 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - Sem ela: o chat ainda funciona, mas só atualiza ao recarregar (não é ao vivo).
 - Onde: SQL Editor → New query → cola → Run.
 
+### 1t. Rodar a migração 42 (chat do clube sem pontos)
+- **42 - clube-chat-sem-pontos.sql**: o chat deixa de dar ponto (é só interação) e apaga os pontos de chat já dados (corrige o ranking).
+- Onde: SQL Editor → New query → cola → Run.
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

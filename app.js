@@ -73,6 +73,7 @@ import {
   deleteClubChatMessage,
   subscribeClubRealtime,
   unsubscribeChannel,
+  clubMyPointsLedger,
   loadFavoritos,
   addFavorito,
   deleteFavorito,
@@ -2859,23 +2860,57 @@ function clubeEventosTemplate() {
   return form + `<section class="grid">${cards}</section>`;
 }
 
+// Como se ganha ponto no clube (o chat NÃO dá ponto — é só interação).
+const CLUB_PONTOS_LEGENDA = [
+  ["🎬", "Check-in do dorama (salvar ep.)", 3],
+  ["🎯", "Concluir uma missão", "+pts"],
+  ["✍️", "Criar uma enquete", 5],
+  ["🗳️", "Votar numa enquete", 2],
+  ["📅", "Criar um evento", 5],
+  ["✅", "Confirmar presença num evento", 2],
+];
+function clubPontosResumoMeu() {
+  const led = clubSocial.myPoints || [];
+  if (!led.length) return "";
+  const rotulo = { drama_checkin: "🎬 Check-ins", challenge: "🎯 Missões", poll_create: "✍️ Enquetes criadas", poll_vote: "🗳️ Votos", event_create: "📅 Eventos criados", event_rsvp: "✅ Presenças" };
+  const por = {};
+  let total = 0;
+  for (const l of led) {
+    const k = l.source_type;
+    por[k] = (por[k] || 0) + Number(l.points || 0);
+    total += Number(l.points || 0);
+  }
+  const linhas = Object.entries(por)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `<span class="meu-pt"><b>+${v}</b> ${esc(rotulo[k] || k)}</span>`)
+    .join("");
+  return `<div class="meus-pontos"><strong>Você tem ${total} pts — veio de:</strong><div class="meus-pontos-list">${linhas}</div></div>`;
+}
 function clubPointsTemplate() {
   if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando pontos...</div>`;
   const rows = clubSocial.points || [];
-  if (!rows.length) return `<div class="empty">Ainda sem pontos. Votos, eventos, check-ins e desafios vão movimentar esse ranking.</div>`;
   const medalha = ["🥇", "🥈", "🥉"];
-  return `<section class="club-rank-list">${rows
-    .map((row, index) => {
-      const eu = row.user_id === authUser?.id;
-      const pos = medalha[index] || `${index + 1}º`;
-      return `<div class="club-rank-row ${index < 3 ? "top" : ""} ${eu ? "me" : ""}">
-        <span class="rank-pos">${pos}</span>
-        <span class="club-av" style="background:${AVATAR_CORES[hashStr(row.name || "?") % AVATAR_CORES.length]}">${esc((String(row.name || "?").trim().charAt(0) || "?").toUpperCase())}</span>
-        <strong class="rank-name">${esc(row.name || "Membro")}${eu ? " <small>(você)</small>" : ""}</strong>
-        <span class="rank-pts">${Number(row.points || 0)} <small>pts</small></span>
-      </div>`;
-    })
-    .join("")}</section>`;
+  const ranking = rows.length
+    ? `<section class="club-rank-list">${rows
+        .map((row, index) => {
+          const eu = row.user_id === authUser?.id;
+          const pos = medalha[index] || `${index + 1}º`;
+          return `<div class="club-rank-row ${index < 3 ? "top" : ""} ${eu ? "me" : ""}">
+            <span class="rank-pos">${pos}</span>
+            <span class="club-av" style="background:${AVATAR_CORES[hashStr(row.name || "?") % AVATAR_CORES.length]}">${esc((String(row.name || "?").trim().charAt(0) || "?").toUpperCase())}</span>
+            <strong class="rank-name">${esc(row.name || "Membro")}${eu ? " <small>(você)</small>" : ""}</strong>
+            <span class="rank-pts">${Number(row.points || 0)} <small>pts</small></span>
+          </div>`;
+        })
+        .join("")}</section>`
+    : `<div class="empty">Ainda sem pontos. Check-ins, enquetes, eventos e missões movimentam o ranking.</div>`;
+  const legenda = `
+    <details class="pontos-legenda">
+      <summary>🏅 Como ganhar pontos</summary>
+      <ul>${CLUB_PONTOS_LEGENDA.map(([e, t, p]) => `<li>${e} ${esc(t)} <b>${typeof p === "number" ? `+${p}` : p}</b></li>`).join("")}</ul>
+      <p class="muted" style="margin:6px 0 0;font-size:.78rem">O chat <strong>não</strong> dá pontos — é só pra conversar. 💬</p>
+    </details>`;
+  return `${clubPontosResumoMeu()}${ranking}${legenda}`;
 }
 
 function clubeDesafiosTemplate() {
@@ -7549,9 +7584,9 @@ async function loadClubSocial() {
   chatDraft = "";
   clubChatSpoilerOn = false;
   clubSocial = { ...clubSocial, for: state.club.id };
-  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [], cycle: null, clubDramas: [] };
+  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [], cycle: null, clubDramas: [], myPoints: [] };
   try {
-    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle, clubDramasHist] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle, clubDramasHist, myPointsLedger] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -7568,8 +7603,9 @@ async function loadClubSocial() {
       clubChatFeed(state.club.id).catch(() => []),
       clubCycle(state.club.id).catch(() => null),
       clubFeaturedHistory(state.club.id).catch(() => []),
+      clubMyPointsLedger(state.club.id, authUser?.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle, clubDramas: clubDramasHist };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger };
   } catch {
     clubSocial = empty;
   }

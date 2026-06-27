@@ -1292,6 +1292,18 @@ export function unsubscribeChannel(channel) {
   if (channel && supabase) supabase.removeChannel(channel);
 }
 
+// Meu extrato de pontos no clube (pra mostrar COMO pontuei).
+export async function clubMyPointsLedger(clubId, userId) {
+  const { data, error } = await supabase
+    .from("club_points_ledger")
+    .select("source_type, points, reason, created_at")
+    .eq("club_id", clubId)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
 // ---------- Favoritos especiais ----------
 export async function loadFavoritos(userId) {
   const { data, error } = await supabase.from("favoritos").select("*").eq("user_id", userId).order("created_at", { ascending: false });
