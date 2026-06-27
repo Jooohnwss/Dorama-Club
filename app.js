@@ -2810,90 +2810,76 @@ function clubeEnquetesTemplate() {
   return form + `<section class="grid">${cards}</section>`;
 }
 
-function clubeEventosTemplate() {
-  const meusDramas = state.dramas.filter((d) => d.tmdbId);
-  const featuredOption = clubSocial.featured
-    ? `<option value="featured:${clubSocial.featured.tmdb_id || ""}:${esc(clubSocial.featured.title)}">${esc(clubSocial.featured.title)} (dorama do clube)</option>`
-    : "";
-  const dramaOptions = meusDramas.map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("");
-  const form = `
-    <section class="form-card club-event-form-card">
-      <form id="club-event-form" class="form-grid">
-        <div class="field">
-          <label for="clubEventType">Tipo</label>
-          <select id="clubEventType" name="type">
-            <option value="watch_party">Watch party</option>
-            <option value="marathon">Maratona</option>
-            <option value="debate">Debate</option>
-            <option value="vote">Votação</option>
-            <option value="other">Outro</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="clubEventStarts">Quando</label>
-          <input id="clubEventStarts" name="startsAt" type="datetime-local" required />
-        </div>
-        <div class="field full">
-          <label for="clubEventTitle">Título</label>
-          <input id="clubEventTitle" name="title" placeholder="Maratona do ep. 1 ao 4" required />
-        </div>
-        <div class="field">
-          <label for="clubEventDrama">Dorama ligado</label>
-          <select id="clubEventDrama" name="dramaId">
-            <option value="">Sem dorama específico</option>
-            ${featuredOption}
-            ${dramaOptions}
-          </select>
-        </div>
-        <div class="field full">
-          <label for="clubEventDescription">Detalhes</label>
-          <textarea id="clubEventDescription" name="description" placeholder="Combinado, episódios, plataforma, regra de spoiler..."></textarea>
-        </div>
-        <div class="actions field full">
-          <button class="btn" type="submit">Criar evento</button>
-        </div>
-      </form>
-    </section>`;
-
-  if (clubSocial.for !== state.club.id) return form + `<div class="empty">Carregando eventos...</div>`;
-  if (!clubSocial.events.length) return form + `<div class="empty">Nenhum evento marcado ainda. Crie uma watch party para o clube se encontrar.</div>`;
-
-  const typeLabel = { watch_party: "Watch party", marathon: "Maratona", debate: "Debate", vote: "Votação", other: "Evento" };
-  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
-  const cards = clubSocial.events
-    .map((event) => {
-      const cancelled = event.status === "cancelled";
-      const buttons = [
-        ["going", "Vou"],
-        ["maybe", "Talvez"],
-        ["not_going", "Não vou"],
-      ]
-        .map(([value, label]) => `<button class="${event.my_status === value ? "mine" : ""}" data-event-rsvp="${event.id}" data-rsvp="${value}" ${cancelled ? "disabled" : ""}>${label}</button>`)
-        .join("");
-      return `
-        <article class="card club-event-card ${cancelled ? "is-cancelled" : ""}">
-          <div class="comment-head">
-            <strong>${esc(event.title)}</strong>
-            <span class="chip">${esc(typeLabel[event.type] || "Evento")}</span>
-          </div>
-          <span class="muted">${formatDateTimeShort(event.starts_at)}${event.author ? ` · criado por ${esc(event.author)}` : ""}</span>
-          ${event.drama_title ? `<span class="chip">${esc(event.drama_title)}</span>` : ""}
-          ${event.description ? `<p>${esc(event.description)}</p>` : ""}
-          <div class="chips">
-            <span class="chip">${Number(event.going || 0)} vou</span>
-            <span class="chip">${Number(event.maybe || 0)} talvez</span>
-            <span class="chip">${Number(event.not_going || 0)} nao vou</span>
-            ${cancelled ? `<span class="chip">Cancelado</span>` : ""}
-          </div>
-          <div class="mini-actions">
-            ${buttons}
-            ${canManage && !cancelled ? `<button data-cancel-event="${event.id}">Cancelar</button>` : ""}
-          </div>
-        </article>`;
-    })
+const EVENTO_TIPOS = { watch_party: ["🍿", "Assistir junto"], marathon: ["🔥", "Maratona"], debate: ["💬", "Debate"], other: ["✨", "Encontro"] };
+function quandoTexto(iso) {
+  const dt = new Date(iso);
+  const dias = Math.round((dt.getTime() - Date.now()) / 86400000);
+  if (dias < 0) return formatDateTimeShort(iso);
+  if (dias === 0) return `hoje · ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  if (dias === 1) return `amanhã · ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  if (dias <= 6) return `${dt.toLocaleDateString("pt-BR", { weekday: "long" })} · ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  return formatDateTimeShort(iso);
+}
+function eventoRsvpBtns(event, cancelled) {
+  return [["going", "🎉 Vou"], ["maybe", "🤔 Talvez"], ["not_going", "🙅 Não"]]
+    .map(([v, l]) => `<button class="${event.my_status === v ? "mine" : ""}" data-event-rsvp="${event.id}" data-rsvp="${v}" ${cancelled ? "disabled" : ""}>${l}</button>`)
     .join("");
+}
+function clubeEventosTemplate() {
+  if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando a agenda…</div>`;
+  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
+  const featured = clubSocial.featured;
+  const agora = Date.now() - 3600000; // tolera 1h após o início
+  const eventos = (clubSocial.events || []).filter((e) => e.status !== "cancelled");
+  const futuros = eventos.filter((e) => new Date(e.starts_at).getTime() >= agora).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+  const passados = eventos.filter((e) => new Date(e.starts_at).getTime() < agora).sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at));
+  const proximo = futuros[0];
 
-  return form + `<section class="grid">${cards}</section>`;
+  const form = `
+    <details class="nos-criar" ${proximo ? "" : "open"}>
+      <summary>＋ Marcar um encontro</summary>
+      <form id="club-event-form" class="form-grid" style="margin-top:12px">
+        <div class="field"><label>O que é</label>
+          <select name="type">
+            <option value="watch_party">🍿 Assistir junto</option>
+            <option value="marathon">🔥 Maratona</option>
+            <option value="debate">💬 Debate</option>
+            <option value="other">✨ Outro</option>
+          </select>
+        </div>
+        <div class="field"><label>Quando</label><input name="startsAt" type="datetime-local" required /></div>
+        <div class="field full"><label>Título</label><input name="title" placeholder="Maratona do ep. 1 ao 4 🍿" required /></div>
+        ${featured ? `<input type="hidden" name="dramaId" value="featured:${featured.tmdb_id || ""}:${esc(featured.title)}" />` : `<input type="hidden" name="dramaId" value="" />`}
+        <div class="field full"><label>Combinado (opcional)</label><input name="description" placeholder="Plataforma, regra de spoiler, onde…" /></div>
+        <div class="actions field full"><button class="btn" type="submit">${icon("calendar")} Marcar encontro</button></div>
+      </form>
+      ${featured ? `<p class="muted" style="margin:8px 0 0;font-size:.8rem">Vai ficar ligado ao dorama do clube: <strong>${esc(featured.title)}</strong>.</p>` : ""}
+    </details>`;
+
+  const eventoCard = (event, destaque) => {
+    const [emoji, label] = EVENTO_TIPOS[event.type] || EVENTO_TIPOS.other;
+    return `
+      <article class="club-event2 ${destaque ? "destaque" : ""}">
+        <div class="ev-when"><span class="ev-emoji">${emoji}</span><div><strong>${esc(quandoTexto(event.starts_at))}</strong><small>${esc(label)}${event.author ? ` · ${esc(event.author)}` : ""}</small></div></div>
+        <div class="ev-title">${esc(event.title)}</div>
+        ${event.drama_title ? `<span class="ev-chip">🎬 ${esc(event.drama_title)}</span>` : ""}
+        ${event.description ? `<p class="ev-desc">${esc(event.description)}</p>` : ""}
+        <div class="ev-rsvp">${eventoRsvpBtns(event, false)}</div>
+        <div class="ev-count"><span>🎉 ${Number(event.going || 0)} vão</span><span>🤔 ${Number(event.maybe || 0)}</span>${canManage ? `<button class="ev-cancel" data-cancel-event="${event.id}">Cancelar</button>` : ""}</div>
+      </article>`;
+  };
+
+  const destaque = proximo
+    ? `<div class="section-title compact"><h2>⏰ Próximo encontro</h2></div>${eventoCard(proximo, true)}`
+    : `<div class="empty">Nenhum encontro marcado. Que tal combinar de assistir junto? 🍿</div>`;
+  const outros = futuros.slice(1);
+
+  return `
+    <p class="muted" style="margin:0 0 12px;font-size:.86rem">Combinem <strong>quando</strong> se encontrar pra assistir, maratonar ou debater o dorama do clube — e vejam quem vai. 🍿</p>
+    ${form}
+    ${destaque}
+    ${outros.length ? `<div class="section-title compact"><h2>📅 Mais encontros</h2></div><section class="ev-list">${outros.map((e) => eventoCard(e, false)).join("")}</section>` : ""}
+    ${passados.length ? `<details class="ev-passados"><summary>Já rolaram (${passados.length})</summary><section class="ev-list">${passados.slice(0, 6).map((e) => eventoCard(e, false)).join("")}</section></details>` : ""}`;
 }
 
 // Como se ganha ponto no clube (o chat NÃO dá ponto — é só interação).

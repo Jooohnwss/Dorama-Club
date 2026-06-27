@@ -1068,6 +1068,41 @@ textarea:focus {
 .sobre-membro-info strong { font-size: 0.92rem; }
 .sobre-membro-info small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.76rem; }
 
+/* ===== Agenda do clube (encontros) ===== */
+.ev-list { display: grid; gap: 10px; }
+.club-event2 {
+  padding: 14px; border-radius: 16px;
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 92%, transparent);
+}
+.club-event2.destaque {
+  margin-bottom: 8px;
+  border-color: color-mix(in srgb, var(--cor-primaria) 40%, var(--cor-borda));
+  background: color-mix(in srgb, var(--cor-primaria) 8%, var(--cor-superficie));
+}
+.ev-when { display: flex; align-items: center; gap: 10px; }
+.ev-emoji { font-size: 1.5rem; }
+.ev-when strong { display: block; font-size: 0.95rem; text-transform: capitalize; }
+.ev-when small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.78rem; }
+.ev-title { margin-top: 8px; font-weight: 850; font-size: 1.05rem; line-height: 1.2; }
+.ev-chip {
+  display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px;
+  font-size: 0.76rem; font-weight: 800;
+  background: color-mix(in srgb, var(--cor-primaria) 12%, transparent); color: var(--cor-primaria);
+}
+.ev-desc { margin: 8px 0 0; color: var(--cor-texto-suave); font-weight: 600; font-size: 0.86rem; line-height: 1.4; }
+.ev-rsvp { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.ev-rsvp button {
+  flex: 1; min-width: 78px; padding: 9px 8px; border-radius: 12px; font-weight: 800; font-size: 0.84rem;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); color: var(--cor-texto);
+}
+.ev-rsvp button.mine { background: var(--cor-primaria); color: var(--cor-primaria-texto); border-color: transparent; }
+.ev-count { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-weight: 700; font-size: 0.82rem; color: var(--cor-texto-suave); }
+.ev-cancel { margin-left: auto; background: transparent; color: var(--cor-texto-suave); font-size: 0.8rem; text-decoration: underline; padding: 0; }
+.ev-passados { margin-top: 14px; }
+.ev-passados summary { cursor: pointer; font-weight: 800; font-size: 0.84rem; color: var(--cor-texto-suave); }
+.ev-passados .club-event2 { opacity: 0.75; margin-top: 8px; }
+
 /* Doramas em comum (chips, não bloco colado) */
 .comum-card { display: grid; gap: 8px; }
 .comum-titulo { font-weight: 850; font-size: 0.9rem; }
