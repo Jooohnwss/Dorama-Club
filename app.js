@@ -2604,21 +2604,27 @@ function clubeCicloTemplate() {
           <div class="ciclo-now-info">
             <span class="clf-eyebrow">🎬 Assistindo agora</span>
             <strong>${esc(featured.title)}</strong>
-            <small>Você no ep. ${Number(featured.my_episode || 0)}${euTerminei ? " · ✓ você terminou" : ""}</small>
+            <small>${euTerminei ? "✅ você terminou este dorama" : `você está no episódio ${Number(featured.my_episode || 0)}`}</small>
           </div>
         </div>
         <div class="ciclo-prog">
           <div class="ciclo-bar"><i style="width:${pct}%"></i></div>
-          <small>${terminaram}/${membros} terminaram${terminaram >= membros && membros >= 2 ? " · todos! o próximo já entra 🎉" : ""}</small>
+          <small>${terminaram}/${membros} do clube terminaram — só troca quando <strong>todos</strong> terminarem</small>
         </div>
-        <form id="club-checkin-form" class="ciclo-checkin">
-          <input name="episode" type="number" min="0" value="${Number(featured.my_episode || 0)}" aria-label="Meu episódio" />
-          <input type="hidden" name="status" value="${euTerminei ? "finished" : "watching"}" />
-          <button class="btn secondary" type="submit">Salvar ep.</button>
-          <button class="btn ${euTerminei ? "ghost" : ""}" type="button" data-club-finish="${euTerminei ? "0" : "1"}">${euTerminei ? "Ainda estou assistindo" : "✓ Terminei o dorama"}</button>
-        </form>
-        <p class="ciclo-hint muted">Esse botão marca que <strong>você terminou o dorama inteiro</strong>. O clube só troca de dorama quando <strong>todo mundo</strong> também marcar.</p>
-        ${canManage && Number(cycle.candidates_count || 0) > 0 && todosTerminaram ? `<button class="btn ghost ciclo-pular" type="button" data-club-close-voting>⏭️ Escolher próximo agora</button>` : ""}
+
+        <div class="checkin-ep">
+          <label for="club-ep-input">Em que episódio você está?</label>
+          <form id="club-checkin-form" class="checkin-ep-row">
+            <input id="club-ep-input" name="episode" type="number" min="0" inputmode="numeric" value="${Number(featured.my_episode || 0)}" />
+            <input type="hidden" name="status" value="${euTerminei ? "finished" : "watching"}" />
+            <button class="btn secondary" type="submit">Salvar</button>
+          </form>
+        </div>
+
+        <button class="checkin-finish ${euTerminei ? "done" : ""}" type="button" data-club-finish="${euTerminei ? "0" : "1"}">
+          ${euTerminei ? "✅ Você já terminou o dorama — toque pra desmarcar" : "🏁 Já terminei o dorama inteiro"}
+        </button>
+        <p class="ciclo-hint muted">Salvar o episódio dá <strong>+1 no ranking</strong> 🎬. O clube só libera sortear o próximo quando <strong>todo mundo</strong> marcar "terminei o dorama". 🔒</p>
       </section>`
     : `<section class="ciclo-now"><span class="clf-eyebrow">🎬 Assistindo agora</span><p class="muted" style="margin:8px 0 0">Nenhum dorama oficial ainda. ${canManage ? "Sugiram abaixo e fixem o primeiro (botão Fixar)." : "Sugiram o primeiro abaixo."}</p></section>`;
 
@@ -8748,8 +8754,9 @@ async function handleClubFeaturedCheckin(episode, status, opts = {}) {
     clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id);
     clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
     clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
+    clubSocial.myPoints = await clubMyPointsLedger(state.club.id, authUser?.id).catch(() => clubSocial.myPoints || []);
     render();
-    if (!opts.silent) toast("Check-in salvo no clube.");
+    if (!opts.silent) toast(`Episódio ${Number(episode) || 0} salvo 🎬`);
     return true;
   } catch {
     toast("Não consegui salvar seu check-in.");

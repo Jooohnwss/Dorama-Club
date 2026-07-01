@@ -130,6 +130,10 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - **46 - clube-ultima-novidade.sql**: cria `club_last_news_at` pra a bolinha da aba Doramigas acender com qualquer novidade do clube (mural, novidades automáticas, chat, eventos) — não só posts do mural.
 - Onde: SQL Editor → New query → cola → Run.
 
+### 1x. Rodar a migração 48 (troca de dorama só com todos finalizados)
+- **48 - clube-troca-so-com-todos-finalizados.sql**: garante no banco que o clube só troca de dorama quando **todos** os membros marcaram "terminei o dorama". (A 47, se quiser as reações/tags do chat, também pode rodar — mas o app ainda não usa esses campos.)
+- Onde: SQL Editor → New query → cola → Run.
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

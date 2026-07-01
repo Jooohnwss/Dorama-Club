@@ -955,6 +955,27 @@ textarea:focus {
 .ciclo-hint { margin: 10px 0 0; font-size: 0.78rem; }
 .ciclo-pular { margin-top: 10px; width: 100%; font-size: 0.84rem; }
 
+/* Check-in: episódio (pontua) separado de "terminei o dorama" (destrava a troca) */
+.checkin-ep { margin-top: 14px; }
+.checkin-ep > label { display: block; font-weight: 800; font-size: 0.86rem; margin-bottom: 6px; }
+.checkin-ep-row { display: flex; gap: 8px; }
+.checkin-ep-row input {
+  width: 90px; flex: 0 0 auto; height: 44px; border-radius: 12px; text-align: center;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); font-weight: 800;
+}
+.checkin-ep-row .btn { flex: 1; }
+.checkin-finish {
+  width: 100%; margin-top: 12px; min-height: 48px; padding: 12px; border-radius: 14px;
+  font-weight: 850; font-size: 0.95rem;
+  border: 2px dashed color-mix(in srgb, var(--cor-primaria) 45%, var(--cor-borda));
+  background: color-mix(in srgb, var(--cor-primaria) 6%, var(--cor-superficie));
+  color: var(--cor-primaria);
+}
+.checkin-finish.done {
+  border-style: solid; border-color: transparent;
+  background: color-mix(in srgb, #22c55e 16%, var(--cor-superficie)); color: #15803d;
+}
+
 /* Caixa de Sugeridos / Votação */
 .choice-box {
   margin-top: 14px; padding: 16px; border-radius: 18px;
