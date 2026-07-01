@@ -248,7 +248,12 @@ export async function clubMembersList(clubId) {
 }
 
 export async function leaveClub(clubId) {
-  const { error } = await supabase.from("club_members").delete().eq("club_id", clubId);
+  const { error } = await supabase.rpc("leave_club", { p_club: clubId });
+  if (error) throw error;
+}
+
+export async function deleteClub(clubId) {
+  const { error } = await supabase.rpc("delete_club", { p_club: clubId });
   if (error) throw error;
 }
 

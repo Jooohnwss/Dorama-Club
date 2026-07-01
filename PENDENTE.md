@@ -134,6 +134,11 @@ Coisas que ficaram pra depois — não esquecer. Atualizado em 2026-06-21.
 - **48 - clube-troca-so-com-todos-finalizados.sql**: garante no banco que o clube só troca de dorama quando **todos** os membros marcaram "terminei o dorama". (A 47, se quiser as reações/tags do chat, também pode rodar — mas o app ainda não usa esses campos.)
 - Onde: SQL Editor → New query → cola → Run.
 
+### 1y. Rodar as migrações 47 e 49 (clube)
+- **47 - clube-interacoes-e-moderacao.sql**: reações no chat (❤️😂😮) + responder + tags. **Precisa rodar pras reações do chat funcionarem.**
+- **49 - clube-excluir.sql**: sair com passagem de dono (dono sai → membro mais antigo assume) + excluir clube (só o dono).
+- Onde: SQL Editor → New query → cola → Run.
+
 ### 2. Configurar o e-mail de "esqueci minha senha"
 - Onde: painel do Supabase → **Authentication → URL Configuration**
 - O quê:

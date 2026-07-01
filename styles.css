@@ -1462,6 +1462,28 @@ textarea:focus {
   display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 0.8rem;
 }
 .chat-onav img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+/* Reações do chat: só um 🙂+ pra reagir; reações feitas viram chips */
+.chat-reacoes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.chat-reacao {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; line-height: 1.4;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); color: var(--cor-texto);
+}
+.chat-reacao b { font-weight: 800; font-size: 0.74rem; }
+.chat-reacao.mine { background: color-mix(in srgb, var(--cor-primaria) 20%, transparent); border-color: color-mix(in srgb, var(--cor-primaria) 45%, transparent); }
+.chat-reacao.pick { background: var(--cor-superficie); font-size: 1rem; padding: 2px 7px; }
+.chat-react-add {
+  width: 26px; height: 24px; padding: 0; border-radius: 999px; font-size: 0.72rem; font-weight: 800;
+  background: transparent; color: var(--cor-texto-suave); opacity: 0.7;
+}
+.chat-react-add:hover, .chat-react-add.on { opacity: 1; background: var(--cor-superficie-2); }
+.club-chat-message.mine .chat-reacao { background: color-mix(in srgb, #fff 25%, transparent); border-color: transparent; color: inherit; }
+.club-chat-message.mine .chat-react-add { color: inherit; }
+
+/* Card perigoso (excluir clube) */
+.card-danger { border-color: color-mix(in srgb, #e0566b 40%, var(--cor-borda)); }
+.card-danger strong { color: #e0566b; }
 .chat-onav.off { opacity: 0.4; filter: grayscale(0.6); }
 .chat-onav.on::after {
   content: ""; position: absolute; right: -1px; bottom: -1px;

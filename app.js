@@ -25,6 +25,7 @@ import {
   myClubs,
   clubMembersList,
   leaveClub,
+  deleteClub,
   clubFeed,
   clubLatestComment,
   clubLastNewsAt,
@@ -385,6 +386,7 @@ let clubOnline = []; // [{user_id, name}] presentes agora
 let clubChatSpoilerOn = false; // toggle de spoiler no compositor do chat
 let chatDraft = ""; // texto do chat preservado entre re-renders
 let revealedChat = new Set(); // mensagens de spoiler reveladas pelo leitor
+let chatReactPicker = null; // id da mensagem com o seletor de reação aberto
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
 let clubDebateDraft = null; // dorama avulso da lista do clube para abrir debate no mural
 let listSort = "recente"; // ordenação da Minhas listas
@@ -2340,6 +2342,7 @@ function formatDateTimeShort(value) {
 }
 
 function clubAboutTemplate() {
+  const souDono = state.club.owner_id === authUser?.id;
   const rules = state.club.rules || "Sem regras ainda. Sugestão: avisar spoilers, respeitar opiniões e manter o clima leve. 💜";
   const dramas = clubSocial.for === state.club.id ? (clubSocial.clubDramas || []) : [];
   const assistidos = dramas.filter((d) => d.status !== "active");
@@ -2394,8 +2397,9 @@ function clubAboutTemplate() {
     <div class="section-title compact"><h2>Convidar e gerenciar</h2></div>
     <section class="grid cards">
       <button class="card" data-share-club><strong>Chamar gente no WhatsApp</strong><p class="muted">Envia o código ${esc(state.club.code)}</p></button>
-      <button class="card" data-rename-club><strong>Renomear clube</strong><p class="muted">Ajusta o nome que aparece no topo.</p></button>
-      <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">Você deixa de ver este clube.</p></button>
+      ${souDono ? `<button class="card" data-rename-club><strong>Renomear clube</strong><p class="muted">Ajusta o nome que aparece no topo.</p></button>` : ""}
+      <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">${souDono ? "O membro mais antigo vira o dono." : "Você deixa de ver este clube."}</p></button>
+      ${souDono ? `<button class="card card-danger" data-delete-club><strong>🗑️ Excluir clube</strong><p class="muted">Apaga o clube pra todos. Não dá pra desfazer.</p></button>` : ""}
     </section>
   `;
 }
@@ -2505,18 +2509,22 @@ const CHAT_REACOES = [
 ];
 
 function barraReacoesChat(messageId) {
-  const minhas = (clubSocial.chatReactions || []).filter((r) => r.message_id === messageId);
+  const doMsg = (clubSocial.chatReactions || []).filter((r) => r.message_id === messageId);
+  // só mostra os emojis que ALGUÉM já usou (viram chips clicáveis)
+  const chips = doMsg
+    .filter((r) => Number(r.total) > 0)
+    .map((r) => `<button class="chat-reacao ${r.mine ? "mine" : ""}" data-react-chat="${messageId}" data-emoji="${r.emoji}">${r.emoji} <b>${r.total}</b></button>`)
+    .join("");
+  const aberto = chatReactPicker === messageId;
+  const picker = aberto
+    ? CHAT_REACOES.map(([e, nome]) => `<button class="chat-reacao pick" data-react-chat="${messageId}" data-emoji="${e}" title="${nome}">${e}</button>`).join("")
+    : "";
   return `
     <div class="chat-reacoes">
-      ${CHAT_REACOES.map(([emoji, nome]) => {
-        const r = minhas.find((x) => x.emoji === emoji);
-        const total = r ? r.total : 0;
-        const mine = r && r.mine;
-        return `<button class="chat-reacao ${mine ? "mine" : ""}" data-react-chat="${messageId}" data-emoji="${emoji}" title="${nome}">${emoji}${total ? `<b>${total}</b>` : ""}</button>`;
-      }).join("")}
+      ${chips}${picker}
+      <button class="chat-react-add ${aberto ? "on" : ""}" type="button" data-react-open="${messageId}" title="Reagir">${aberto ? "×" : "🙂+"}</button>
     </div>`;
 }
-
 function doramasEmComumTemplate() {
   if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando…</div>`;
   const total = clubMembers.length || 1;
@@ -7152,6 +7160,7 @@ function bindShell() {
   listen(document.querySelector("[data-logout]"), "click", handleLogout);
   listen(document.querySelector("[data-share-club]"), "click", shareClub);
   listen(document.querySelector("[data-leave-club]"), "click", handleLeaveClub);
+  listen(document.querySelector("[data-delete-club]"), "click", handleDeleteClub);
   listen(document.querySelector("[data-invite-share]"), "click", shareInvite);
   listen(document.querySelector("[data-invite-copy]"), "click", copyInvite);
   listen(document.querySelector("[data-admin-refresh]"), "click", () => loadAdmin(true));
@@ -7395,6 +7404,9 @@ function bindShell() {
   document.querySelectorAll("[data-reveal-chat]").forEach((b) => listen(b, "click", () => { revealedChat.add(b.dataset.revealChat); render(); }));
   document.querySelectorAll("[data-react-chat]").forEach((button) => {
     listen(button, "click", () => handleToggleChatReaction(button.dataset.reactChat, button.dataset.emoji));
+  });
+  document.querySelectorAll("[data-react-open]").forEach((button) => {
+    listen(button, "click", () => { chatReactPicker = chatReactPicker === button.dataset.reactOpen ? null : button.dataset.reactOpen; render(); });
   });
   document.querySelectorAll("[data-reply-chat]").forEach((button) => {
     listen(button, "click", () => handleReplyChat(button.dataset.replyChat));
@@ -7820,6 +7832,7 @@ function bindChatNode(node) {
   node.querySelectorAll("[data-del-chat]").forEach((b) => listen(b, "click", () => handleDeleteClubChatMessage(b.dataset.delChat)));
   node.querySelectorAll("[data-reveal-chat]").forEach((b) => listen(b, "click", () => { revealedChat.add(b.dataset.revealChat); render(); }));
   node.querySelectorAll("[data-react-chat]").forEach((b) => listen(b, "click", () => handleToggleChatReaction(b.dataset.reactChat, b.dataset.emoji)));
+  node.querySelectorAll("[data-react-open]").forEach((b) => listen(b, "click", () => { chatReactPicker = chatReactPicker === b.dataset.reactOpen ? null : b.dataset.reactOpen; render(); }));
   node.querySelectorAll("[data-reply-chat]").forEach((b) => listen(b, "click", () => handleReplyChat(b.dataset.replyChat)));
   node.querySelectorAll("[data-jump-chat]").forEach((b) => listen(b, "click", () => handleJumpChat(b.dataset.jumpChat)));
 }
@@ -9037,6 +9050,18 @@ async function handleDeleteClubChatMessage(messageId) {
   }
 }
 
+async function handleToggleChatReaction(messageId, emoji) {
+  if (!state.club || !messageId || !emoji) return;
+  chatReactPicker = null;
+  try {
+    await toggleClubChatReaction(messageId, emoji);
+    clubSocial.chatReactions = await clubChatReactions(state.club.id).catch(() => clubSocial.chatReactions || []);
+    render();
+  } catch {
+    toast("Não consegui reagir agora.");
+  }
+}
+
 async function handlePostComment(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(event.currentTarget));
@@ -9114,7 +9139,9 @@ async function handleJoinClub(event) {
 
 async function handleLeaveClub() {
   if (!state.club) return;
-  if (!(await confirmar(`Sair de “${state.club.name}”?`, { ok: "Sair", danger: true }))) return;
+  const souDono = state.club.owner_id === authUser?.id;
+  const sub = souDono ? "Como você é o dono, o membro mais antigo vira o novo dono. Se não sobrar ninguém, o clube é apagado." : "Você deixa de ver este clube.";
+  if (!(await confirmar(`Sair de “${state.club.name}”?`, { sub, ok: "Sair", danger: true }))) return;
   const saindoId = state.club.id;
   try {
     await leaveClub(saindoId);
@@ -9129,6 +9156,32 @@ async function handleLeaveClub() {
     toast("Você saiu do clube.");
   } catch {
     toast("Não consegui sair do clube agora.");
+  }
+}
+
+async function handleDeleteClub() {
+  if (!state.club) return;
+  if (state.club.owner_id !== authUser?.id) { toast("Só o dono pode excluir o clube."); return; }
+  const nome = state.club.name;
+  const ok1 = await confirmar(`Excluir “${nome}” pra sempre?`, {
+    sub: "Apaga o clube pra TODOS os membros: mural, chat, doramas, ranking, tudo. Não dá pra desfazer.",
+    ok: "Quero excluir", cancel: "Cancelar", danger: true,
+  });
+  if (!ok1) return;
+  const ok2 = await confirmar("Tem certeza absoluta?", { sub: "É permanente e afeta todo mundo do clube.", ok: "Sim, excluir", cancel: "Cancelar", danger: true });
+  if (!ok2) return;
+  const delId = state.club.id;
+  try {
+    await deleteClub(delId);
+    state.clubs = (state.clubs || []).filter((c) => c.id !== delId);
+    const proximo = state.clubs[0] || null;
+    trocarClubeAtivo(proximo);
+    setState({ club: proximo });
+    if (proximo) loadClubMembers();
+    toast("Clube excluído.");
+  } catch (e) {
+    console.error(e);
+    toast("Só o dono pode excluir o clube.");
   }
 }
 
