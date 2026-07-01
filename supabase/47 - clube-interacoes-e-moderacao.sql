@@ -75,6 +75,8 @@ as $$
 $$;
 
 -- Sobre do clube com tags/vibes editaveis.
+-- (a versao antiga tinha 3 params; removemos pra nao virar overload ambiguo)
+drop function if exists public.update_club_details(uuid, text, text);
 create or replace function public.update_club_details(
   p_club uuid,
   p_description text,
@@ -178,6 +180,8 @@ end;
 $$;
 
 -- Chat com resposta encadeada.
+-- (remove a versao de 4 params pra a chamada nao ficar ambigua com a nova de 5)
+drop function if exists public.create_club_chat_message(uuid, text, boolean, int);
 create or replace function public.create_club_chat_message(
   p_club uuid,
   p_body text,
@@ -216,6 +220,8 @@ begin
 end;
 $$;
 
+-- club_chat_feed ganhou colunas (reply_*), então muda o retorno -> DROP antes.
+drop function if exists public.club_chat_feed(uuid);
 create or replace function public.club_chat_feed(p_club uuid)
 returns table (
   id uuid,
