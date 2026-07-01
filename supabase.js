@@ -1426,3 +1426,8 @@ export async function adminDeleteUser(id) {
   const { error } = await supabase.rpc("admin_delete_user", { p_id: id });
   if (error) throw error;
 }
+
+export async function adminDeleteClub(id) {
+  const { error } = await supabase.rpc("admin_delete_club", { p_id: id });
+  if (error) throw error;
+}

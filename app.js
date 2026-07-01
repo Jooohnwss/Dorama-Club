@@ -92,6 +92,7 @@ import {
   adminComments,
   adminDeleteComment,
   adminDeleteUser,
+  adminDeleteClub,
   createCouple,
   joinCouple,
   myCouple,
@@ -1453,7 +1454,7 @@ function adminTemplate() {
     <div class="section-title"><h2>Clubes (${admin.clubs.length})</h2></div>
     <section class="grid cards">
       ${admin.clubs.length
-        ? admin.clubs.map((c) => `<div class="card"><strong>${esc(c.name)}</strong><p class="muted">${esc(c.code)}</p><div class="chips"><span class="chip">${c.members || 0} membros</span></div></div>`).join("")
+        ? admin.clubs.map((c) => `<div class="card"><strong>${esc(c.name)}</strong><p class="muted">${esc(c.code)}</p><div class="chips"><span class="chip">${c.members || 0} membros</span>${!c.members ? `<span class="chip">👻 fantasma</span>` : ""}</div>${!c.members ? `<div class="mini-actions"><button data-admin-del-club="${c.id}" data-admin-club-name="${esc(c.name || "")}">${icon("trash")} Excluir fantasma</button></div>` : ""}</div>`).join("")
         : `<div class="empty">Nenhum clube criado ainda.</div>`}
     </section>
 
@@ -7128,6 +7129,10 @@ function bindShell() {
     listen(button, "click", () => handleAdminDeleteUser(button.dataset.adminDelUser, button.dataset.adminUserName));
   });
 
+  document.querySelectorAll("[data-admin-del-club]").forEach((button) => {
+    listen(button, "click", () => handleAdminDeleteClub(button.dataset.adminDelClub, button.dataset.adminClubName));
+  });
+
   document.querySelectorAll("[data-mood]").forEach((button) => {
     listen(button, "click", () => sugerirPorHumor(button.dataset.mood));
   });
@@ -9321,6 +9326,19 @@ async function handleAdminDeleteUser(id, nome) {
     render();
   } catch (error) {
     toast(error?.message || "Não consegui excluir essa usuária.");
+  }
+}
+
+async function handleAdminDeleteClub(id, nome) {
+  if (!(await confirmar(`Excluir clube fantasma “${nome}”?`, { sub: "Este clube está sem membros. Some de vez.", ok: "Excluir", danger: true }))) return;
+  try {
+    await adminDeleteClub(id);
+    admin.clubs = admin.clubs.filter((c) => c.id !== id);
+    if (admin.overview) admin.overview.clubs = Math.max(0, (admin.overview.clubs || 1) - 1);
+    toast("Clube fantasma excluído.");
+    render();
+  } catch (error) {
+    toast(error?.message || "Não consegui excluir esse clube.");
   }
 }
 
