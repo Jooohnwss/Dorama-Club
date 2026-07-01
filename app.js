@@ -15,6 +15,7 @@ import {
   updatePassword,
   renameClub,
   updateClubDetails,
+  manageClubMember,
   saveTheme,
   loadDramas,
   upsertDrama,
@@ -44,6 +45,8 @@ import {
   clubSharedSurtos,
   clubReactions,
   toggleReaction,
+  clubSurtoReactions,
+  toggleSurtoReaction,
   clubDramas,
   clubListFeed,
   clubListAdd,
@@ -72,6 +75,8 @@ import {
   clubChatFeed,
   createClubChatMessage,
   deleteClubChatMessage,
+  clubChatReactions,
+  toggleClubChatReaction,
   subscribeClubRealtime,
   unsubscribeChannel,
   clubMyPointsLedger,
@@ -519,7 +524,8 @@ function trocarClubeAtivo(club) {
   clubFeedItems = [];
   clubFeedFor = null;
   clubDebateDraft = null;
-  clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [] };
+  chatReplyTo = null;
+  clubSocial = emptyClubSocial(null);
   addingClub = false;
 }
 
@@ -556,7 +562,33 @@ function marcarClubeVisto() {
   clubHasNews = false;
 }
 // Social do clube (feed automático, dorama do mês, ranking, diário compartilhado).
-let clubSocial = { for: null, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [] };
+function emptyClubSocial(id = null) {
+  return {
+    for: id,
+    activities: [],
+    picks: [],
+    ranking: [],
+    shared: [],
+    reactions: [],
+    surtoReactions: [],
+    commonDramas: [],
+    list: [],
+    compat: [],
+    featured: null,
+    polls: [],
+    events: [],
+    points: [],
+    challenges: [],
+    chat: [],
+    chatReactions: [],
+    cycle: null,
+    clubDramas: [],
+    myPoints: [],
+  };
+}
+let clubSocial = emptyClubSocial(null);
+let chatReplyTo = null;
+let clubWelcomeCard = null;
 // Espaço "Nós dois" (carregado sob demanda).
 let coupleFor = null;
 let coupleMembers = [];
@@ -2196,6 +2228,7 @@ function mapClubRow(club) {
     owner_id: club.owner_id || null,
     description: club.description || "",
     rules: club.rules || "",
+    tags: Array.isArray(club.tags) ? club.tags : [],
   };
 }
 
@@ -2452,6 +2485,38 @@ function barraReacoes(commentId) {
     </div>`;
 }
 
+function barraReacoesSurto(surtoId) {
+  const minhas = (clubSocial.surtoReactions || []).filter((r) => r.surto_id === surtoId);
+  return `
+    <div class="reacoes">
+      ${REACOES.map(([emoji, nome]) => {
+        const r = minhas.find((x) => x.emoji === emoji);
+        const total = r ? r.total : 0;
+        const mine = r && r.mine;
+        return `<button class="reacao ${mine ? "mine" : ""}" data-react-surto="${surtoId}" data-emoji="${emoji}" title="${nome}">${emoji}${total ? ` <b>${total}</b>` : ""}</button>`;
+      }).join("")}
+    </div>`;
+}
+
+const CHAT_REACOES = [
+  ["❤️", "Amei"],
+  ["😂", "Ri alto"],
+  ["😮", "Chocada"],
+];
+
+function barraReacoesChat(messageId) {
+  const minhas = (clubSocial.chatReactions || []).filter((r) => r.message_id === messageId);
+  return `
+    <div class="chat-reacoes">
+      ${CHAT_REACOES.map(([emoji, nome]) => {
+        const r = minhas.find((x) => x.emoji === emoji);
+        const total = r ? r.total : 0;
+        const mine = r && r.mine;
+        return `<button class="chat-reacao ${mine ? "mine" : ""}" data-react-chat="${messageId}" data-emoji="${emoji}" title="${nome}">${emoji}${total ? `<b>${total}</b>` : ""}</button>`;
+      }).join("")}
+    </div>`;
+}
+
 function doramasEmComumTemplate() {
   if (clubSocial.for !== state.club.id) return `<div class="empty">Carregando…</div>`;
   const total = clubMembers.length || 1;
@@ -2525,6 +2590,7 @@ function clubeCicloTemplate() {
   const membros = Math.max(1, Number(cycle.members_count || clubMembers.length || 1));
   const terminaram = Number(cycle.finished_count || 0);
   const pct = Math.min(100, Math.round((terminaram / membros) * 100));
+  const todosTerminaram = membros >= 2 && terminaram >= membros;
   const euTerminei = featured && featured.my_status === "finished";
   const votingOpen = Boolean(cycle.voting_open);
   const minhasSug = Number(cycle.my_suggestions || 0);
@@ -2549,10 +2615,10 @@ function clubeCicloTemplate() {
           <input name="episode" type="number" min="0" value="${Number(featured.my_episode || 0)}" aria-label="Meu episódio" />
           <input type="hidden" name="status" value="${euTerminei ? "finished" : "watching"}" />
           <button class="btn secondary" type="submit">Salvar ep.</button>
-          <button class="btn ${euTerminei ? "ghost" : ""}" type="button" data-club-finish="${euTerminei ? "0" : "1"}">${euTerminei ? "Reabrir" : "✓ Terminei"}</button>
+          <button class="btn ${euTerminei ? "ghost" : ""}" type="button" data-club-finish="${euTerminei ? "0" : "1"}">${euTerminei ? "Ainda estou assistindo" : "✓ Terminei o dorama"}</button>
         </form>
-        <p class="ciclo-hint muted">Cada um marca o seu episódio. Quando <strong>todos</strong> marcarem "Terminei", o mais votado entra como próximo.</p>
-        ${canManage && Number(cycle.candidates_count || 0) > 0 && terminaram < membros ? `<button class="btn ghost ciclo-pular" type="button" data-club-close-voting>⏭️ Pular pro próximo (dono)</button>` : ""}
+        <p class="ciclo-hint muted">Esse botão marca que <strong>você terminou o dorama inteiro</strong>. O clube só troca de dorama quando <strong>todo mundo</strong> também marcar.</p>
+        ${canManage && Number(cycle.candidates_count || 0) > 0 && todosTerminaram ? `<button class="btn ghost ciclo-pular" type="button" data-club-close-voting>⏭️ Escolher próximo agora</button>` : ""}
       </section>`
     : `<section class="ciclo-now"><span class="clf-eyebrow">🎬 Assistindo agora</span><p class="muted" style="margin:8px 0 0">Nenhum dorama oficial ainda. ${canManage ? "Sugiram abaixo e fixem o primeiro (botão Fixar)." : "Sugiram o primeiro abaixo."}</p></section>`;
 
@@ -2708,11 +2774,19 @@ function chatBubbleHtml(msg, prev) {
   const corpo = spoiler && !revelado
     ? `<span class="chat-spoiler-blur" data-reveal-chat="${msg.id}"><span class="csb-text">${esc(msg.body)}</span><span class="csb-hint">🔒 toque pra revelar</span></span>`
     : `<span>${esc(msg.body)}</span>`;
+  const reply = msg.reply_to
+    ? `<button class="chat-reply-ref" type="button" data-jump-chat="${msg.reply_to}">
+         <small>${esc(msg.reply_author || "mensagem")}</small>
+         <span>${esc(corte(msg.reply_body || "", 90) || "mensagem apagada")}</span>
+       </button>`
+    : "";
   return `
     <article class="club-chat-message ${mine ? "mine" : ""}" data-msg="${msg.id}">
       ${!mine && !mesmoAutor ? `<span class="chat-author" style="color:${AVATAR_CORES[hashStr(nome) % AVATAR_CORES.length]}">${esc(nome)}</span>` : ""}
+      ${reply}
       <p>${corpo}</p>
-      <span class="chat-foot"><span class="chat-time">${timeAgo(msg.created_at)}</span>${podeApagar ? `<button class="chat-del" data-del-chat="${msg.id}" title="Apagar">${icon("trash")}</button>` : ""}</span>
+      ${barraReacoesChat(msg.id)}
+      <span class="chat-foot"><span class="chat-time">${timeAgo(msg.created_at)}</span><button class="chat-del" data-reply-chat="${msg.id}" title="Responder">↩</button>${podeApagar ? `<button class="chat-del" data-del-chat="${msg.id}" title="Apagar">${icon("trash")}</button>` : ""}</span>
     </article>`;
 }
 
@@ -2741,12 +2815,18 @@ function clubeChatTemplate() {
   const hint = clubChatSpoilerOn
     ? `<div class="chat-spoiler-on">🔒 Spoiler ligado — sua mensagem vai <b>borrada</b> até tocarem pra ver</div>`
     : "";
+  const replyMsg = chatReplyTo ? (clubSocial.chat || []).find((m) => m.id === chatReplyTo) : null;
+  const replyBar = replyMsg
+    ? `<div class="chat-replying"><span>Respondendo <strong>${esc(replyMsg.author || "mensagem")}</strong>: ${esc(corte(replyMsg.body, 72))}</span><button type="button" data-cancel-chat-reply>×</button></div>`
+    : "";
   const composer = `
+    ${replyBar}
     ${hint}
     <form id="club-chat-form" class="chat-composer">
       <button type="button" class="chat-spoiler-toggle ${clubChatSpoilerOn ? "on" : ""}" data-chat-spoiler title="${clubChatSpoilerOn ? "Spoiler ligado (toque pra desligar)" : "Marcar a mensagem como spoiler"}" aria-label="Marcar spoiler">🔒</button>
       <input id="clubChatBody" name="body" placeholder="${clubChatSpoilerOn ? "Mensagem com spoiler…" : "Mensagem ao vivo…"}" autocomplete="off" value="${esc(chatDraft)}" required />
       <input type="hidden" name="hasSpoiler" value="${clubChatSpoilerOn ? "1" : ""}" />
+      <input type="hidden" name="replyTo" value="${esc(chatReplyTo || "")}" />
       <button class="btn chat-send" type="submit" aria-label="Enviar">➤</button>
     </form>`;
   return `${chatOnlineBarHtml()}<section class="club-chat-list" id="club-chat-list">${lista}</section>${composer}`;
@@ -3112,7 +3192,7 @@ function muralPostCard(item, opts = {}) {
       </div>
       ${chip}
       ${corpo}
-      ${opts.reactions === false ? "" : barraReacoes(item.id)}
+      ${opts.reactions === false ? "" : opts.reactionKind === "surto" ? barraReacoesSurto(item.id) : barraReacoes(item.id)}
     </article>`;
 }
 
@@ -3123,7 +3203,7 @@ function diarioCompartilhadoTemplate() {
     .map((s) => muralPostCard({
       id: s.id, author: s.author, body: s.body, spoiler_episode: s.episode,
       tmdb_id: s.tmdb_id, drama_title: s.drama_title, user_id: s.user_id, created_at: s.created_at,
-    }, { reactions: false, canDelete: false }))
+    }, { reactionKind: "surto", canDelete: false }))
     .join("")}</section>`;
 }
 
@@ -5925,6 +6005,11 @@ function timeAgo(iso) {
   return `${d} d`;
 }
 
+function corte(text, max = 80) {
+  const s = String(text || "");
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
 function favoriteGenre() {
   const counts = {};
   state.dramas.forEach((drama) => (drama.genres || []).forEach((genre) => {
@@ -7222,6 +7307,9 @@ function bindShell() {
   document.querySelectorAll("[data-react]").forEach((button) => {
     listen(button, "click", () => handleToggleReaction(button.dataset.react, button.dataset.emoji));
   });
+  document.querySelectorAll("[data-react-surto]").forEach((button) => {
+    listen(button, "click", () => handleToggleSurtoReaction(button.dataset.reactSurto, button.dataset.emoji));
+  });
   document.querySelectorAll("[data-frase]").forEach((button) => {
     listen(button, "click", () => {
       const ta = document.querySelector("#commentBody");
@@ -7297,7 +7385,17 @@ function bindShell() {
     listen(chatInput, "input", () => { chatDraft = chatInput.value; });
   }
   listen(document.querySelector("[data-chat-spoiler]"), "click", () => { clubChatSpoilerOn = !clubChatSpoilerOn; render(); });
+  listen(document.querySelector("[data-cancel-chat-reply]"), "click", () => { chatReplyTo = null; render(); });
   document.querySelectorAll("[data-reveal-chat]").forEach((b) => listen(b, "click", () => { revealedChat.add(b.dataset.revealChat); render(); }));
+  document.querySelectorAll("[data-react-chat]").forEach((button) => {
+    listen(button, "click", () => handleToggleChatReaction(button.dataset.reactChat, button.dataset.emoji));
+  });
+  document.querySelectorAll("[data-reply-chat]").forEach((button) => {
+    listen(button, "click", () => handleReplyChat(button.dataset.replyChat));
+  });
+  document.querySelectorAll("[data-jump-chat]").forEach((button) => {
+    listen(button, "click", () => handleJumpChat(button.dataset.jumpChat));
+  });
   document.querySelectorAll("[data-del-chat]").forEach((button) => {
     listen(button, "click", () => handleDeleteClubChatMessage(button.dataset.delChat));
   });
@@ -7633,16 +7731,18 @@ async function loadClubSocial() {
   clubAddSearch = { query: "", loading: false, results: [] }; // limpa busca ao trocar de clube
   clubMuralFilter = null;
   chatDraft = "";
+  chatReplyTo = null;
   clubChatSpoilerOn = false;
   clubSocial = { ...clubSocial, for: state.club.id };
-  const empty = { for: state.club.id, activities: [], picks: [], ranking: [], shared: [], reactions: [], commonDramas: [], list: [], compat: [], featured: null, polls: [], events: [], points: [], challenges: [], chat: [], cycle: null, clubDramas: [], myPoints: [] };
+  const empty = emptyClubSocial(state.club.id);
   try {
-    const [activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle, clubDramasHist, myPointsLedger] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramasHist, myPointsLedger] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
       clubSharedSurtos(state.club.id),
       clubReactions(state.club.id),
+      clubSurtoReactions(state.club.id).catch(() => []),
       clubDramas(state.club.id),
       clubListFeed(state.club.id),
       clubCompatibility(state.club.id),
@@ -7652,11 +7752,12 @@ async function loadClubSocial() {
       clubPointsRanking(state.club.id).catch(() => []),
       clubChallengesFeed(state.club.id).catch(() => []),
       clubChatFeed(state.club.id).catch(() => []),
+      clubChatReactions(state.club.id).catch(() => []),
       clubCycle(state.club.id).catch(() => null),
       clubFeaturedHistory(state.club.id).catch(() => []),
       clubMyPointsLedger(state.club.id, authUser?.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger };
   } catch {
     clubSocial = empty;
   }
@@ -7712,6 +7813,9 @@ function bindChatNode(node) {
   if (!node) return;
   node.querySelectorAll("[data-del-chat]").forEach((b) => listen(b, "click", () => handleDeleteClubChatMessage(b.dataset.delChat)));
   node.querySelectorAll("[data-reveal-chat]").forEach((b) => listen(b, "click", () => { revealedChat.add(b.dataset.revealChat); render(); }));
+  node.querySelectorAll("[data-react-chat]").forEach((b) => listen(b, "click", () => handleToggleChatReaction(b.dataset.reactChat, b.dataset.emoji)));
+  node.querySelectorAll("[data-reply-chat]").forEach((b) => listen(b, "click", () => handleReplyChat(b.dataset.replyChat)));
+  node.querySelectorAll("[data-jump-chat]").forEach((b) => listen(b, "click", () => handleJumpChat(b.dataset.jumpChat)));
 }
 
 async function loadCoupleData() {
@@ -8637,29 +8741,40 @@ async function handleSetClubFeatured(dramaId, periodType) {
   }
 }
 
-async function handleClubFeaturedCheckin(episode, status) {
-  if (!clubSocial.featured?.id) return;
+async function handleClubFeaturedCheckin(episode, status, opts = {}) {
+  if (!clubSocial.featured?.id) return false;
   try {
     await saveClubDramaCheckin(clubSocial.featured.id, episode, status);
     clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id);
     clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
     clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
     render();
-    toast("Check-in salvo no clube.");
+    if (!opts.silent) toast("Check-in salvo no clube.");
+    return true;
   } catch {
     toast("Não consegui salvar seu check-in.");
+    return false;
   }
 }
 // "Terminei" (ou reabrir) — marca o check-in como finished mantendo o ep. atual.
 async function handleClubFinish(v) {
   const titulo = clubSocial.featured?.title || "o dorama do clube";
   const ep = Number(clubSocial.featured?.my_episode || 0);
-  await handleClubFeaturedCheckin(ep, v === "1" ? "finished" : "watching");
+  const saved = await handleClubFeaturedCheckin(ep, v === "1" ? "finished" : "watching", { silent: true });
+  if (!saved) return;
   if (v === "1") {
     await registrarAtividade(`🏁 ${state.profile?.name || "Alguém"} terminou ${titulo}`);
     clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
     render();
-    if (clubSocial.cycle?.phase === "voting") toast("Todos terminaram! Votação aberta 🗳️");
+    const membros = Math.max(1, Number(clubSocial.cycle?.members_count || clubMembers.length || 1));
+    const terminaram = Number(clubSocial.cycle?.finished_count || 0);
+    if (membros >= 2 && terminaram >= membros) {
+      toast("Todo mundo terminou! Agora o clube pode escolher o próximo dorama.");
+    } else {
+      toast(`Seu finalizado foi registrado. O clube só troca quando todo mundo terminar (${terminaram}/${membros}).`);
+    }
+  } else {
+    toast("Pronto, você voltou para assistindo.");
   }
 }
 async function handleClubOpenVoting() {
@@ -8673,7 +8788,13 @@ async function handleClubOpenVoting() {
 }
 async function handleClubCloseVoting() {
   if (!state.club) return;
-  const ok = await confirmar("Pular pro próximo dorama agora?", { sub: "O candidato mais votado vira o novo dorama do clube, mesmo que nem todos tenham terminado. Use quando o ciclo travar.", ok: "Pular pro próximo" });
+  const membros = Math.max(1, Number(clubSocial.cycle?.members_count || clubMembers.length || 1));
+  const terminaram = Number(clubSocial.cycle?.finished_count || 0);
+  if (membros < 2 || terminaram < membros) {
+    toast(`Ainda não dá pra trocar: ${terminaram}/${membros} terminaram.`);
+    return;
+  }
+  const ok = await confirmar("Escolher o próximo dorama agora?", { sub: "Como todo mundo marcou que terminou, o candidato mais votado vira o novo dorama do clube.", ok: "Escolher próximo" });
   if (!ok) return;
   try {
     await clubCloseVoting(state.club.id);

@@ -69,6 +69,16 @@ export async function updateClubDetails(clubId, payload) {
     p_club: clubId,
     p_description: payload.description || "",
     p_rules: payload.rules || "",
+    p_tags: payload.tags || [],
+  });
+  if (error) throw error;
+}
+
+export async function manageClubMember(clubId, userId, action) {
+  const { error } = await supabase.rpc("manage_club_member", {
+    p_club: clubId,
+    p_user: userId,
+    p_action: action,
   });
   if (error) throw error;
 }
@@ -1063,6 +1073,17 @@ export async function toggleReaction(commentId, emoji) {
   if (error) throw error;
 }
 
+export async function clubSurtoReactions(clubId) {
+  const { data, error } = await supabase.rpc("club_surto_reactions", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function toggleSurtoReaction(surtoId, emoji) {
+  const { error } = await supabase.rpc("toggle_surto_reaction", { p_surto: surtoId, p_emoji: emoji });
+  if (error) throw error;
+}
+
 // ---------- Doramas em comum ----------
 export async function clubDramas(clubId) {
   const { data, error } = await supabase.rpc("club_dramas", { p_club: clubId });
@@ -1260,6 +1281,7 @@ export async function createClubChatMessage(clubId, message) {
     p_body: message.body,
     p_has_spoiler: Boolean(message.hasSpoiler),
     p_episode_number: Number(message.episodeNumber) || 0,
+    p_reply_to: message.replyTo || null,
   });
   if (error) throw error;
   return data;
@@ -1267,6 +1289,17 @@ export async function createClubChatMessage(clubId, message) {
 
 export async function deleteClubChatMessage(messageId) {
   const { error } = await supabase.rpc("delete_club_chat_message", { p_message: messageId });
+  if (error) throw error;
+}
+
+export async function clubChatReactions(clubId) {
+  const { data, error } = await supabase.rpc("club_chat_reactions", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function toggleClubChatReaction(messageId, emoji) {
+  const { error } = await supabase.rpc("toggle_club_chat_reaction", { p_message: messageId, p_emoji: emoji });
   if (error) throw error;
 }
 
