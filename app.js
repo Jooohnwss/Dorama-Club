@@ -758,6 +758,7 @@ const casalCategorias = [
 let discover = { loaded: false, loading: false, error: "", semana: [], alta: [], top: [], novos: [] };
 // Dados da área de administradores (carregados sob demanda).
 let admin = { loaded: false, loading: false, error: "", overview: null, users: [], clubs: [], comments: [] };
+let adminUserSearch = "";
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -1421,6 +1422,44 @@ function discoverTemplate() {
   `;
 }
 
+function adminAvatar(nome, photo) {
+  const n = nome || "?";
+  if (photo) return `<span class="admin-av"><img src="${esc(photo)}" alt="" loading="lazy" /></span>`;
+  const ini = (String(n).trim().charAt(0) || "?").toUpperCase();
+  const cor = AVATAR_CORES[hashStr(n) % AVATAR_CORES.length];
+  return `<span class="admin-av" style="background:${cor}">${esc(ini)}</span>`;
+}
+
+function adminDataCurta(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" });
+}
+
+function adminPersonCard(u) {
+  const nome = u.name || "(sem nome)";
+  const generoIcon = u.gender === "masc" ? "👦" : u.gender === "fem" ? "👧" : u.gender ? "🧑" : "";
+  const chips = [
+    `<span class="chip solid">🎬 ${Number(u.dramas || 0)} doramas</span>`,
+    u.invited_by_name ? `<span class="chip">👋 veio de ${esc(u.invited_by_name)}</span>` : "",
+    u.invites ? `<span class="chip">🎟️ convidou ${Number(u.invites || 0)}</span>` : "",
+    u.created_at ? `<span class="chip">📅 ${adminDataCurta(u.created_at)}</span>` : "",
+  ].filter(Boolean).join("");
+  return `
+    <article class="admin-person">
+      <div class="admin-person-top">
+        ${adminAvatar(nome, u.photo)}
+        <div class="admin-person-id">
+          <strong>${esc(nome)} ${generoIcon}</strong>
+          ${u.nickname ? `<span class="admin-nick">“${esc(u.nickname)}”</span>` : ""}
+          <span class="admin-email">${esc(u.email || "")}</span>
+        </div>
+        <button class="admin-person-del" data-admin-del-user="${u.id}" data-admin-user-name="${esc(nome)}" title="Excluir">${icon("trash")}</button>
+      </div>
+      <div class="admin-person-chips">${chips}</div>
+    </article>`;
+}
+
 function adminTemplate() {
   if (admin.loading && !admin.loaded) return `<div class="section-title"><h2>Admin</h2></div><div class="empty">Carregando painel…</div>`;
   if (admin.error) return `<div class="section-title"><h2>Admin</h2></div><div class="empty">${esc(admin.error)}</div>`;
@@ -1449,22 +1488,12 @@ function adminTemplate() {
   ];
   const topUsers = [...users].sort((a, b) => Number(b.dramas || 0) - Number(a.dramas || 0)).slice(0, 5);
   const topClubs = [...clubs].sort((a, b) => Number(b.members || 0) - Number(a.members || 0)).slice(0, 5);
-  const userRows = users.map((u) => `
-    <article class="admin-row">
-      <div class="admin-main">
-        <strong>${esc(u.name || "(sem nome)")}</strong>
-        <span>${esc(u.email || "")}</span>
-      </div>
-      <div class="admin-meta">
-        ${u.nickname ? `<span class="chip">${esc(u.nickname)}</span>` : ""}
-        <span class="chip">${Number(u.dramas || 0)} doramas</span>
-        ${u.invited_by_name ? `<span class="chip">convite: ${esc(u.invited_by_name)}</span>` : ""}
-        ${u.invites ? `<span class="chip">${Number(u.invites || 0)} convites</span>` : ""}
-      </div>
-      <div class="admin-actions">
-        <button data-admin-del-user="${u.id}" data-admin-user-name="${esc(u.name || u.email || "")}">${icon("trash")} Excluir</button>
-      </div>
-    </article>`).join("");
+
+  const busca = adminUserSearch.trim().toLowerCase();
+  const usersFiltrados = busca
+    ? users.filter((u) => `${u.name || ""} ${u.nickname || ""} ${u.email || ""}`.toLowerCase().includes(busca))
+    : users;
+  const userCards = usersFiltrados.map((u) => adminPersonCard(u)).join("");
   const clubRows = clubs.map((c) => {
     const members = Number(c.members || 0);
     return `
@@ -1518,12 +1547,19 @@ function adminTemplate() {
       </div>
     </section>
 
-    <section class="admin-panel admin-table">
+    <section class="admin-panel admin-people">
       <div class="admin-panel-head">
         <h3>Pessoas cadastradas</h3>
-        <span>${users.length}</span>
+        <span>${busca ? `${usersFiltrados.length}/${users.length}` : users.length}</span>
       </div>
-      ${users.length ? userRows : `<div class="empty">Nenhuma pessoa cadastrada ainda.</div>`}
+      ${users.length ? `
+        <div class="admin-search">
+          <input type="search" placeholder="🔎 Buscar por nome, @apelido ou e-mail…" value="${esc(adminUserSearch)}" data-admin-user-search autocomplete="off" />
+        </div>
+        <div class="admin-people-grid">
+          ${usersFiltrados.length ? userCards : `<div class="empty">Ninguém bate com “${esc(adminUserSearch)}”.</div>`}
+        </div>
+      ` : `<div class="empty">Nenhuma pessoa cadastrada ainda.</div>`}
     </section>
 
     <section class="admin-panel admin-table">
@@ -7193,6 +7229,28 @@ function bindShell() {
   document.querySelectorAll("[data-admin-del-user]").forEach((button) => {
     listen(button, "click", () => handleAdminDeleteUser(button.dataset.adminDelUser, button.dataset.adminUserName));
   });
+
+  const adminBusca = document.querySelector("[data-admin-user-search]");
+  if (adminBusca) {
+    listen(adminBusca, "input", (event) => {
+      adminUserSearch = event.target.value;
+      const grid = document.querySelector(".admin-people-grid");
+      const conta = document.querySelector(".admin-people .admin-panel-head > span");
+      if (!grid) { render(); return; }
+      const busca = adminUserSearch.trim().toLowerCase();
+      const todos = admin.users || [];
+      const filtrados = busca
+        ? todos.filter((u) => `${u.name || ""} ${u.nickname || ""} ${u.email || ""}`.toLowerCase().includes(busca))
+        : todos;
+      if (conta) conta.textContent = busca ? `${filtrados.length}/${todos.length}` : String(todos.length);
+      grid.innerHTML = filtrados.length
+        ? filtrados.map((u) => adminPersonCard(u)).join("")
+        : `<div class="empty">Ninguém bate com “${esc(adminUserSearch)}”.</div>`;
+      grid.querySelectorAll("[data-admin-del-user]").forEach((button) => {
+        listen(button, "click", () => handleAdminDeleteUser(button.dataset.adminDelUser, button.dataset.adminUserName));
+      });
+    });
+  }
 
   document.querySelectorAll("[data-admin-del-club]").forEach((button) => {
     listen(button, "click", () => handleAdminDeleteClub(button.dataset.adminDelClub, button.dataset.adminClubName));
