@@ -89,8 +89,6 @@ import {
   adminOverview,
   adminUsers,
   adminClubs,
-  adminComments,
-  adminDeleteComment,
   adminDeleteUser,
   adminDeleteClub,
   createCouple,
@@ -1428,41 +1426,112 @@ function adminTemplate() {
   if (admin.error) return `<div class="section-title"><h2>Admin</h2></div><div class="empty">${esc(admin.error)}</div>`;
 
   const o = admin.overview || {};
+  const users = admin.users || [];
+  const clubs = admin.clubs || [];
+  const totalDramas = Number(o.dramas ?? users.reduce((sum, u) => sum + Number(u.dramas || 0), 0));
+  const totalUsers = Number(o.users ?? users.length);
+  const totalClubs = Number(o.clubs ?? clubs.length);
+  const ghostClubs = clubs.filter((c) => !Number(c.members || 0));
+  const activeClubs = Math.max(0, totalClubs - ghostClubs.length);
+  const invitedUsers = users.filter((u) => u.invited_by_name).length;
+  const totalInvites = users.reduce((sum, u) => sum + Number(u.invites || 0), 0);
+  const avgDramas = totalUsers ? (totalDramas / totalUsers).toFixed(1).replace(".0", "") : "0";
   const overviewStats = [
-    ["Usuárias", o.users ?? 0],
-    ["Doramas", o.dramas ?? 0],
-    ["Clubes", o.clubs ?? 0],
-    ["Comentários", o.comments ?? 0],
+    ["Pessoas", totalUsers],
+    ["Doramas salvos", totalDramas],
+    ["Clubes ativos", activeClubs],
+    ["Clubes vazios", ghostClubs.length],
   ];
+  const healthStats = [
+    ["Média por pessoa", avgDramas],
+    ["Entraram por convite", invitedUsers],
+    ["Convites enviados", totalInvites],
+  ];
+  const topUsers = [...users].sort((a, b) => Number(b.dramas || 0) - Number(a.dramas || 0)).slice(0, 5);
+  const topClubs = [...clubs].sort((a, b) => Number(b.members || 0) - Number(a.members || 0)).slice(0, 5);
+  const userRows = users.map((u) => `
+    <article class="admin-row">
+      <div class="admin-main">
+        <strong>${esc(u.name || "(sem nome)")}</strong>
+        <span>${esc(u.email || "")}</span>
+      </div>
+      <div class="admin-meta">
+        ${u.nickname ? `<span class="chip">${esc(u.nickname)}</span>` : ""}
+        <span class="chip">${Number(u.dramas || 0)} doramas</span>
+        ${u.invited_by_name ? `<span class="chip">convite: ${esc(u.invited_by_name)}</span>` : ""}
+        ${u.invites ? `<span class="chip">${Number(u.invites || 0)} convites</span>` : ""}
+      </div>
+      <div class="admin-actions">
+        <button data-admin-del-user="${u.id}" data-admin-user-name="${esc(u.name || u.email || "")}">${icon("trash")} Excluir</button>
+      </div>
+    </article>`).join("");
+  const clubRows = clubs.map((c) => {
+    const members = Number(c.members || 0);
+    return `
+    <article class="admin-row">
+      <div class="admin-main">
+        <strong>${esc(c.name)}</strong>
+        <span>Código ${esc(c.code || "")}</span>
+      </div>
+      <div class="admin-meta">
+        <span class="chip">${members} ${members === 1 ? "membro" : "membros"}</span>
+        ${!members ? `<span class="chip danger">vazio</span>` : ""}
+      </div>
+      <div class="admin-actions">
+        ${!members ? `<button data-admin-del-club="${c.id}" data-admin-club-name="${esc(c.name || "")}">${icon("trash")} Excluir</button>` : `<span class="muted">Sem ação necessária</span>`}
+      </div>
+    </article>`;
+  }).join("");
 
   return `
-    <div class="section-title">
-      <h2>Administradores</h2>
+    <div class="admin-head">
+      <div>
+        <span>Painel operacional</span>
+        <h2>Admin</h2>
+        <p>Gestão de contas, clubes e saúde geral da base.</p>
+      </div>
       <button class="btn ghost" data-admin-refresh>Atualizar</button>
     </div>
-    <section class="grid stats">
-      ${overviewStats.map(([label, value]) => `<div class="stat"><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
+
+    <section class="admin-stats">
+      ${overviewStats.map(([label, value]) => `<div class="admin-stat"><span>${label}</span><strong>${value}</strong></div>`).join("")}
     </section>
 
-    <div class="section-title"><h2>Usuárias (${admin.users.length})</h2></div>
-    <section class="grid cards">
-      ${admin.users.length
-        ? admin.users.map((u) => `<div class="card"><strong>${esc(u.name || "(sem nome)")}</strong><p class="muted">${esc(u.email || "")}</p><div class="chips">${u.nickname ? `<span class="chip">${esc(u.nickname)}</span>` : ""}<span class="chip">${u.dramas || 0} doramas</span>${u.invited_by_name ? `<span class="chip">👋 por ${esc(u.invited_by_name)}</span>` : ""}${u.invites ? `<span class="chip">convidou ${u.invites}</span>` : ""}</div><div class="mini-actions"><button data-admin-del-user="${u.id}" data-admin-user-name="${esc(u.name || u.email || "")}">${icon("trash")} Excluir</button></div></div>`).join("")
-        : `<div class="empty">Nenhuma usuária ainda.</div>`}
+    <section class="admin-grid">
+      <div class="admin-panel">
+        <div class="admin-panel-head"><h3>Indicadores</h3></div>
+        <div class="admin-kpis">
+          ${healthStats.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("")}
+        </div>
+      </div>
+      <div class="admin-panel">
+        <div class="admin-panel-head"><h3>Mais engajados</h3></div>
+        <div class="admin-rank">
+          ${topUsers.length ? topUsers.map((u, i) => `<div><b>${i + 1}</b><span>${esc(u.name || u.email || "(sem nome)")}</span><strong>${Number(u.dramas || 0)}</strong></div>`).join("") : `<p class="muted">Sem pessoas cadastradas ainda.</p>`}
+        </div>
+      </div>
+      <div class="admin-panel">
+        <div class="admin-panel-head"><h3>Clubes maiores</h3></div>
+        <div class="admin-rank">
+          ${topClubs.length ? topClubs.map((c, i) => `<div><b>${i + 1}</b><span>${esc(c.name || "(sem nome)")}</span><strong>${Number(c.members || 0)}</strong></div>`).join("") : `<p class="muted">Sem clubes cadastrados ainda.</p>`}
+        </div>
+      </div>
     </section>
 
-    <div class="section-title"><h2>Clubes (${admin.clubs.length})</h2></div>
-    <section class="grid cards">
-      ${admin.clubs.length
-        ? admin.clubs.map((c) => `<div class="card"><strong>${esc(c.name)}</strong><p class="muted">${esc(c.code)}</p><div class="chips"><span class="chip">${c.members || 0} membros</span>${!c.members ? `<span class="chip">👻 fantasma</span>` : ""}</div>${!c.members ? `<div class="mini-actions"><button data-admin-del-club="${c.id}" data-admin-club-name="${esc(c.name || "")}">${icon("trash")} Excluir fantasma</button></div>` : ""}</div>`).join("")
-        : `<div class="empty">Nenhum clube criado ainda.</div>`}
+    <section class="admin-panel admin-table">
+      <div class="admin-panel-head">
+        <h3>Pessoas cadastradas</h3>
+        <span>${users.length}</span>
+      </div>
+      ${users.length ? userRows : `<div class="empty">Nenhuma pessoa cadastrada ainda.</div>`}
     </section>
 
-    <div class="section-title"><h2>Comentários (${admin.comments.length})</h2></div>
-    <section class="grid">
-      ${admin.comments.length
-        ? admin.comments.map((c) => `<div class="card"><strong>${esc(c.author || "")}</strong><p class="muted">${esc(c.club || "")}${c.spoiler_episode ? ` · spoiler ep. ${c.spoiler_episode}` : ""}</p><p>${esc(c.body)}</p><div class="mini-actions"><button data-admin-del-comment="${c.id}">Apagar</button></div></div>`).join("")
-        : `<div class="empty">Nenhum comentário ainda.</div>`}
+    <section class="admin-panel admin-table">
+      <div class="admin-panel-head">
+        <h3>Clubes</h3>
+        <span>${clubs.length}</span>
+      </div>
+      ${clubs.length ? clubRows : `<div class="empty">Nenhum clube criado ainda.</div>`}
     </section>
   `;
 }
@@ -7121,10 +7190,6 @@ function bindShell() {
     listen(button, "click", () => pickResult(Number(button.dataset.pick)));
   });
 
-  document.querySelectorAll("[data-admin-del-comment]").forEach((button) => {
-    listen(button, "click", () => handleAdminDeleteComment(button.dataset.adminDelComment));
-  });
-
   document.querySelectorAll("[data-admin-del-user]").forEach((button) => {
     listen(button, "click", () => handleAdminDeleteUser(button.dataset.adminDelUser, button.dataset.adminUserName));
   });
@@ -9291,13 +9356,12 @@ async function loadAdmin(force = false) {
   admin = { ...admin, loading: true, error: "" };
   render();
   try {
-    const [overview, users, clubs, comments] = await Promise.all([
+    const [overview, users, clubs] = await Promise.all([
       adminOverview(),
       adminUsers(),
       adminClubs(),
-      adminComments(),
     ]);
-    admin = { loaded: true, loading: false, error: "", overview, users, clubs, comments };
+    admin = { loaded: true, loading: false, error: "", overview, users, clubs, comments: [] };
   } catch (error) {
     // loaded:true mesmo no erro, pra NÃO re-disparar em loop (era a causa do crash).
     admin = { ...admin, loaded: true, loading: false, error: error?.message || "Não consegui carregar o painel. Toque em Atualizar." };
@@ -9305,27 +9369,16 @@ async function loadAdmin(force = false) {
   render();
 }
 
-async function handleAdminDeleteComment(id) {
-  try {
-    await adminDeleteComment(id);
-    admin.comments = admin.comments.filter((comment) => comment.id !== id);
-    toast("Comentário apagado.");
-    render();
-  } catch {
-    toast("Não consegui apagar o comentário.");
-  }
-}
-
 async function handleAdminDeleteUser(id, nome) {
-  if (!(await confirmar(`Excluir “${nome}”?`, { sub: "Apaga a conta e TODOS os dados dela. Não tem volta.", ok: "Excluir", danger: true }))) return;
+  if (!(await confirmar(`Excluir “${nome}”?`, { sub: "Apaga a conta e TODOS os dados dessa pessoa. Não tem volta.", ok: "Excluir", danger: true }))) return;
   try {
     await adminDeleteUser(id);
     admin.users = admin.users.filter((u) => u.id !== id);
     if (admin.overview) admin.overview.users = Math.max(0, (admin.overview.users || 1) - 1);
-    toast("Usuária excluída.");
+    toast("Pessoa excluída.");
     render();
   } catch (error) {
-    toast(error?.message || "Não consegui excluir essa usuária.");
+    toast(error?.message || "Não consegui excluir essa pessoa.");
   }
 }
 

@@ -695,6 +695,210 @@ button.card:hover {
   gap: 9px;
 }
 
+/* ---------- Admin ---------- */
+.admin-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0 18px;
+}
+
+.admin-head span {
+  color: var(--cor-texto-suave);
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.admin-head h2 {
+  font-size: 1.9rem;
+  margin: 4px 0;
+}
+
+.admin-head p {
+  color: var(--cor-texto-suave);
+  font-weight: 700;
+  margin: 0;
+}
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.admin-stat,
+.admin-panel {
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-superficie) 92%, transparent);
+  border-radius: var(--raio-sm);
+}
+
+.admin-stat {
+  min-height: 92px;
+  padding: 14px;
+}
+
+.admin-stat span,
+.admin-kpis span {
+  color: var(--cor-texto-suave);
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.admin-stat strong {
+  display: block;
+  font-size: 1.85rem;
+  margin-top: 8px;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.admin-panel {
+  overflow: hidden;
+}
+
+.admin-panel-head {
+  align-items: center;
+  border-bottom: 1px solid var(--cor-borda);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 12px 14px;
+}
+
+.admin-panel-head h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.admin-panel-head > span {
+  color: var(--cor-texto-suave);
+  font-weight: 850;
+}
+
+.admin-kpis,
+.admin-rank {
+  display: grid;
+  gap: 0;
+  padding: 6px 14px 12px;
+}
+
+.admin-kpis > div,
+.admin-rank > div {
+  align-items: center;
+  border-bottom: 1px solid color-mix(in srgb, var(--cor-borda) 70%, transparent);
+  display: grid;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 0;
+}
+
+.admin-kpis > div:last-child,
+.admin-rank > div:last-child {
+  border-bottom: 0;
+}
+
+.admin-kpis strong {
+  font-size: 1.25rem;
+}
+
+.admin-rank > div {
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+}
+
+.admin-rank b {
+  color: var(--cor-texto-suave);
+}
+
+.admin-rank span,
+.admin-main,
+.admin-main span {
+  min-width: 0;
+}
+
+.admin-rank span,
+.admin-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-table {
+  margin-top: 14px;
+}
+
+.admin-row {
+  align-items: center;
+  border-bottom: 1px solid var(--cor-borda);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1.5fr) minmax(140px, auto);
+  padding: 12px 14px;
+}
+
+.admin-row:last-child {
+  border-bottom: 0;
+}
+
+.admin-main {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-main strong {
+  font-size: 0.98rem;
+}
+
+.admin-main span {
+  color: var(--cor-texto-suave);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.admin-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-meta .chip.danger {
+  background: color-mix(in srgb, #e0566b 14%, transparent);
+  color: #c94357;
+}
+
+.admin-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-actions button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--cor-borda);
+  color: #c94357;
+  display: inline-flex;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.admin-actions button:hover {
+  background: color-mix(in srgb, #e0566b 12%, transparent);
+  border-color: color-mix(in srgb, #e0566b 40%, var(--cor-borda));
+}
+
 /* ---------- Formulários ---------- */
 .form-card {
   max-width: 760px;
@@ -1853,8 +2057,7 @@ textarea:focus {
   color: var(--cor-primaria);
 }
 
-.mini-actions button[data-admin-del-user]:hover,
-.mini-actions button[data-admin-del-comment]:hover {
+.mini-actions button[data-admin-del-user]:hover {
   border-color: #e0566b;
   color: #e0566b;
 }
@@ -4665,6 +4868,25 @@ textarea:focus {
 
 /* ---------- Mobile ---------- */
 @media (max-width: 860px) {
+  .admin-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-stats,
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-row {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-actions {
+    justify-content: flex-start;
+  }
+
   .club-hero {
     grid-template-columns: 1fr;
   }
