@@ -702,19 +702,30 @@ button.card:hover {
   justify-content: space-between;
   gap: 16px;
   margin: 6px 0 18px;
+  padding: 18px 20px;
+  border-radius: var(--raio);
+  background:
+    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--cor-secundaria) 20%, transparent), transparent 60%),
+    linear-gradient(135deg, color-mix(in srgb, var(--cor-primaria) 16%, var(--cor-superficie)), var(--cor-superficie));
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 22%, var(--cor-borda));
+  box-shadow: 0 12px 28px -20px var(--cor-sombra);
 }
 
 .admin-head span {
-  color: var(--cor-texto-suave);
-  display: block;
-  font-size: 0.78rem;
+  color: var(--cor-primaria);
+  display: inline-block;
+  font-size: 0.72rem;
   font-weight: 850;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cor-primaria) 14%, transparent);
 }
 
 .admin-head h2 {
-  font-size: 1.9rem;
-  margin: 4px 0;
+  font-size: 1.95rem;
+  margin: 8px 0 2px;
 }
 
 .admin-head p {
@@ -726,35 +737,49 @@ button.card:hover {
 .admin-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 14px;
 }
 
-.admin-stat,
 .admin-panel {
   border: 1px solid var(--cor-borda);
-  background: color-mix(in srgb, var(--cor-superficie) 92%, transparent);
-  border-radius: var(--raio-sm);
+  background: var(--cor-superficie);
+  border-radius: var(--raio);
+  box-shadow: 0 10px 26px -22px var(--cor-sombra);
+  overflow: hidden;
 }
 
 .admin-stat {
-  min-height: 92px;
-  padding: 14px;
+  min-height: 96px;
+  padding: 16px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: linear-gradient(160deg, var(--cor-superficie), var(--cor-superficie-2));
+  box-shadow: 0 10px 26px -22px var(--cor-sombra);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px -20px var(--cor-sombra);
 }
 
 .admin-stat span,
 .admin-kpis span {
   color: var(--cor-texto-suave);
   display: block;
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 850;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
 .admin-stat strong {
   display: block;
-  font-size: 1.85rem;
+  font-size: 2rem;
   margin-top: 8px;
+  line-height: 1;
+  color: var(--cor-primaria);
 }
 
 .admin-grid {
@@ -764,18 +789,15 @@ button.card:hover {
   margin-bottom: 14px;
 }
 
-.admin-panel {
-  overflow: hidden;
-}
-
 .admin-panel-head {
   align-items: center;
   border-bottom: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-primaria) 6%, var(--cor-superficie));
   display: flex;
   gap: 10px;
   justify-content: space-between;
-  min-height: 48px;
-  padding: 12px 14px;
+  min-height: 50px;
+  padding: 12px 16px;
 }
 
 .admin-panel-head h3 {
@@ -784,25 +806,29 @@ button.card:hover {
 }
 
 .admin-panel-head > span {
-  color: var(--cor-texto-suave);
+  color: var(--cor-primaria);
   font-weight: 850;
+  font-size: 0.85rem;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cor-primaria) 12%, transparent);
 }
 
 .admin-kpis,
 .admin-rank {
   display: grid;
   gap: 0;
-  padding: 6px 14px 12px;
+  padding: 4px 16px 10px;
 }
 
 .admin-kpis > div,
 .admin-rank > div {
   align-items: center;
-  border-bottom: 1px solid color-mix(in srgb, var(--cor-borda) 70%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--cor-borda) 65%, transparent);
   display: grid;
   gap: 10px;
-  min-height: 42px;
-  padding: 8px 0;
+  min-height: 44px;
+  padding: 9px 0;
 }
 
 .admin-kpis > div:last-child,
@@ -810,16 +836,34 @@ button.card:hover {
   border-bottom: 0;
 }
 
+.admin-kpis > div {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .admin-kpis strong {
-  font-size: 1.25rem;
+  font-size: 1.3rem;
+  color: var(--cor-primaria);
 }
 
 .admin-rank > div {
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
 }
 
 .admin-rank b {
-  color: var(--cor-texto-suave);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 850;
+  color: var(--cor-primaria-texto);
+  background: linear-gradient(135deg, var(--cor-primaria), var(--cor-secundaria));
+}
+
+.admin-rank strong {
+  color: var(--cor-primaria);
+  font-size: 1.05rem;
 }
 
 .admin-rank span,
@@ -841,11 +885,16 @@ button.card:hover {
 
 .admin-row {
   align-items: center;
-  border-bottom: 1px solid var(--cor-borda);
+  border-bottom: 1px solid color-mix(in srgb, var(--cor-borda) 70%, transparent);
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1.5fr) minmax(140px, auto);
-  padding: 12px 14px;
+  padding: 13px 16px;
+  transition: background 0.12s ease;
+}
+
+.admin-row:hover {
+  background: color-mix(in srgb, var(--cor-primaria) 5%, transparent);
 }
 
 .admin-row:last-child {
@@ -882,21 +931,60 @@ button.card:hover {
 .admin-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+}
+
+.admin-actions .muted {
+  font-size: 0.8rem;
 }
 
 .admin-actions button {
   align-items: center;
   background: transparent;
-  border: 1px solid var(--cor-borda);
+  border: 1px solid color-mix(in srgb, #e0566b 30%, var(--cor-borda));
+  border-radius: 999px;
   color: #c94357;
   display: inline-flex;
   gap: 6px;
-  padding: 8px 10px;
+  font-weight: 800;
+  padding: 8px 14px;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .admin-actions button:hover {
   background: color-mix(in srgb, #e0566b 12%, transparent);
-  border-color: color-mix(in srgb, #e0566b 40%, var(--cor-borda));
+  border-color: color-mix(in srgb, #e0566b 45%, var(--cor-borda));
+}
+
+@media (max-width: 720px) {
+  .admin-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .admin-head h2 {
+    font-size: 1.6rem;
+  }
+  .admin-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-stat {
+    min-height: 84px;
+    padding: 14px;
+  }
+  .admin-stat strong {
+    font-size: 1.7rem;
+  }
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .admin-actions {
+    justify-content: flex-start;
+  }
 }
 
 /* ---------- Formulários ---------- */
