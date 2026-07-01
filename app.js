@@ -2613,11 +2613,11 @@ function clubeCicloTemplate() {
         </div>
 
         <div class="checkin-ep">
-          <label for="club-ep-input">Em que episódio você está?</label>
+          <label for="club-ep-input">Até que episódio você já assistiu?</label>
           <form id="club-checkin-form" class="checkin-ep-row">
             <input id="club-ep-input" name="episode" type="number" min="0" inputmode="numeric" value="${Number(featured.my_episode || 0)}" />
             <input type="hidden" name="status" value="${euTerminei ? "finished" : "watching"}" />
-            <button class="btn secondary" type="submit">Salvar</button>
+            <button class="btn secondary" type="submit">✓ Assisti até aqui</button>
           </form>
         </div>
 
@@ -8766,6 +8766,14 @@ async function handleClubFeaturedCheckin(episode, status, opts = {}) {
 // "Terminei" (ou reabrir) — marca o check-in como finished mantendo o ep. atual.
 async function handleClubFinish(v) {
   const titulo = clubSocial.featured?.title || "o dorama do clube";
+  if (v === "1") {
+    const ok = await confirmar(`Você terminou ${titulo} inteiro?`, {
+      sub: "Isso marca que VOCÊ assistiu até o fim. O clube só troca de dorama quando TODOS terminarem — então só marque se realmente acabou. 🏁",
+      ok: "Sim, terminei 🏁",
+      cancel: "Ainda não",
+    });
+    if (!ok) return;
+  }
   const ep = Number(clubSocial.featured?.my_episode || 0);
   const saved = await handleClubFeaturedCheckin(ep, v === "1" ? "finished" : "watching", { silent: true });
   if (!saved) return;
