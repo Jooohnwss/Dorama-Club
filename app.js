@@ -9214,11 +9214,36 @@ async function handleCoupleDiary(event) {
   }
 }
 
+// Carrega a foto; se o navegador não decodificar (ex.: HEIC), tenta converter pra JPEG.
+async function carregarFoto(file) {
+  try {
+    return await resizeImage(file, 720);
+  } catch (e) {
+    try {
+      const mod = await import("https://esm.sh/heic2any@0.0.4");
+      const heic2any = mod.default || mod;
+      const jpg = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.82 });
+      return await resizeImage(Array.isArray(jpg) ? jpg[0] : jpg, 720);
+    } catch {
+      throw e;
+    }
+  }
+}
+
+function fotoErroMsg(f) {
+  const t = (f?.type || "").toLowerCase();
+  const nome = (f?.name || "").toLowerCase();
+  if (t.includes("heic") || t.includes("heif") || /\.hei[cf]$/.test(nome)) {
+    return "Essa foto é HEIC (modo alta eficiência). Na câmera, mude o formato pra JPG — ou mande um print da foto.";
+  }
+  return `Não consegui abrir essa foto${t ? ` (${t})` : ""}. Tenta uma em JPG ou PNG.`;
+}
+
 // Anexar foto ao diário / cartinha (data URL, sem re-render pra não perder o texto digitado).
 async function handleDiaryFoto(input) {
   const f = input.files?.[0];
   if (!f) return;
-  try { coupleDiaryFoto = await resizeImage(f, 720); } catch (e) { console.error("foto diário:", e); toast(e?.message ? `Foto: ${e.message}` : "Não consegui carregar a foto."); return; }
+  try { coupleDiaryFoto = await carregarFoto(f); } catch (e) { console.error("foto diário:", f?.type, f?.size, e); toast(fotoErroMsg(f)); return; }
   const wrap = document.querySelector("#diary-foto-wrap");
   if (wrap) {
     wrap.innerHTML = `<div class="foto-preview"><img src="${coupleDiaryFoto}" alt="" /><button type="button" class="foto-remove">✕ tirar foto</button></div>`;
@@ -9229,7 +9254,7 @@ async function handleDiaryFoto(input) {
 async function handleLetterFoto(input) {
   const f = input.files?.[0];
   if (!f) return;
-  try { coupleLetterFoto = await resizeImage(f, 720); } catch (e) { console.error("foto cartinha:", e); toast(e?.message ? `Foto: ${e.message}` : "Não consegui carregar a foto."); return; }
+  try { coupleLetterFoto = await carregarFoto(f); } catch (e) { console.error("foto cartinha:", f?.type, f?.size, e); toast(fotoErroMsg(f)); return; }
   const wrap = document.querySelector("#letter-foto-wrap");
   if (wrap) {
     wrap.innerHTML = `<div class="foto-preview"><img src="${coupleLetterFoto}" alt="" /><button type="button" class="foto-remove">✕ tirar foto</button></div>`;
