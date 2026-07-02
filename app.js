@@ -192,25 +192,35 @@ function avatarUrl(profile) {
 
 // Lê uma imagem do aparelho e devolve um data URL JPEG redimensionado (leve).
 function resizeImage(file, max = 256) {
+  const desenhar = (bitmapOrImg, w0, h0, revoke) => {
+    const scale = Math.min(1, max / Math.max(w0, h0));
+    const w = Math.max(1, Math.round(w0 * scale));
+    const h = Math.max(1, Math.round(h0 * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(bitmapOrImg, 0, 0, w, h);
+    if (revoke) URL.revokeObjectURL(revoke);
+    return canvas.toDataURL("image/jpeg", 0.82);
+  };
+  // Caminho 1 (mais robusto p/ fotos grandes): createImageBitmap.
+  if (typeof createImageBitmap === "function") {
+    return createImageBitmap(file)
+      .then((bmp) => desenhar(bmp, bmp.width, bmp.height))
+      .catch(() => resizeImageFallback(file, max, desenhar));
+  }
+  return resizeImageFallback(file, max, desenhar);
+}
+function resizeImageFallback(file, max, desenhar) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", 0.82));
-      };
-      img.onerror = reject;
-      img.src = reader.result;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try { resolve(desenhar(img, img.width, img.height, url)); }
+      catch (e) { URL.revokeObjectURL(url); reject(e); }
     };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("não deu pra decodificar a imagem (formato?)")); };
+    img.src = url;
   });
 }
 
@@ -9208,7 +9218,7 @@ async function handleCoupleDiary(event) {
 async function handleDiaryFoto(input) {
   const f = input.files?.[0];
   if (!f) return;
-  try { coupleDiaryFoto = await resizeImage(f, 720); } catch { toast("Não consegui carregar a foto."); return; }
+  try { coupleDiaryFoto = await resizeImage(f, 720); } catch (e) { console.error("foto diário:", e); toast(e?.message ? `Foto: ${e.message}` : "Não consegui carregar a foto."); return; }
   const wrap = document.querySelector("#diary-foto-wrap");
   if (wrap) {
     wrap.innerHTML = `<div class="foto-preview"><img src="${coupleDiaryFoto}" alt="" /><button type="button" class="foto-remove">✕ tirar foto</button></div>`;
@@ -9219,7 +9229,7 @@ async function handleDiaryFoto(input) {
 async function handleLetterFoto(input) {
   const f = input.files?.[0];
   if (!f) return;
-  try { coupleLetterFoto = await resizeImage(f, 720); } catch { toast("Não consegui carregar a foto."); return; }
+  try { coupleLetterFoto = await resizeImage(f, 720); } catch (e) { console.error("foto cartinha:", e); toast(e?.message ? `Foto: ${e.message}` : "Não consegui carregar a foto."); return; }
   const wrap = document.querySelector("#letter-foto-wrap");
   if (wrap) {
     wrap.innerHTML = `<div class="foto-preview"><img src="${coupleLetterFoto}" alt="" /><button type="button" class="foto-remove">✕ tirar foto</button></div>`;
