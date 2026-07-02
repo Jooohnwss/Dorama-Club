@@ -2860,6 +2860,12 @@ textarea:focus {
 .recado-del:hover { opacity: 1; color: #e0566b; }
 .recado-del .ico { width: 15px; height: 15px; }
 .recado-body { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+.recados-more {
+  width: 100%; margin-top: 10px; padding: 9px; border-radius: 12px;
+  background: transparent; border: 1px dashed color-mix(in srgb, var(--cor-primaria) 35%, var(--cor-borda));
+  color: var(--cor-primaria); font-weight: 800; font-size: 0.82rem; cursor: pointer;
+}
+.recados-more:hover { background: color-mix(in srgb, var(--cor-primaria) 8%, transparent); }
 
 /* Nível do casal (chip na saudação) */
 .couple-level {

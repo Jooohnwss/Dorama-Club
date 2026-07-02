@@ -610,6 +610,7 @@ let coupleSection = state.coupleSection || "inicio"; // seção interna do ambie
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let coupleDiaryKind = "episodio"; // tipo de página do diário sendo criada
 let recadoIndex = Math.floor(Math.random() * 1000); // qual recadinho mostrar no topo
+let recadosExpandidos = false; // mostrar todos os recadinhos ou só os recentes
 let coupleAddSearch = { query: "", loading: false, results: [] }; // busca TMDB no add do casal
 let clubAddSearch = { query: "", loading: false, results: [] }; // busca TMDB na sala de escolha do clube
 let coupleAddCatSel = "watching"; // categoria escolhida no add do casal (persiste no re-render)
@@ -4321,7 +4322,10 @@ function coupleRecadoTemplate() {
       </section>`;
   }
   const eu = authUser?.id;
-  const cards = letters.map((l) => {
+  const LIMITE = 4;
+  const mostrar = recadosExpandidos ? letters : letters.slice(0, LIMITE);
+  const escondidos = letters.length - mostrar.length;
+  const cards = mostrar.map((l) => {
     const autor = coupleMembers.find((m) => m.user_id === l.author_id);
     const mine = l.author_id && l.author_id === eu;
     const nome = autor?.nickname || autor?.name || (mine ? "Você" : "Alguém do casal");
@@ -4336,10 +4340,14 @@ function coupleRecadoTemplate() {
         <p class="recado-body">${esc(l.body)}</p>
       </article>`;
   }).join("");
+  const verMais = letters.length > LIMITE
+    ? `<button class="recados-more" type="button" data-recados-toggle>${recadosExpandidos ? "Ver menos ▲" : `Ver todos os ${letters.length} recadinhos ▾`}</button>`
+    : "";
   return `
     <section class="recados">
       <div class="recados-head"><span class="couple-pinned-tag">💌 Nossos recadinhos</span><button class="recado-mini" type="button" data-couple-recado>✏️ Novo</button></div>
       <div class="recados-list">${cards}</div>
+      ${verMais}
     </section>`;
 }
 
@@ -7714,6 +7722,7 @@ function bindShell() {
   });
   listen(document.querySelector("[data-couple-name]"), "click", handleCoupleSetName);
   listen(document.querySelector("[data-couple-recado]"), "click", handleCoupleRecado);
+  listen(document.querySelector("[data-recados-toggle]"), "click", () => { recadosExpandidos = !recadosExpandidos; render(); });
   listen(document.querySelector("[data-recado-shuffle]"), "click", handleRecadoShuffle);
   document.querySelectorAll("[data-del-couple-drama]").forEach((button) => {
     listen(button, "click", () => handleDeleteCoupleDrama(button.dataset.delCoupleDrama));
