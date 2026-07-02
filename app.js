@@ -4281,64 +4281,77 @@ function diarioExemplo() {
   return nome ? `eu e ${nome} assistimos um dorama, foi muito legal` : "hoje a gente assistiu um dorama, foi muito legal";
 }
 
-// Folheia o caderno (delta +1 = dia mais antigo, -1 = mais novo).
+// Soma dias a uma data YYYY-MM-DD (respeitando fuso local).
+function addDias(iso, n) {
+  const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+
+// Folheia o caderno de dia em dia (delta -1 = dia anterior, +1 = próximo, sem passar de hoje).
 function diarioNavega(delta) {
-  const dias = diarioDias();
-  const atual = coupleDiaryDay && dias.includes(coupleDiaryDay) ? coupleDiaryDay : dias[0];
-  const i = dias.indexOf(atual);
-  const ni = Math.min(dias.length - 1, Math.max(0, i + delta));
-  coupleDiaryDay = dias[ni];
+  const hoje = new Date().toISOString().slice(0, 10);
+  const atual = coupleDiaryDay || hoje;
+  let novo = addDias(atual, delta);
+  if (novo > hoje) novo = hoje;
+  coupleDiaryDay = novo;
   render();
+}
+
+// Uma folha do caderno (página de um dia).
+function cadernoPaginaHtml(diaK, porDia, opts = {}) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const entradas = (porDia[diaK] || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const ehHoje = diaK === hoje;
+  const titulo = dataDiarioLonga(diaK) || diaK;
+  const corpo = entradas.length
+    ? entradas.map(coupleDiaryEntryCard).join("")
+    : `<p class="caderno-vazio">${opts.write ? "Escreve como foi esse dia… 💕" : "página em branco"}</p>`;
+  const form = opts.write
+    ? `<form id="couple-diary-form" class="caderno-escrever">
+        <input type="hidden" name="kind" value="livre" />
+        <input type="hidden" name="watchedOn" value="${esc(diaK)}" />
+        <textarea name="comment" rows="3" placeholder="Ex.: ${esc(diarioExemplo())} 💕"></textarea>
+        <div class="actions"><button class="btn" type="submit">✍️ Escrever aqui</button></div>
+      </form>`
+    : "";
+  return `
+    <div class="caderno-page ${opts.side || ""}">
+      <div class="caderno-page-data">${esc(titulo)}${ehHoje ? " · hoje" : ""}</div>
+      <div class="caderno-folha">${corpo}</div>
+      ${form}
+    </div>`;
 }
 
 function coupleDiaryTemplate() {
   const hoje = new Date().toISOString().slice(0, 10);
-
-  // Agrupa por dia (uma página por dia).
   const porDia = {};
   (coupleDiary || []).forEach((e) => { (porDia[diaKey(e)] ||= []).push(e); });
-  // Páginas = dias com registro + hoje + o dia escolhido, do mais novo pro mais antigo.
-  const dias = Array.from(new Set([hoje, coupleDiaryDay, ...Object.keys(porDia)])).filter(Boolean).sort().reverse();
-  const dia = coupleDiaryDay && dias.includes(coupleDiaryDay) ? coupleDiaryDay : dias[0];
-  const idx = dias.indexOf(dia);
-  const temMaisNovo = idx > 0;
-  const temMaisAntigo = idx < dias.length - 1;
 
-  const entradas = (porDia[dia] || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-  const corpo = entradas.length
-    ? entradas.map(coupleDiaryEntryCard).join("")
-    : `<div class="diary-page-empty">Nenhum registro nesse dia ainda. Escreve como foi 💕</div>`;
-
-  const tituloDia = dataDiarioLonga(dia) || dia;
+  const dia = coupleDiaryDay || hoje;        // página da direita (dia atual / escolhido)
+  const diaEsq = addDias(dia, -1);           // página da esquerda (dia anterior)
   const ehHoje = dia === hoje;
+  const podeAvancar = dia < hoje;
 
   return `
     <section class="diary-hero">
       <span>Nosso caderno</span>
       <h2>Diário do casal</h2>
-      <p>Uma página por dia, escrita a dois. Folheiem os dias e vejam quem escreveu cada coisa. 💕</p>
+      <p>Um caderno de verdade: a página da esquerda é o dia anterior, a da direita é o dia atual. Folheiem e escrevam a dois. 💕</p>
     </section>
 
-    <section class="caderno">
-      <div class="caderno-nav">
-        <button class="caderno-arrow" type="button" data-diary-older ${temMaisAntigo ? "" : "disabled"} title="Dia anterior">‹</button>
-        <div class="caderno-dia">
-          <strong>${esc(tituloDia)}</strong>
-          <small>${ehHoje ? "Hoje" : ""}${!ehHoje ? `<button class="caderno-hoje" type="button" data-diary-hoje>ir pra hoje →</button>` : ""}</small>
-        </div>
-        <button class="caderno-arrow" type="button" data-diary-newer ${temMaisNovo ? "" : "disabled"} title="Próximo dia">›</button>
-      </div>
-      <label class="caderno-cal">📅 <span>Ir pra uma data</span><input type="date" value="${esc(dia)}" max="${esc(hoje)}" data-diary-goto /></label>
+    <section class="caderno-book">
+      ${cadernoPaginaHtml(diaEsq, porDia, { side: "left" })}
+      <div class="caderno-spine" aria-hidden="true"></div>
+      ${cadernoPaginaHtml(dia, porDia, { side: "right", write: true })}
+    </section>
 
-      <div class="caderno-folha">${corpo}</div>
-
-      <form id="couple-diary-form" class="caderno-escrever">
-        <input type="hidden" name="kind" value="livre" />
-        <input type="hidden" name="watchedOn" value="${esc(dia)}" />
-        <textarea name="comment" rows="4" placeholder="Escreve como foi ${ehHoje ? "o dia de hoje" : "esse dia"}… Ex.: ${esc(diarioExemplo())} 💕"></textarea>
-        <div class="actions"><button class="btn" type="submit">✍️ Escrever nesse dia</button></div>
-      </form>
-    </section>`;
+    <div class="caderno-controls">
+      <button class="caderno-arrow" type="button" data-diary-older title="Dia anterior">‹ anterior</button>
+      <label class="caderno-cal"><input type="date" value="${esc(dia)}" max="${esc(hoje)}" data-diary-goto /></label>
+      ${!ehHoje ? `<button class="caderno-hoje" type="button" data-diary-hoje>hoje</button>` : ""}
+      <button class="caderno-arrow" type="button" data-diary-newer ${podeAvancar ? "" : "disabled"} title="Próximo dia">próximo ›</button>
+    </div>`;
 }
 
 function coupleAboutTemplate() {
@@ -7755,8 +7768,8 @@ function bindShell() {
   document.querySelectorAll("[data-diary-kind]").forEach((button) => {
     listen(button, "click", () => { coupleDiaryKind = button.dataset.diaryKind; render(); });
   });
-  listen(document.querySelector("[data-diary-older]"), "click", () => diarioNavega(1));
-  listen(document.querySelector("[data-diary-newer]"), "click", () => diarioNavega(-1));
+  listen(document.querySelector("[data-diary-older]"), "click", () => diarioNavega(-1));
+  listen(document.querySelector("[data-diary-newer]"), "click", () => diarioNavega(1));
   listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); render(); });
   listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; render(); } });
   document.querySelectorAll("[data-bingo-cell]").forEach((button) => {
