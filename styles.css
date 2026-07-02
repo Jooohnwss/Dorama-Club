@@ -1530,6 +1530,10 @@ textarea:focus {
 .ep-detail-form { display: grid; gap: 8px; }
 .ep-detail-form textarea { border-radius: 12px; }
 
+.ep-finish-wrap { padding: 4px 14px 16px; }
+.ep-finish-wrap .checkin-finish { margin-top: 0; }
+.ep-finish-hint { margin: 8px 2px 0; font-size: 0.78rem; text-align: center; }
+
 /* Caixa de Sugeridos / Votação */
 .choice-box {
   margin-top: 14px; padding: 16px; border-radius: 18px;

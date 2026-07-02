@@ -2549,6 +2549,7 @@ function clubTemplate() {
     doramas: `
       ${clubeCicloTemplate()}
       ${clubEpisodiosTemplate()}
+      ${clubSugestoesTemplate()}
       <div class="section-title compact"><h2>🤝 Doramas em comum</h2></div>${doramasEmComumTemplate()}`,
     ranking: `
       <div class="section-title"><h2>🏆 Ranking de pontos</h2></div>${clubPointsTemplate()}
@@ -2731,11 +2732,7 @@ function clubeCicloTemplate() {
           <div class="ciclo-bar"><i style="width:${pct}%"></i></div>
           <small>${terminaram}/${membros} do clube terminaram — só troca quando <strong>todos</strong> terminarem</small>
         </div>
-
-        <button class="checkin-finish ${euTerminei ? "done" : ""}" type="button" data-club-finish="${euTerminei ? "0" : "1"}">
-          ${euTerminei ? "✅ Você já terminou o dorama — toque pra desmarcar" : "🏁 Já terminei o dorama inteiro"}
-        </button>
-        <p class="ciclo-hint muted">Marque os episódios no <strong>Modo Episódio</strong> abaixo 👇 — cada um dá <strong>+1 no ranking</strong> 🎬. O clube só libera sortear o próximo quando <strong>todo mundo</strong> marcar "terminei o dorama". 🔒</p>
+        <p class="ciclo-hint muted">Marque seus episódios no <strong>Modo Episódio</strong> abaixo 👇 — cada um dá <strong>+1 no ranking</strong> 🎬.</p>
       </section>`
     : `<section class="ciclo-now"><span class="clf-eyebrow">🎬 Assistindo agora</span><p class="muted" style="margin:8px 0 0">Nenhum dorama oficial ainda. ${canManage ? "Sugiram abaixo e fixem o primeiro (botão Fixar)." : "Sugiram o primeiro abaixo."}</p></section>`;
 
@@ -2743,7 +2740,15 @@ function clubeCicloTemplate() {
     ? `<div class="ciclo-banner open"><div><strong>🗳️ Votação aberta!</strong><small>todo mundo sugeriu — votem no próximo</small></div></div>`
     : `<div class="ciclo-banner"><div><strong>💡 Sugeridos</strong><small>cada um sugere 2 · você ${minhasSug}/2${faltam ? ` · faltam ${faltam} pessoa${faltam > 1 ? "s" : ""} sugerir` : ""}</small></div></div>`;
 
-  return `${assistindo}${banner}${listaCompartilhadaTemplate(votingOpen, minhasSug, canManage)}`;
+  return `${assistindo}${banner}`;
+}
+
+// Sugestões/votação do próximo dorama (separado do ciclo pra ficar DEPOIS dos episódios).
+function clubSugestoesTemplate() {
+  if (clubSocial.for !== state.club.id) return "";
+  const cycle = clubSocial.cycle || {};
+  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
+  return listaCompartilhadaTemplate(Boolean(cycle.voting_open), Number(cycle.my_suggestions || 0), canManage);
 }
 
 function listaCompartilhadaTemplate(votingOpen = true, minhasSug = 0, canManage = false) {
@@ -2848,6 +2853,7 @@ function clubEpisodiosTemplate() {
 
   const vistos = Math.min(meuEp, totalEps);
   const pctVisto = Math.round((vistos / totalEps) * 100);
+  const euTerminei = featured.my_status === "finished";
   const detalhe = sel
     ? episodioDetalheTemplate(sel, meuEp >= sel, comentsPorEp[sel] || [], ratingsMap[sel], checkins.filter((c) => Number(c.current_episode || 0) >= sel).length, membros)
     : "";
@@ -2865,6 +2871,12 @@ function clubEpisodiosTemplate() {
         <p class="ep-mode-hint muted">Toque num episódio pra <strong>marcar como visto</strong> (+1 no ranking 🎬), dar <strong>nota ⭐</strong> e ver os <strong>surtos 💬</strong>. Quadradinho verde = você viu.</p>
         <div class="ep-grid">${tiles.join("")}</div>
         ${detalhe}
+        <div class="ep-finish-wrap">
+          <button class="checkin-finish ${euTerminei ? "done" : ""}" type="button" data-club-finish="${euTerminei ? "0" : "1"}">
+            ${euTerminei ? "✅ Você já terminou o dorama — toque pra desmarcar" : "🏁 Já terminei o dorama inteiro"}
+          </button>
+          <p class="ep-finish-hint muted">O clube só libera sortear o próximo quando <strong>todo mundo</strong> marcar "terminei o dorama". 🔒</p>
+        </div>
       </details>
     </section>`;
 }
