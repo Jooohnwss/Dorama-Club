@@ -4469,8 +4469,7 @@ textarea:focus {
 .diary-entry-del .ico { width: 14px; height: 14px; }
 
 .caderno-escrever { padding: 14px 16px; border-top: 1px solid var(--cor-borda); }
-.caderno-escrever .diary-kinds { margin-bottom: 10px; }
-.caderno-campos textarea { border-radius: 12px; }
+.caderno-escrever textarea { border-radius: 12px; }
 .caderno-escrever .actions { margin-top: 10px; }
 
 .diary-empty {

@@ -4277,7 +4277,6 @@ function diarioNavega(delta) {
 }
 
 function coupleDiaryTemplate() {
-  const [, emojiAtual, labelAtual] = diaryKindMeta(coupleDiaryKind);
   const hoje = new Date().toISOString().slice(0, 10);
 
   // Agrupa por dia (uma página por dia).
@@ -4318,13 +4317,10 @@ function coupleDiaryTemplate() {
       <div class="caderno-folha">${corpo}</div>
 
       <form id="couple-diary-form" class="caderno-escrever">
-        <input type="hidden" name="kind" value="${esc(coupleDiaryKind)}" />
+        <input type="hidden" name="kind" value="livre" />
         <input type="hidden" name="watchedOn" value="${esc(dia)}" />
-        <div class="diary-kinds">
-          ${DIARY_KINDS.map(([k, em, lb]) => `<button type="button" class="diary-kind ${coupleDiaryKind === k ? "on" : ""}" data-diary-kind="${k}">${em} ${lb}</button>`).join("")}
-        </div>
-        <div class="caderno-campos">${coupleDiaryFields(coupleDiaryKind)}</div>
-        <div class="actions"><button class="btn" type="submit">${emojiAtual} Escrever nesse dia</button></div>
+        <textarea name="comment" rows="4" placeholder="Escreve como foi ${ehHoje ? "o dia de hoje" : "esse dia"}… Ex.: eu e a Abi assistimos X, foi muito legal 💕"></textarea>
+        <div class="actions"><button class="btn" type="submit">✍️ Escrever nesse dia</button></div>
       </form>
     </section>`;
 }
