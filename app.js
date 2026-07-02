@@ -9019,11 +9019,21 @@ async function handleClubFeaturedCheckin(episode, status, opts = {}) {
   }
 }
 // Modo Episódio: marcar/desmarcar um episódio como visto (usa o check-in sequencial).
+// Pede confirmação pra não mudar seu progresso sem querer (mexe no "todos terminaram" e nos pontos).
 async function handleEpToggle(n, seen) {
   const num = Number(n) || 0;
+  const meuEp = Number(clubSocial.featured?.my_episode || 0);
   const novoEp = seen ? Math.max(0, num - 1) : num;
-  const ok = await handleClubFeaturedCheckin(novoEp, "watching", { silent: true });
-  if (ok) toast(seen ? `Ep. ${num} desmarcado` : `Ep. ${num} visto 👁`);
+  const sub = seen
+    ? `Seu progresso volta pro ep. ${novoEp}. Isso conta pro "todos terminaram" e pros pontos.`
+    : (num > meuEp + 1 ? `Marca os episódios ${meuEp + 1} a ${num} como vistos.` : `Confirma que você assistiu o ep. ${num}.`);
+  const ok = await confirmar(
+    seen ? `Desmarcar o ep. ${num}?` : `Você já assistiu o ep. ${num}?`,
+    { sub, ok: seen ? "Desmarcar" : "Sim, assisti 👍", cancel: "Cancelar", danger: seen },
+  );
+  if (!ok) return;
+  const okSave = await handleClubFeaturedCheckin(novoEp, "watching", { silent: true });
+  if (okSave) toast(seen ? `Ep. ${num} desmarcado` : `Ep. ${num} visto 👁`);
 }
 
 // Modo Episódio: dar/limpar nota (toca na mesma estrela pra limpar).
