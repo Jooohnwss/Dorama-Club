@@ -1,4 +1,4 @@
-const CACHE = "dorama-club-v64";
+const CACHE = "dorama-club-v65";
 const SHELL = ["/", "/index.html", "/styles.css?v=41", "/app.js?v=41", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {

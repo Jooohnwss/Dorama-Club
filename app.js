@@ -9104,13 +9104,14 @@ async function handleAboutPick(key) {
 
 async function handleCoupleLetter(event) {
   event.preventDefault();
-  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const form = event.currentTarget; // guarda antes do await (currentTarget vira null depois)
+  const data = Object.fromEntries(new FormData(form));
   const body = String(data.body || "").trim();
   if (!state.couple || !body) return;
   try {
     const lid = await addCoupleLetter(state.couple.id, authUser.id, { kind: data.kind, body });
     if (lid) await ganharPontos(PONTOS.cartinha, "cartinha", "letter", lid);
-    event.currentTarget.reset();
+    form.reset();
     coupleLetters = await loadCoupleLetters(state.couple.id);
     render();
     toast("Cartinha guardada. 💌");
@@ -9553,7 +9554,8 @@ async function handleClubCloseVoting() {
 async function handleCreateClubPoll(event) {
   event.preventDefault();
   if (!state.club) return;
-  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form));
   const question = String(data.question || "").trim();
   const options = String(data.options || "")
     .split(/\r?\n/)
@@ -9569,7 +9571,7 @@ async function handleCreateClubPoll(event) {
     clubSocial.polls = await clubPollsFeed(state.club.id);
     clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
     clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
-    event.currentTarget.reset();
+    form.reset();
     render();
     toast("Enquete criada no clube.");
   } catch (error) {
@@ -9603,7 +9605,8 @@ async function handleCloseClubPoll(pollId) {
 async function handleCreateClubEvent(event) {
   event.preventDefault();
   if (!state.club) return;
-  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form));
   let tmdbId = null;
   let dramaTitle = "";
   if (String(data.dramaId || "").startsWith("featured:")) {
@@ -9636,7 +9639,7 @@ async function handleCreateClubEvent(event) {
     clubSocial.events = await clubEventsFeed(state.club.id);
     clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
     clubSocial.points = await clubPointsRanking(state.club.id).catch(() => clubSocial.points || []);
-    event.currentTarget.reset();
+    form.reset();
     render();
     toast("Evento criado no clube.");
   } catch (error) {
@@ -9680,7 +9683,8 @@ async function refreshClubPointsAndChallenges() {
 async function handleCreateClubChallenge(event) {
   event.preventDefault();
   if (!state.club) return;
-  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form));
   const title = String(data.title || "").trim();
   if (!title) return;
   const endsAt = data.endsAt ? new Date(String(data.endsAt)).toISOString() : null;
@@ -9694,7 +9698,7 @@ async function handleCreateClubChallenge(event) {
     await registrarAtividade(`🎯 ${state.profile?.name || "Alguém"} criou a missão: ${title}`);
     await refreshClubPointsAndChallenges();
     clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
-    event.currentTarget.reset();
+    form.reset();
     render();
     toast("Desafio criado no clube.");
   } catch (error) {
