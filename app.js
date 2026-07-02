@@ -4159,7 +4159,7 @@ function coupleDiaryFields(kind) {
 
   if (kind === "livre") {
     return `
-      <div class="field full"><label>O que rolou nesse dia?</label><textarea name="comment" rows="5" placeholder="Hoje eu e a Abi assistimos ... foi muito legal. / Hoje a gente brigou, mas no fim..."></textarea></div>`;
+      <div class="field full"><label>O que rolou nesse dia?</label><textarea name="comment" rows="5" placeholder="Como foi o dia de vocês… assistimos um dorama, foi muito legal / hoje a gente brigou, mas no fim..."></textarea></div>`;
   }
   if (kind === "date") {
     return `
@@ -4266,6 +4266,13 @@ function diarioDias() {
   return Array.from(set).filter(Boolean).sort().reverse();
 }
 
+// Exemplo de placeholder usando o nome da parceira do casal (ou neutro).
+function diarioExemplo() {
+  const parceira = (coupleMembers || []).find((m) => m.user_id !== authUser?.id);
+  const nome = (parceira?.nickname || parceira?.name || "").trim();
+  return nome ? `eu e ${nome} assistimos um dorama, foi muito legal` : "hoje a gente assistiu um dorama, foi muito legal";
+}
+
 // Folheia o caderno (delta +1 = dia mais antigo, -1 = mais novo).
 function diarioNavega(delta) {
   const dias = diarioDias();
@@ -4319,7 +4326,7 @@ function coupleDiaryTemplate() {
       <form id="couple-diary-form" class="caderno-escrever">
         <input type="hidden" name="kind" value="livre" />
         <input type="hidden" name="watchedOn" value="${esc(dia)}" />
-        <textarea name="comment" rows="4" placeholder="Escreve como foi ${ehHoje ? "o dia de hoje" : "esse dia"}… Ex.: eu e a Abi assistimos X, foi muito legal 💕"></textarea>
+        <textarea name="comment" rows="4" placeholder="Escreve como foi ${ehHoje ? "o dia de hoje" : "esse dia"}… Ex.: ${esc(diarioExemplo())} 💕"></textarea>
         <div class="actions"><button class="btn" type="submit">✍️ Escrever nesse dia</button></div>
       </form>
     </section>`;
