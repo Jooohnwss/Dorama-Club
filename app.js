@@ -380,6 +380,7 @@ let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 let clubTab = "inicio"; // aba interna da tela Doramigas (lobby)
 let epDetailOpen = null; // episódio aberto no Modo Episódio (discussão por ep)
+let clubProfileOpen = null; // user_id do membro com o perfil aberto (aba Sobre)
 let revealedPosts = new Set(); // posts cujo spoiler o leitor escolheu ver
 let clubMuralFilter = null; // null = dorama atual; "all" = tudo; ou um tmdb_id
 let clubMuralTab = "geral"; // aba de tipo do mural: geral | episodios | teorias | memes | agenda | finalizados
@@ -2325,7 +2326,71 @@ function legacyClubTemplate() {
 }
 
 function clubRoleLabel(role) {
-  return { owner: "Dono", moderator: "Moderador", member: "Membro" }[role] || "Membro";
+  return { owner: "👑 Dono", moderator: "🛡️ Moderador", member: "Membro" }[role] || "Membro";
+}
+
+// Painel de perfil de um membro (aba Sobre): cargo, progresso, pontos, match, badges e moderação.
+function clubMemberProfileTemplate(m) {
+  const isMe = m.user_id === authUser?.id;
+  const featured = clubSocial.featured;
+  const ck = (featured?.checkins || []).find((c) => c.user_id === m.user_id);
+  const pts = (clubSocial.points || []).find((p) => p.user_id === m.user_id);
+  const comp = isMe ? null : (clubSocial.compat || []).find((c) => c.name === m.name);
+
+  // Badges derivados dos dados que já temos.
+  const ranking = [...(clubSocial.points || [])].sort((a, b) => Number(b.points || 0) - Number(a.points || 0));
+  const topId = ranking[0] && Number(ranking[0].points || 0) > 0 ? ranking[0].user_id : null;
+  const finishers = (featured?.checkins || []).filter((c) => c.status === "finished").sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+  const firstFinisherId = finishers[0]?.user_id || null;
+  const badges = [];
+  if (m.user_id === topId) badges.push("🥇 Mais ativo");
+  if (m.user_id === firstFinisherId) badges.push("🏁 Terminou primeiro");
+  else if (ck?.status === "finished") badges.push("🎬 Maratonista");
+
+  const progresso = !featured
+    ? `<span class="muted">Sem dorama atual</span>`
+    : ck
+      ? (ck.status === "finished" ? `✅ Terminou ${esc(featured.title)}` : `▶️ Ep. ${Number(ck.current_episode || 0)} de ${esc(featured.title)}`)
+      : `<span class="muted">Ainda não começou</span>`;
+  const ultimo = ck?.updated_at ? `Último check-in ${timeAgo(ck.updated_at)}` : "";
+
+  // Moderação (backend: manage_club_member, mig 47).
+  const myMember = currentClubMember();
+  const iAmOwner = state.club.owner_id === authUser?.id || myMember?.role === "owner";
+  const iAmMod = myMember?.role === "moderator";
+  const targetOwner = m.role === "owner";
+  const acts = [];
+  if (!isMe && !targetOwner) {
+    if (iAmOwner) {
+      acts.push(m.role === "moderator"
+        ? `<button class="btn ghost" type="button" data-manage-member="${m.user_id}" data-action="demote">Rebaixar a membro</button>`
+        : `<button class="btn ghost" type="button" data-manage-member="${m.user_id}" data-action="promote">🛡️ Tornar moderador</button>`);
+      acts.push(`<button class="btn ghost danger" type="button" data-manage-member="${m.user_id}" data-action="remove">Remover do clube</button>`);
+    } else if (iAmMod && m.role !== "moderator") {
+      acts.push(`<button class="btn ghost danger" type="button" data-manage-member="${m.user_id}" data-action="remove">Remover do clube</button>`);
+    }
+  }
+
+  return `
+    <section class="membro-perfil">
+      <button class="membro-perfil-back" type="button" data-club-profile-close>← Voltar</button>
+      <div class="membro-perfil-head">
+        ${clubAvatarMini(m)}
+        <div class="mp-id">
+          <strong>${esc(m.name || "(sem nome)")}${isMe ? " (você)" : ""}</strong>
+          ${m.nickname ? `<span class="mp-nick">“${esc(m.nickname)}”</span>` : ""}
+          <span class="chip">${clubRoleLabel(m.role)}</span>
+        </div>
+      </div>
+      ${badges.length ? `<div class="mp-badges">${badges.map((b) => `<span class="mp-badge">${b}</span>`).join("")}</div>` : ""}
+      <div class="mp-rows">
+        <div class="mp-row"><span>🎬 Progresso</span><b>${progresso}</b></div>
+        ${ultimo ? `<div class="mp-row"><span>🕒 Atividade</span><b>${ultimo}</b></div>` : ""}
+        <div class="mp-row"><span>🏆 Pontos no clube</span><b>${Number(pts?.points || 0)} pts</b></div>
+        ${comp ? `<div class="mp-row"><span>💞 Match com você</span><b>${comp.pct}% · ${comp.comuns} em comum</b></div>` : ""}
+      </div>
+      ${acts.length ? `<div class="mp-mod"><span class="mp-mod-title">Moderação</span><div class="mp-mod-actions">${acts.join("")}</div></div>` : ""}
+    </section>`;
 }
 
 function currentClubMember() {
@@ -2475,14 +2540,18 @@ function clubAboutTemplate() {
         </div>`).join("")}</section>`
     : `<div class="empty">Quando o clube escolher e terminar doramas, o histórico aparece aqui. 🎬</div>`;
 
-  const membersHtml = clubMembers.length
-    ? `<section class="sobre-membros">${clubMembers.map((m) => `
-        <div class="sobre-membro">
+  const perfilAberto = clubProfileOpen && clubMembers.find((m) => m.user_id === clubProfileOpen);
+  const membersHtml = !clubMembers.length
+    ? `<div class="empty">Carregando membros…</div>`
+    : perfilAberto
+      ? clubMemberProfileTemplate(perfilAberto)
+      : `<section class="sobre-membros">${clubMembers.map((m) => `
+        <button class="sobre-membro" type="button" data-club-profile="${m.user_id}">
           ${clubAvatarMini(m)}
           <div class="sobre-membro-info"><strong>${esc(m.name || "(sem nome)")}</strong>${m.nickname ? `<small>${esc(m.nickname)}</small>` : ""}</div>
           <span class="chip">${clubRoleLabel(m.role)}</span>
-        </div>`).join("")}</section>`
-    : `<div class="empty">Carregando membros…</div>`;
+          <span class="cl-go">›</span>
+        </button>`).join("")}</section>`;
 
   return `
     <div class="section-title"><h2>💜 Sobre o clube</h2><button class="btn ghost" data-edit-club-about>${icon("detail")} Editar</button></div>
@@ -7606,6 +7675,13 @@ function bindShell() {
   document.querySelectorAll("[data-mural-tab]").forEach((button) => {
     listen(button, "click", () => { clubMuralTab = button.dataset.muralTab; render(); });
   });
+  document.querySelectorAll("[data-club-profile]").forEach((button) => {
+    listen(button, "click", () => toggleClubProfile(button.dataset.clubProfile));
+  });
+  listen(document.querySelector("[data-club-profile-close]"), "click", () => { clubProfileOpen = null; render(); });
+  document.querySelectorAll("[data-manage-member]").forEach((button) => {
+    listen(button, "click", () => handleManageMember(button.dataset.manageMember, button.dataset.action));
+  });
   document.querySelectorAll("[data-react]").forEach((button) => {
     listen(button, "click", () => handleToggleReaction(button.dataset.react, button.dataset.emoji));
   });
@@ -8027,6 +8103,28 @@ async function loadClubMembers() {
   render();
 }
 
+// Perfil do membro (aba Sobre): abre/fecha.
+function toggleClubProfile(userId) {
+  clubProfileOpen = clubProfileOpen === userId ? null : userId;
+  render();
+}
+
+// Moderação: promover/rebaixar/remover (manage_club_member, mig 47).
+async function handleManageMember(userId, action) {
+  if (!state.club || !userId) return;
+  const m = clubMembers.find((x) => x.user_id === userId);
+  const nome = m?.name || "esta pessoa";
+  if (action === "remove" && !(await confirmar(`Remover ${nome} do clube?`, { sub: "A pessoa perde o acesso ao clube (pode voltar com o código).", ok: "Remover", danger: true }))) return;
+  try {
+    await manageClubMember(state.club.id, userId, action);
+    if (action === "remove") clubProfileOpen = null;
+    await loadClubMembers();
+    toast(action === "promote" ? "Agora é moderador 🛡️" : action === "demote" ? "Voltou a ser membro." : "Removido do clube.");
+  } catch (error) {
+    toast(error?.message?.includes("permiss") ? "Você não tem permissão pra isso." : "Não consegui fazer isso agora.");
+  }
+}
+
 async function loadClubFeed() {
   if (!state.club) return;
   clubFeedFor = state.club.id;
@@ -8047,6 +8145,7 @@ async function loadClubSocial() {
   clubChatSpoilerOn = false;
   epDetailOpen = null;
   clubMuralTab = "geral";
+  clubProfileOpen = null;
   clubSocial = { ...clubSocial, for: state.club.id };
   const empty = emptyClubSocial(state.club.id);
   try {

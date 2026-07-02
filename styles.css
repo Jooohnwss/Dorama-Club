@@ -1659,10 +1659,47 @@ textarea:focus {
   padding: 10px 12px; border-radius: 14px;
   border: 1px solid var(--cor-borda); background: color-mix(in srgb, var(--cor-superficie) 90%, transparent);
 }
+.sobre-membro { width: 100%; text-align: left; cursor: pointer; }
 .sobre-membro .club-av { margin-right: 0; width: 36px; height: 36px; flex-shrink: 0; }
 .sobre-membro-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .sobre-membro-info strong { font-size: 0.92rem; }
 .sobre-membro-info small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.76rem; }
+.sobre-membro .cl-go { color: var(--cor-texto-suave); font-size: 1.2rem; font-weight: 800; }
+
+/* Perfil do membro */
+.membro-perfil {
+  border: 1px solid var(--cor-borda); border-radius: 16px;
+  background: var(--cor-superficie); padding: 16px; display: grid; gap: 14px;
+  box-shadow: 0 12px 28px -22px var(--cor-sombra);
+}
+.membro-perfil-back {
+  justify-self: start; background: none; border: 0; padding: 0;
+  color: var(--cor-primaria); font-weight: 800; font-size: 0.85rem; cursor: pointer;
+}
+.membro-perfil-head { display: flex; align-items: center; gap: 12px; }
+.membro-perfil-head .club-av { width: 56px; height: 56px; font-size: 1.4rem; flex-shrink: 0; }
+.mp-id { display: grid; gap: 3px; min-width: 0; }
+.mp-id strong { font-size: 1.1rem; }
+.mp-id .chip { justify-self: start; }
+.mp-nick { color: var(--cor-secundaria); font-size: 0.82rem; font-weight: 750; }
+.mp-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.mp-badge {
+  font-size: 0.78rem; font-weight: 800; padding: 4px 10px; border-radius: 999px;
+  background: linear-gradient(135deg, var(--cor-primaria), var(--cor-secundaria)); color: var(--cor-primaria-texto);
+}
+.mp-rows { display: grid; gap: 2px; }
+.mp-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 0; border-bottom: 1px solid color-mix(in srgb, var(--cor-borda) 60%, transparent);
+}
+.mp-row:last-child { border-bottom: 0; }
+.mp-row > span { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.84rem; }
+.mp-row > b { font-size: 0.88rem; text-align: right; }
+.mp-mod { border-top: 1px solid var(--cor-borda); padding-top: 12px; display: grid; gap: 8px; }
+.mp-mod-title { font-weight: 850; font-size: 0.82rem; color: var(--cor-texto-suave); text-transform: uppercase; letter-spacing: 0.03em; }
+.mp-mod-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mp-mod-actions .btn { flex: 0 0 auto; }
+.mp-mod-actions .btn.danger { color: #c94357; border-color: color-mix(in srgb, #e0566b 35%, var(--cor-borda)); }
 
 /* ===== Agenda do clube (encontros) ===== */
 .ev-list { display: grid; gap: 10px; }
