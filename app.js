@@ -5806,29 +5806,31 @@ function nosClimaHtml() {
   const permitida = intensidadePermitida();
   const nomeLimite = (n) => (NIVEIS.find((x) => x.n === n) || {}).nome || "";
   return `
-    <div class="section-title compact"><h2>Clima & limites de hoje 🌡️</h2></div>
-    <section class="form-card nos-clima">
-      <div class="nivel-pick mood-pick">
-        ${MOODS_DIA.map((m) => `<button class="nivel-opt ${meu?.mood === m.key ? "on" : ""}" type="button" data-checkin="${m.key}">${m.e} ${esc(m.l)}</button>`).join("")}
+    <section class="clima-card">
+      <div class="clima-titulo">🌡️ Como vocês estão hoje</div>
+      <div class="clima-moods">
+        ${MOODS_DIA.map((m) => `<button class="clima-mood ${meu?.mood === m.key ? "on" : ""}" type="button" data-checkin="${m.key}" title="${esc(m.l)}" aria-label="${esc(m.l)}">${m.e}</button>`).join("")}
       </div>
-      <div class="clima-status">
-        <span>Você <strong>${meu ? moodLabel(meu.mood) : "—"}</strong></span>
-        <span>${esc(nomeP)} <strong>${dela ? moodLabel(dela.mood) : "esperando…"}</strong></span>
+      <div class="clima-duo">
+        <span><b>Você</b> ${meu ? esc(moodLabel(meu.mood)) : "—"}</span>
+        <span><b>${esc(nomeP)}</b> ${dela ? esc(moodLabel(dela.mood)) : "esperando…"}</span>
       </div>
 
-      <p class="clima-h">Hoje eu topo até:</p>
-      <div class="nivel-pick">
-        ${niveisVis.map((x) => `<button class="nivel-opt ${limiteHoje === x.n ? "on" : ""}" type="button" data-day-limit="${x.n}">${x.emoji} ${esc(x.nome)}</button>`).join("")}
+      <div class="clima-heat-wrap">
+        <span class="clima-heat-cap">Hoje eu topo até <b>${limiteHoje ? esc(nomeLimite(limiteHoje)) : "—"}</b></span>
+        <div class="heat-scale">
+          ${niveisVis.map((x) => `<button class="heat ${limiteHoje >= x.n ? "on" : ""} ${limiteHoje === x.n ? "sel" : ""}" type="button" data-day-limit="${x.n}" title="${esc(x.nome)}" aria-label="${esc(x.nome)}">${x.emoji}</button>`).join("")}
+        </div>
       </div>
       ${fixo
-        ? `<div class="clima-combina">💞 Vocês combinam até <strong>${esc(nomeLimite(permitida))}</strong> <small>(vale o menor dos dois)</small></div>`
-        : `<div class="clima-combina warn">Defina seu limite fixo abaixo pra liberar os desafios.</div>`}
+        ? `<div class="clima-combina">💞 Vocês combinam até <strong>${esc(nomeLimite(permitida))}</strong></div>`
+        : `<div class="clima-combina warn">Defina seu limite no ⚙️ abaixo pra abrir o baralho.</div>`}
 
       <details class="clima-fixo">
         <summary>⚙️ Limite fixo & conteúdo adulto</summary>
-        <p class="muted" style="margin:8px 0;font-size:.82rem">O limite fixo é o seu padrão. O "hoje eu topo até" lá em cima vale só pra hoje.</p>
-        <div class="nivel-pick sm">
-          ${niveisVis.map((x) => `<button class="nivel-opt ${fixo === x.n ? "on" : ""}" type="button" data-set-intensity="${x.n}">${x.emoji} ${esc(x.nome)}</button>`).join("")}
+        <p class="muted" style="margin:8px 0;font-size:.82rem">O limite fixo é o seu padrão. O “hoje eu topo até” vale só pra hoje.</p>
+        <div class="heat-scale">
+          ${niveisVis.map((x) => `<button class="heat ${fixo >= x.n ? "on" : ""} ${fixo === x.n ? "sel" : ""}" type="button" data-set-intensity="${x.n}" title="${esc(x.nome)}" aria-label="${esc(x.nome)}">${x.emoji}</button>`).join("")}
         </div>
         ${!adulto
           ? `<button class="btn ghost" type="button" data-adulto18 style="margin-top:10px">🔞 Liberar conteúdo adulto (18+)</button>`
@@ -5956,11 +5958,14 @@ function nosHeroHtml() {
   return `
     <section class="nos-hero">
       <div class="nos-hero-top">
-        <div class="nh-saldo"><strong>${carregando ? "…" : saldo}</strong><span>pts pra gastar</span></div>
-        <div class="nh-nivel"><span class="nh-emoji">${atual.emoji}</span><span class="nh-lvl">Nível ${atual.n}</span><small>${esc(atual.nome)}</small></div>
+        <div class="nh-vibe">
+          <span class="nh-emoji">${atual.emoji}</span>
+          <div class="nh-vibe-txt"><strong>${esc(atual.nome)}</strong><span>Nível ${atual.n} de vocês</span></div>
+        </div>
+        <span class="nh-pts" title="pontos pra gastar nos vales">${carregando ? "…" : saldo} pts</span>
       </div>
       <div class="nos-hero-bar"><i style="width:${pct}%"></i></div>
-      <small class="nos-hero-sub">${proximo ? `${acumulados} / ${proximo.req} pts pro nível ${proximo.n} · ${esc(proximo.nome)}` : `nível máximo 👑 · ${acumulados} acumulados`}</small>
+      <small class="nos-hero-sub">${proximo ? `faltam ${Math.max(0, proximo.req - acumulados)} pts pro ${proximo.emoji} ${esc(proximo.nome)}` : `nível máximo 👑`}</small>
     </section>`;
 }
 
@@ -6552,10 +6557,7 @@ function nosSection() {
   if (nosTab === "hoje") {
     corpo = `
       ${baralhoTemplate()}
-      <section class="nos-daily-grid">
-        <div class="nos-stack">${nosFeitosHtml()}</div>
-        <div class="nos-stack">${nosClimaHtml()}</div>
-      </section>
+      ${nosClimaHtml()}
       ${nosTelegramHtml()}`;
   } else if (nosTab === "brincar") {
     corpo = `${nosRoletaSafadaHtml()}${nosValesHtml()}${nosMissoesSecretasHtml()}${nosFetichesHtml()}`;
