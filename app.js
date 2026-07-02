@@ -9105,9 +9105,10 @@ async function handleCoupleLetter(event) {
     event.currentTarget.reset();
     coupleLetters = await loadCoupleLetters(state.couple.id);
     render();
-    toast("Cartinha guardada.");
-  } catch {
-    toast("Não consegui guardar a cartinha.");
+    toast("Cartinha guardada. 💌");
+  } catch (error) {
+    console.error("cartinha:", error);
+    toast(error?.message || "Não consegui guardar a cartinha.");
   }
 }
 
