@@ -4643,32 +4643,56 @@ textarea:focus {
 /* Nossa história: ficha fixa (não quiz) */
 .hist-lista { display: grid; gap: 8px; margin-bottom: 6px; }
 .hist-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  column-gap: 10px;
-  width: 100%; text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
   padding: 12px 14px; border-radius: 14px;
   border: 1px solid var(--cor-borda); background: var(--cor-superficie);
-  transition: border-color 0.12s ease, background 0.12s ease;
+  transition: border-color 0.12s ease;
 }
 .hist-row:hover { border-color: color-mix(in srgb, var(--cor-primaria) 40%, var(--cor-borda)); }
-.hist-label {
-  grid-column: 1; grid-row: 1;
-  color: var(--cor-texto-suave); font-weight: 800; font-size: 0.74rem;
-  text-transform: uppercase; letter-spacing: 0.02em;
+.hist-main {
+  flex: 1; min-width: 0; display: grid; gap: 2px;
+  text-align: left; background: none; border: 0; padding: 0; cursor: pointer;
 }
+.hist-label { color: var(--cor-texto-suave); font-weight: 800; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.02em; }
 .hist-value {
-  grid-column: 1; grid-row: 2; margin-top: 2px;
   font-size: 1rem; font-weight: 600; line-height: 1.35; white-space: pre-wrap; word-break: break-word;
 }
 .hist-row.vazio .hist-value { color: color-mix(in srgb, var(--cor-texto-suave) 65%, transparent); font-style: italic; }
-.hist-edit {
-  grid-column: 2; grid-row: 1 / span 2; align-self: center;
-  color: var(--cor-texto-suave); opacity: 0.45;
-}
+.hist-edit { flex-shrink: 0; color: var(--cor-texto-suave); opacity: 0.45; }
 .hist-row:hover .hist-edit { opacity: 0.9; color: var(--cor-primaria); }
 .hist-edit .ico { width: 16px; height: 16px; }
+.hist-open {
+  flex-shrink: 0; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%;
+  background: color-mix(in srgb, var(--cor-primaria) 12%, transparent); color: var(--cor-primaria);
+  font-weight: 900; text-decoration: none;
+}
+
+/* Corrida de episódios */
+.corrida {
+  display: grid; gap: 10px; padding: 14px; border-radius: 16px;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie);
+  box-shadow: 0 10px 26px -22px var(--cor-sombra);
+}
+.corrida-row { display: flex; align-items: center; gap: 10px; }
+.corrida-row .club-av { width: 34px; height: 34px; font-size: 0.85rem; flex-shrink: 0; margin: 0; }
+.corrida-main { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.corrida-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.corrida-top strong { font-size: 0.9rem; }
+.corrida-top span { font-size: 0.78rem; font-weight: 700; color: var(--cor-texto-suave); }
+.corrida-bar { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--cor-primaria) 12%, transparent); overflow: hidden; }
+.corrida-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--cor-primaria), var(--cor-secundaria)); }
+.corrida-total { display: block; text-align: right; color: var(--cor-texto-suave); font-weight: 700; font-size: 0.74rem; margin-top: 2px; }
+
+/* Aviso de aniversário/mêsversário */
+.aniv-aviso {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px; padding: 16px 18px; border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 35%, var(--cor-borda));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--cor-primaria) 18%, var(--cor-superficie)), color-mix(in srgb, var(--cor-secundaria) 14%, var(--cor-superficie)));
+}
+.aniv-emoji { font-size: 1.8rem; }
+.aniv-aviso strong { display: block; font-size: 1.05rem; }
+.aniv-aviso small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.8rem; }
 
 /* Pergunta em destaque (estilo Happy Couple / DailyBean) */
 .about-prompt {

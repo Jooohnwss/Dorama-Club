@@ -2481,6 +2481,37 @@ function clubAvisoTemplate() {
 }
 
 // Relatório do dorama: melhor episódio, mais comentado, média, quem terminou primeiro.
+// Corrida de episódios: quem está em qual episódio do dorama atual.
+function clubCorridaTemplate() {
+  if (clubSocial.for !== state.club.id) return "";
+  const f = clubSocial.featured;
+  if (!f?.id) return "";
+  const checkins = Array.isArray(f.checkins) ? f.checkins : [];
+  const maxCk = checkins.reduce((mx, c) => Math.max(mx, Number(c.current_episode || 0)), 0);
+  const total = Math.max(Number(clubSocial.epCount || 0), maxCk, 1);
+  const linhas = (clubMembers.length ? clubMembers : checkins.map((c) => ({ user_id: c.user_id, name: c.name }))).map((m) => {
+    const ck = checkins.find((c) => c.user_id === m.user_id);
+    return { m, ep: Number(ck?.current_episode || 0), fin: ck?.status === "finished" };
+  }).sort((a, b) => (Number(b.fin) - Number(a.fin)) || (b.ep - a.ep));
+  if (!linhas.length) return "";
+  const rows = linhas.map((x, i) => {
+    const nome = x.m.name || x.m.nickname || "?";
+    const pct = x.fin ? 100 : Math.min(100, Math.round((x.ep / total) * 100));
+    const lider = i === 0 && (x.ep > 0 || x.fin);
+    return `
+      <div class="corrida-row">
+        ${clubAvatarMini(x.m)}
+        <div class="corrida-main">
+          <div class="corrida-top"><strong>${esc(nome)}${lider ? " 🥇" : ""}</strong><span>${x.fin ? "✅ terminou" : `ep. ${x.ep}`}</span></div>
+          <div class="corrida-bar"><i style="width:${pct}%"></i></div>
+        </div>
+      </div>`;
+  }).join("");
+  return `
+    <div class="section-title compact"><h2>🏁 Corrida de episódios</h2></div>
+    <section class="corrida">${rows}<small class="corrida-total">de ${total} episódio${total === 1 ? "" : "s"}</small></section>`;
+}
+
 function clubRelatorioTemplate() {
   if (clubSocial.for !== state.club.id) return "";
   const f = clubSocial.featured;
@@ -2687,6 +2718,7 @@ function clubTemplate() {
       <div class="section-title compact"><h2>🤝 Doramas em comum</h2></div>${doramasEmComumTemplate()}`,
     ranking: `
       <div class="section-title"><h2>🏆 Ranking de pontos</h2></div>${clubPointsTemplate()}
+      ${clubCorridaTemplate()}
       ${clubRelatorioTemplate()}
       <div class="section-title compact"><h2>🎯 Rotinas do dorama</h2></div>${clubRotinasTemplate()}
       <div class="section-title compact"><h2>💞 Doramigas compatíveis</h2></div>${compatibilidadeTemplate()}`,
@@ -3710,7 +3742,8 @@ const aboutGrupos = [
   ["💬 Coisas nossas", [
     ["frase_interna", "Frase interna"],
     ["piada_interna", "Piada interna"],
-    ["nossa_musica", "Nossa música"],
+    ["nossa_musica", "Nossa música (cole o link)"],
+    ["nosso_lugar", "Nosso lugar"],
     ["apelidos", "Nossos apelidos"],
     ["quando_um_ta_triste", "Quando um está triste, o outro…"],
     ["primeiro_dorama", "Primeiro dorama juntos"],
@@ -4411,12 +4444,17 @@ function coupleAboutTemplate() {
     <section class="hist-lista">
       ${itens.map(([key, label]) => {
         const value = String(coupleAbout[key] || "").trim();
+        const isUrl = /^https?:\/\//i.test(value);
         return `
-          <button class="hist-row ${value ? "" : "vazio"}" type="button" data-about-pick="${esc(key)}">
-            <span class="hist-label">${esc(label)}</span>
-            <span class="hist-value">${value ? esc(value) : "toque pra escrever"}</span>
-            <span class="hist-edit">${icon("detail")}</span>
-          </button>`;
+          <div class="hist-row ${value ? "" : "vazio"}">
+            <button class="hist-main" type="button" data-about-pick="${esc(key)}">
+              <span class="hist-label">${esc(label)}</span>
+              <span class="hist-value">${value ? (isUrl ? "🔗 abrir link" : esc(value)) : "toque pra escrever"}</span>
+            </button>
+            ${isUrl
+              ? `<a class="hist-open" href="${esc(value)}" target="_blank" rel="noopener noreferrer" title="Abrir">↗</a>`
+              : `<span class="hist-edit">${icon("detail")}</span>`}
+          </div>`;
       }).join("")}
     </section>`).join("");
 
@@ -4598,8 +4636,28 @@ function coupleCountdownTemplate() {
   return `<div class="couple-countdown"><span class="cd-txt">${txt}</span><span class="muted">${esc(formatDateShort(d))}</span></div>`;
 }
 
+// Aviso de aniversário: aparece no dia do "mêsversário"/aniversário de namoro.
+function coupleAniversarioAviso() {
+  const s = String(coupleAbout.namoro_inicio || "").slice(0, 10);
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  const hoje = new Date();
+  if (hoje.getDate() !== d) return "";
+  let meses = (hoje.getFullYear() - y) * 12 + (hoje.getMonth() - (m - 1));
+  if (meses <= 0) return "";
+  const aniversarioAno = hoje.getMonth() === (m - 1) && meses % 12 === 0;
+  const anos = meses / 12;
+  const quanto = aniversarioAno ? `${anos} ano${anos > 1 ? "s" : ""}` : `${meses} ${meses > 1 ? "meses" : "mês"}`;
+  return `
+    <section class="aniv-aviso">
+      <span class="aniv-emoji">${aniversarioAno ? "🎉" : "💕"}</span>
+      <div><strong>Feliz ${quanto} juntos!</strong><small>Hoje é ${aniversarioAno ? "aniversário" : "mêsversário"} de vocês 💕</small></div>
+    </section>`;
+}
+
 function coupleInicioSection() {
   return `
+    ${coupleAniversarioAviso()}
     ${coupleGreetingTemplate()}
     ${coupleCountdownTemplate()}
     ${coupleSaudadeMini()}
@@ -4617,7 +4675,15 @@ function coupleResumoTemplate() {
   const horas = coupleHorasEstimadas();
   const finalizados = coupleDramas.filter((d) => d.status === "watched" || d.status === "favorite").length;
   const certs = coupleCertificados().filter((c) => c.earned).length;
+  const iniNamoro = String(coupleAbout.namoro_inicio || "").slice(0, 10);
+  const diasJuntos = (() => {
+    const [y, m, d] = iniNamoro.split("-").map(Number);
+    if (!y || !m || !d) return null;
+    const ini = new Date(y, m - 1, d);
+    return isNaN(ini) || ini > new Date() ? null : Math.round((new Date() - ini) / 86400000);
+  })();
   const itens = [
+    ...(diasJuntos != null ? [["💕", diasJuntos, "Dias namorando"]] : []),
     ["📺", eps, "Episódios juntos"],
     ["⏱️", horas ? `~${horas}h` : "—", "Horas juntos"],
     ["🍿", coupleDramas.length, "Doramas"],
