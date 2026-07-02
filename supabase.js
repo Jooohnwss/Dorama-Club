@@ -74,6 +74,11 @@ export async function updateClubDetails(clubId, payload) {
   if (error) throw error;
 }
 
+export async function setClubNotice(clubId, text) {
+  const { error } = await supabase.rpc("set_club_notice", { p_club: clubId, p_text: text || "" });
+  if (error) throw error;
+}
+
 export async function manageClubMember(clubId, userId, action) {
   const { error } = await supabase.rpc("manage_club_member", {
     p_club: clubId,

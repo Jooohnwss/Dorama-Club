@@ -16,6 +16,7 @@ import {
   renameClub,
   updateClubDetails,
   manageClubMember,
+  setClubNotice,
   saveTheme,
   loadDramas,
   upsertDrama,
@@ -2408,6 +2409,7 @@ function mapClubRow(club) {
     description: club.description || "",
     rules: club.rules || "",
     tags: Array.isArray(club.tags) ? club.tags : [],
+    pinned_notice: club.pinned_notice || "",
   };
 }
 
@@ -2459,6 +2461,65 @@ function clubHeaderTemplate() {
       </div>
     </section>
   `;
+}
+
+// Aviso fixado no topo do clube (dono/moderador edita/remove).
+function clubAvisoTemplate() {
+  const aviso = state.club?.pinned_notice || "";
+  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
+  if (!aviso && !canManage) return "";
+  if (!aviso) return `<button class="club-aviso-add" type="button" data-set-notice>📌 Fixar um aviso pro clube</button>`;
+  return `
+    <section class="club-aviso">
+      <span class="club-aviso-ico">📌</span>
+      <p>${esc(aviso)}</p>
+      ${canManage ? `<div class="club-aviso-acts"><button type="button" data-set-notice title="Editar aviso">${icon("detail")}</button><button type="button" data-clear-notice title="Remover aviso">✕</button></div>` : ""}
+    </section>`;
+}
+
+// Relatório do dorama: melhor episódio, mais comentado, média, quem terminou primeiro.
+function clubRelatorioTemplate() {
+  if (clubSocial.for !== state.club.id) return "";
+  const f = clubSocial.featured;
+  if (!f?.id) return "";
+  const ratings = clubSocial.epRatings || [];
+  const checkins = Array.isArray(f.checkins) ? f.checkins : [];
+  const membros = Math.max(1, clubMembers.length || checkins.length || 1);
+
+  const comentsPorEp = {};
+  let totalComents = 0;
+  (clubFeedItems || []).forEach((i) => {
+    if (Number(i.tmdb_id) === Number(f.tmdb_id) && Number(i.spoiler_episode) >= 1) {
+      comentsPorEp[i.spoiler_episode] = (comentsPorEp[i.spoiler_episode] || 0) + 1;
+      totalComents++;
+    }
+  });
+
+  let melhor = null;
+  ratings.forEach((r) => { if (Number(r.votes) > 0 && (!melhor || Number(r.avg_stars) > Number(melhor.avg_stars))) melhor = r; });
+  let maisComentado = null;
+  Object.entries(comentsPorEp).forEach(([ep, n]) => { if (!maisComentado || n > maisComentado.n) maisComentado = { ep: Number(ep), n }; });
+  const comVoto = ratings.filter((r) => Number(r.votes) > 0);
+  const mediaGeral = comVoto.length ? comVoto.reduce((s, r) => s + Number(r.avg_stars), 0) / comVoto.length : 0;
+  const finishers = checkins.filter((c) => c.status === "finished").sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+  const primeiro = finishers[0];
+  const primeiroNome = primeiro ? (clubMembers.find((m) => m.user_id === primeiro.user_id)?.name || primeiro.name || "alguém") : null;
+
+  const star = (n) => Number(n).toFixed(1).replace(".0", "");
+  const items = [];
+  if (melhor) items.push(["⭐ Melhor episódio", `Ep. ${melhor.episode_number} · ${star(melhor.avg_stars)}★`]);
+  if (maisComentado) items.push(["💬 Mais comentado", `Ep. ${maisComentado.ep} · ${maisComentado.n} surto${maisComentado.n > 1 ? "s" : ""}`]);
+  if (mediaGeral) items.push(["📊 Média do clube", `${star(mediaGeral)}★`]);
+  if (primeiroNome) items.push(["🏁 Terminou primeiro", esc(primeiroNome)]);
+  items.push(["✅ Já terminaram", `${finishers.length}/${membros}`]);
+  if (totalComents) items.push(["🗨️ Surtos por episódio", `${totalComents}`]);
+
+  return `
+    <div class="section-title compact"><h2>📊 Relatório do dorama</h2></div>
+    <section class="relatorio">
+      <div class="relatorio-drama">${f.cover ? `<img src="${esc(f.cover)}" alt="" loading="lazy" />` : `<span class="relatorio-noimg">🎬</span>`}<strong>${esc(f.title)}</strong></div>
+      <div class="relatorio-grid">${items.map(([l, v]) => `<div class="rel-item"><span>${l}</span><b>${v}</b></div>`).join("")}</div>
+    </section>`;
 }
 
 // Lobby do clube: tudo separadinho e fácil de achar, num lugar só.
@@ -2623,6 +2684,7 @@ function clubTemplate() {
       <div class="section-title compact"><h2>🤝 Doramas em comum</h2></div>${doramasEmComumTemplate()}`,
     ranking: `
       <div class="section-title"><h2>🏆 Ranking de pontos</h2></div>${clubPointsTemplate()}
+      ${clubRelatorioTemplate()}
       <div class="section-title compact"><h2>🎯 Rotinas do dorama</h2></div>${clubRotinasTemplate()}
       <div class="section-title compact"><h2>💞 Doramigas compatíveis</h2></div>${compatibilidadeTemplate()}`,
     eventos: clubeEventosTemplate(),
@@ -2632,6 +2694,7 @@ function clubTemplate() {
   return `
     ${switcher}
     ${clubHeaderTemplate()}
+    ${clubAvisoTemplate()}
     <div class="tabs club-subtabs">
       ${subtabs.map(([k, l]) => `<button class="${clubTab === k ? "active" : ""}" data-club-tab="${k}">${l}</button>`).join("")}
     </div>
@@ -7679,6 +7742,8 @@ function bindShell() {
     listen(button, "click", () => toggleClubProfile(button.dataset.clubProfile));
   });
   listen(document.querySelector("[data-club-profile-close]"), "click", () => { clubProfileOpen = null; render(); });
+  listen(document.querySelector("[data-set-notice]"), "click", handleSetNotice);
+  listen(document.querySelector("[data-clear-notice]"), "click", handleClearNotice);
   document.querySelectorAll("[data-manage-member]").forEach((button) => {
     listen(button, "click", () => handleManageMember(button.dataset.manageMember, button.dataset.action));
   });
@@ -8107,6 +8172,35 @@ async function loadClubMembers() {
 function toggleClubProfile(userId) {
   clubProfileOpen = clubProfileOpen === userId ? null : userId;
   render();
+}
+
+// Aviso fixado: definir/editar/remover.
+function atualizarClubeLocal(patch) {
+  state.club = { ...state.club, ...patch };
+  state.clubs = (state.clubs || []).map((c) => c.id === state.club.id ? { ...c, ...patch } : c);
+  setState({ club: state.club });
+}
+async function handleSetNotice() {
+  const novo = await perguntar("Aviso fixado do clube:", state.club?.pinned_notice || "", { ok: "Fixar" });
+  if (novo === null || novo === undefined) return;
+  const texto = String(novo).trim();
+  try {
+    await setClubNotice(state.club.id, texto);
+    atualizarClubeLocal({ pinned_notice: texto });
+    toast(texto ? "Aviso fixado. 📌" : "Aviso removido.");
+  } catch (error) {
+    toast(error?.message?.includes("permiss") ? "Só dono ou moderador pode fixar avisos." : "Não consegui salvar o aviso.");
+  }
+}
+async function handleClearNotice() {
+  if (!(await confirmar("Remover o aviso fixado?", { ok: "Remover", danger: true }))) return;
+  try {
+    await setClubNotice(state.club.id, "");
+    atualizarClubeLocal({ pinned_notice: "" });
+    toast("Aviso removido.");
+  } catch {
+    toast("Não consegui remover o aviso.");
+  }
 }
 
 // Moderação: promover/rebaixar/remover (manage_club_member, mig 47).
