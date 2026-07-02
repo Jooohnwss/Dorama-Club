@@ -4392,18 +4392,36 @@ function coupleAboutTemplate() {
     ${grupos}`;
 }
 
+const CARTINHA_TIPOS = { memoria: ["📸", "Memória"], mensagem: ["💌", "Mensagem"], lembrar: ["📌", "Pra lembrar"] };
+
 function coupleLettersTemplate() {
-  const letters = coupleLetters.length
-    ? coupleLetters.map((l) => `<article class="card couple-letter"><span class="chip">${esc(l.kind || "memória")}</span><p>${esc(l.body)}</p><div class="mini-actions"><button data-del-couple-letter="${l.id}">${icon("trash")} Apagar</button></div></article>`).join("")
-    : `<div class="empty">Guarde bilhetes, cartinhas e coisas que vocês querem lembrar.</div>`;
+  const eu = authUser?.id;
+  const cards = coupleLetters.length
+    ? coupleLetters.map((l, i) => {
+        const [emoji, label] = CARTINHA_TIPOS[l.kind] || ["💌", "Cartinha"];
+        const autor = coupleMembers.find((m) => m.user_id === l.author_id);
+        const mine = l.author_id && l.author_id === eu;
+        const nome = autor?.nickname || autor?.name || (mine ? "Você" : "");
+        const assinatura = [nome ? `${nome}${mine ? " (você)" : ""}` : "", l.created_at ? timeAgo(l.created_at) : ""].filter(Boolean).join(" · ");
+        return `
+          <article class="cartinha cart-${i % 4}">
+            <span class="cartinha-tag">${emoji} ${label}</span>
+            <p class="cartinha-body">${esc(l.body)}</p>
+            <div class="cartinha-foot">
+              <span>${esc(assinatura)}</span>
+              ${mine ? `<button class="cartinha-del" data-del-couple-letter="${l.id}" title="Apagar">${icon("trash")}</button>` : ""}
+            </div>
+          </article>`;
+      }).join("")
+    : `<div class="empty">Guardem bilhetes, memórias e coisas que vocês querem lembrar. 💌</div>`;
   return `
-    <div class="section-title"><h2>Cartinhas e memórias</h2></div>
-    <form id="couple-letter-form" class="search-bar">
-      <select name="kind"><option value="memoria">Memória</option><option value="mensagem">Mensagem</option><option value="lembrar">Pra lembrar</option></select>
-      <input name="body" placeholder="Coisa que eu amei hoje…" required />
-      <button class="btn" type="submit">Guardar</button>
+    <div class="section-title compact"><h2>💌 Cartinhas e memórias</h2></div>
+    <form id="couple-letter-form" class="cartinha-form">
+      <select name="kind"><option value="memoria">📸 Memória</option><option value="mensagem">💌 Mensagem</option><option value="lembrar">📌 Pra lembrar</option></select>
+      <input name="body" placeholder="Uma coisa que eu amei hoje…" required />
+      <button class="btn" type="submit">Guardar 💕</button>
     </form>
-    <section class="grid cards">${letters}</section>`;
+    <section class="cartinha-mural">${cards}</section>`;
 }
 
 // Cartinha fixa: carta sempre visível no topo do espaço do casal.

@@ -4528,6 +4528,47 @@ textarea:focus {
   .caderno-page.right { box-shadow: inset 0 14px 22px -18px rgba(80, 50, 20, 0.5); }
 }
 
+/* Cartinhas e memórias (bilhetes de papel) */
+.cartinha-form {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.cartinha-form select { flex: 0 0 auto; width: auto; }
+.cartinha-form input { flex: 1; min-width: 150px; }
+.cartinha-form .btn { flex: 0 0 auto; }
+.cartinha-mural {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px;
+  padding: 4px 4px 8px;
+}
+.cartinha {
+  position: relative; padding: 16px 14px 12px; border-radius: 6px;
+  background: #fff9e8; color: #3a2f4a;
+  box-shadow: 0 10px 20px -12px var(--cor-sombra);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.cartinha::before {
+  content: ""; position: absolute; top: -9px; left: 50%;
+  width: 56px; height: 18px; transform: translateX(-50%) rotate(-3deg);
+  background: rgba(255, 255, 255, 0.6); border: 1px dashed rgba(0, 0, 0, 0.08); border-radius: 2px;
+}
+.cart-0 { transform: rotate(-1.5deg); background: #fff9e8; }
+.cart-1 { transform: rotate(1.3deg); background: #fdeef2; }
+.cart-2 { transform: rotate(-0.8deg); background: #eef3fd; }
+.cart-3 { transform: rotate(1.7deg); background: #edfbf0; }
+.cartinha:hover { transform: rotate(0deg) translateY(-3px); box-shadow: 0 16px 26px -14px var(--cor-sombra); z-index: 1; }
+.cartinha-tag { font-size: 0.7rem; font-weight: 850; letter-spacing: 0.02em; color: var(--cor-secundaria); }
+.cartinha-body {
+  font-family: "Caveat", cursive; font-size: 1.4rem; line-height: 1.25;
+  margin: 6px 0 12px; white-space: pre-wrap; word-break: break-word;
+}
+.cartinha-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 0.72rem; font-weight: 700; color: color-mix(in srgb, #3a2f4a 55%, transparent);
+}
+.cartinha-del { background: transparent; border: 0; color: inherit; opacity: 0.55; padding: 2px; cursor: pointer; }
+.cartinha-del:hover { opacity: 1; color: #e0566b; }
+.cartinha-del .ico { width: 13px; height: 13px; }
+
 .diary-empty {
   display: flex;
   flex-direction: column;
