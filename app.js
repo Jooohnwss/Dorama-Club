@@ -618,6 +618,7 @@ let coupleLetters = [];
 let coupleLoading = false;
 let coupleSection = state.coupleSection || "inicio"; // seção interna do ambiente do casal (persistida)
 let nosTab = "hoje"; // sub-aba dentro do "Nós 🔥": hoje | brincar | desejos | progresso
+let cartaAtual = null; // carta puxada do baralho (ainda não enviada), local
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let coupleDiaryKind = "livre"; // tipo de página do diário sendo criada
 let coupleDiaryDay = null; // dia (YYYY-MM-DD) aberto no caderno; null = hoje
@@ -5527,6 +5528,26 @@ const DESAFIOS_CAT = [
   { key: "ultra_personalizado", nivel: 6, nome: "Desafio ultra privado", desc: "Desafio ultra privado personalizado, conforme combinado pelo casal. Envio fora do app.", custo: 1500 },
 ];
 
+// Cartas de VERDADE (perguntas), por nível de picância (1 leve → 6 quente).
+const VERDADES_CAT = [
+  { nivel: 1, texto: "Qual foi a primeira coisa que te atraiu em mim?" },
+  { nivel: 1, texto: "Qual momento nosso você mais gosta de relembrar?" },
+  { nivel: 1, texto: "O que eu faço que te deixa bobo(a) sem eu perceber?" },
+  { nivel: 1, texto: "Qual apelido secreto você me daria hoje?" },
+  { nivel: 2, texto: "Onde você mais gosta de ganhar um beijo?" },
+  { nivel: 2, texto: "Qual roupa minha você mais gosta de ver em mim?" },
+  { nivel: 2, texto: "Qual foi a hora que você mais quis me agarrar e se segurou?" },
+  { nivel: 2, texto: "Prefere ser provocado(a) de manhã ou de noite?" },
+  { nivel: 3, texto: "Uma fantasia levinha que você tem comigo?" },
+  { nivel: 3, texto: "Qual parte do meu corpo é sua fraqueza?" },
+  { nivel: 3, texto: "O que você faria comigo se a gente estivesse sozinho agora?" },
+  { nivel: 4, texto: "Descreve, sem vergonha, algo que você quer muito fazer comigo." },
+  { nivel: 4, texto: "Qual foi a vez mais quente que a gente teve? Conta com detalhes." },
+  { nivel: 5, texto: "Um desejo mais ousado que você nunca teve coragem de pedir?" },
+  { nivel: 5, texto: "O que você quer que eu faça na nossa próxima vez?" },
+  { nivel: 6, texto: "Sua fantasia mais secreta comigo — sem filtro." },
+];
+
 function adulto18Ok() {
   try { return localStorage.getItem(ADULTO18_KEY) === "1"; } catch { return false; }
 }
@@ -6383,6 +6404,109 @@ function desafiosModalTemplate() {
     </div>`;
 }
 
+// ===== Baralho Verdade ou Desafio =====
+function cartaAtiva() {
+  try { return JSON.parse(coupleAbout.carta_ativa || "null"); } catch { return null; }
+}
+function nomeParceiroCurto() {
+  const p = parceiraMembro();
+  return (p?.nickname || p?.name || "sua pessoa").split(" ")[0];
+}
+function puxarCarta(tipo) {
+  const lim = intensidadePermitida();
+  const verdades = VERDADES_CAT.filter((v) => v.nivel <= lim).map((v) => ({ tipo: "verdade", texto: v.texto, nivel: v.nivel }));
+  const desafios = DESAFIOS_CAT.filter((d) => d.nivel <= lim).map((d) => ({ tipo: "desafio", texto: d.desc, nome: d.nome, nivel: d.nivel }));
+  const pool = tipo === "verdade" ? verdades : tipo === "desafio" ? desafios : verdades.concat(desafios);
+  if (!pool.length) { toast("Definam os limites no ‘clima’ pra liberar as cartas 🔥"); return; }
+  let nova; let i = 0;
+  do { nova = pool[Math.floor(Math.random() * pool.length)]; i++; } while (cartaAtual && nova.texto === cartaAtual.texto && pool.length > 1 && i < 8);
+  cartaAtual = nova;
+  render();
+}
+async function enviarCarta() {
+  if (!cartaAtual || !state.couple) return;
+  const payload = JSON.stringify({ tipo: cartaAtual.tipo, texto: cartaAtual.texto, nome: cartaAtual.nome || "", nivel: cartaAtual.nivel, by: authUser.id, at: new Date().toISOString() });
+  try {
+    await saveCoupleAbout(state.couple.id, authUser.id, "carta_ativa", payload);
+    coupleAbout.carta_ativa = payload;
+    cartaAtual = null;
+    render();
+    toast(`Carta enviada pra ${nomeParceiroCurto()}! 🔥`);
+  } catch { toast("Não consegui enviar a carta."); }
+}
+async function limparCarta(cumprida) {
+  const c = cartaAtiva();
+  if (!state.couple) return;
+  try {
+    await saveCoupleAbout(state.couple.id, authUser.id, "carta_ativa", "");
+    coupleAbout.carta_ativa = "";
+    if (cumprida && c) await ganharPontos(PONTOS.desafio[c.nivel] || 8, `carta cumprida (${c.tipo})`, "carta", `carta:${Date.now()}`);
+    render();
+    toast(cumprida ? "Cumprido! 💋" : "Carta descartada.");
+  } catch { toast("Não consegui atualizar."); }
+}
+
+// Card visual de uma carta.
+function cartaFaceHtml(c, { compacta } = {}) {
+  const cor = c.tipo === "verdade" ? "verdade" : "desafio";
+  const selo = c.tipo === "verdade" ? "💬 Verdade" : "😈 Desafio";
+  return `
+    <div class="carta-face ${cor} ${compacta ? "compacta" : ""}">
+      <span class="carta-selo">${selo}</span>
+      <span class="carta-nivel">${NIVEL_LABEL[c.nivel] || `Nível ${c.nivel}`}</span>
+      ${c.nome ? `<strong class="carta-nome">${esc(c.nome)}</strong>` : ""}
+      <p class="carta-texto">${esc(c.texto)}</p>
+    </div>`;
+}
+
+function baralhoTemplate() {
+  const meu = prefMax(authUser?.id);
+  if (!meu) {
+    return `
+      <section class="baralho">
+        <div class="baralho-vazio">🔒 Definam os limites de vocês no <strong>clima</strong> (abaixo) pra abrir o baralho.</div>
+      </section>`;
+  }
+  const ativa = cartaAtiva();
+  // Já existe uma carta em jogo (enviada por alguém).
+  if (ativa) {
+    const minha = ativa.by === authUser?.id;
+    if (minha) {
+      return `
+        <section class="baralho">
+          <div class="baralho-head"><strong>📤 Carta enviada</strong><small>esperando ${esc(nomeParceiroCurto())} cumprir…</small></div>
+          ${cartaFaceHtml(ativa)}
+          <div class="baralho-acoes"><button class="btn ghost" type="button" data-carta-cancelar>Cancelar carta</button></div>
+        </section>`;
+    }
+    return `
+      <section class="baralho">
+        <div class="baralho-head"><strong>💌 ${esc(nomeParceiroCurto())} te mandou uma carta!</strong><small>topa?</small></div>
+        ${cartaFaceHtml(ativa)}
+        <div class="baralho-acoes">
+          <button class="btn" type="button" data-carta-cumpri>✅ Cumpri 💋</button>
+          <button class="btn ghost" type="button" data-carta-recusar>🙈 Agora não</button>
+        </div>
+      </section>`;
+  }
+  // Sem carta em jogo: puxar do baralho.
+  return `
+    <section class="baralho">
+      <div class="baralho-head"><strong>🃏 Verdade ou Desafio</strong><small>puxe e mande pra ${esc(nomeParceiroCurto())}</small></div>
+      ${cartaAtual
+        ? `${cartaFaceHtml(cartaAtual)}
+           <div class="baralho-acoes">
+             <button class="btn" type="button" data-carta-enviar>💌 Mandar pra ${esc(nomeParceiroCurto())}</button>
+             <button class="btn ghost" type="button" data-carta-puxar="${cartaAtual.tipo}">🎲 Outra</button>
+           </div>`
+        : `<div class="baralho-deck" data-carta-puxar="ambos"><span>🔥</span><b>Toque pra puxar uma carta</b></div>
+           <div class="baralho-tipos">
+             <button class="btn ghost" type="button" data-carta-puxar="verdade">💬 Verdade</button>
+             <button class="btn ghost" type="button" data-carta-puxar="desafio">😈 Desafio</button>
+           </div>`}
+    </section>`;
+}
+
 function nosSection() {
   if (!nosUnlocked) return nosLockTemplate();
 
@@ -6427,8 +6551,9 @@ function nosSection() {
   let corpo = "";
   if (nosTab === "hoje") {
     corpo = `
+      ${baralhoTemplate()}
       <section class="nos-daily-grid">
-        <div class="nos-stack">${desafioHtml}${nosFeitosHtml()}</div>
+        <div class="nos-stack">${nosFeitosHtml()}</div>
         <div class="nos-stack">${nosClimaHtml()}</div>
       </section>
       ${nosTelegramHtml()}`;
@@ -7944,6 +8069,11 @@ function bindShell() {
   listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); coupleDiaryFoto = null; renderMantendoScroll(); });
   listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; coupleDiaryFoto = null; renderMantendoScroll(); } });
   document.querySelectorAll("[data-nos-tab]").forEach((b) => listen(b, "click", () => { nosTab = b.dataset.nosTab; render(); }));
+  document.querySelectorAll("[data-carta-puxar]").forEach((b) => listen(b, "click", () => puxarCarta(b.dataset.cartaPuxar)));
+  listen(document.querySelector("[data-carta-enviar]"), "click", enviarCarta);
+  listen(document.querySelector("[data-carta-cumpri]"), "click", () => limparCarta(true));
+  listen(document.querySelector("[data-carta-recusar]"), "click", () => limparCarta(false));
+  listen(document.querySelector("[data-carta-cancelar]"), "click", () => limparCarta(false));
   document.querySelectorAll("[data-bingo-cell]").forEach((button) => {
     listen(button, "click", () => toggleBingoCell(Number(button.dataset.bingoCell)));
   });

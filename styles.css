@@ -3116,6 +3116,46 @@ textarea:focus {
 /* Cards soltos (desafio) ficam opacos e nítidos sobre o fundo escuro */
 .nos-wrap .desafio-card { background: var(--cor-superficie); box-shadow: 0 16px 34px -22px rgba(0, 0, 0, 0.8); }
 
+/* ===== Baralho Verdade ou Desafio ===== */
+.baralho { margin-bottom: 16px; display: grid; gap: 12px; }
+.baralho-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 2px; }
+.baralho-head strong { color: #fff; font-size: 1.05rem; }
+.baralho-head small { color: rgba(246, 233, 240, 0.6); font-weight: 700; font-size: 0.78rem; }
+.baralho-vazio { color: rgba(246, 233, 240, 0.8); background: rgba(255,255,255,0.06); border: 1px dashed rgba(255,255,255,0.18); border-radius: 16px; padding: 18px; text-align: center; font-weight: 700; }
+
+.baralho-deck {
+  display: grid; place-items: center; gap: 8px; cursor: pointer;
+  min-height: 190px; border-radius: 22px; text-align: center;
+  color: #fff; font-weight: 800;
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0 12px, rgba(255,255,255,0.02) 12px 24px),
+    linear-gradient(160deg, #ff5f8d, #8a2878);
+  border: 1px solid rgba(255,255,255,0.25);
+  box-shadow: 0 18px 40px -20px rgba(255, 95, 141, 0.7);
+  transition: transform 0.12s ease;
+}
+.baralho-deck:hover { transform: translateY(-2px); }
+.baralho-deck span { font-size: 2.6rem; }
+.baralho-tipos { display: flex; gap: 8px; }
+.baralho-tipos .btn { flex: 1; }
+
+.carta-face {
+  position: relative; border-radius: 22px; padding: 22px 20px 24px; min-height: 190px;
+  display: flex; flex-direction: column; gap: 8px; justify-content: center;
+  color: #2a0f1e; box-shadow: 0 20px 44px -18px rgba(0,0,0,0.55);
+  animation: cartaIn 0.22s ease;
+}
+@keyframes cartaIn { from { transform: rotateX(12deg) translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.carta-face.verdade { background: linear-gradient(160deg, #fff1f6, #ffd9e6); border: 1px solid #ffb3cd; }
+.carta-face.desafio { background: linear-gradient(160deg, #fff0ea, #ffd7c2); border: 1px solid #ffb08c; }
+.carta-selo { font-size: 0.74rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; color: #b23c86; }
+.carta-face.desafio .carta-selo { color: #c2410c; }
+.carta-nivel { position: absolute; top: 16px; right: 18px; font-size: 0.72rem; font-weight: 800; opacity: 0.7; }
+.carta-nome { font-size: 1.05rem; }
+.carta-texto { margin: 0; font-family: "Caveat", cursive; font-size: 1.9rem; line-height: 1.15; font-weight: 700; }
+.baralho-acoes { display: flex; gap: 8px; }
+.baralho-acoes .btn { flex: 1; }
+
 .nos-daily-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
