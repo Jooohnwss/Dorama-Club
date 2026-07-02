@@ -2832,36 +2832,29 @@ function clubEpisodiosTemplate() {
     });
   }
 
-  const linhas = [];
+  // Grade compacta de episódios (escala bem pra 25, 50…).
+  const sel = epDetailOpen && epDetailOpen >= 1 && epDetailOpen <= totalEps ? epDetailOpen : null;
+  const tiles = [];
   for (let n = 1; n <= totalEps; n++) {
     const iSaw = meuEp >= n;
-    const viram = checkins.filter((c) => Number(c.current_episode || 0) >= n).length;
-    const r = ratingsMap[n];
-    const my = Number(r?.my_stars || 0);
-    const avg = r?.avg_stars != null ? Number(r.avg_stars) : 0;
-    const votes = Number(r?.votes || 0);
-    const coments = comentsPorEp[n] || [];
-    const aberto = epDetailOpen === n;
-    const estrelas = [1, 2, 3, 4, 5].map((s) =>
-      `<button class="ep-star ${my >= s ? "on" : ""}" type="button" data-ep-star="${n}" data-star="${s}" ${iSaw ? "" : "disabled"} title="${s} estrela${s > 1 ? "s" : ""}" aria-label="${s} estrela${s > 1 ? "s" : ""}">★</button>`).join("");
-    linhas.push(`
-      <article class="ep-row ${iSaw ? "seen" : ""} ${aberto ? "open" : ""}">
-        <button class="ep-check" type="button" data-ep-toggle="${n}" data-seen="${iSaw ? 1 : 0}" title="${iSaw ? "Você viu — toque pra desmarcar" : "Marcar como visto"}" aria-label="Episódio ${n} visto">${iSaw ? "✓" : ""}</button>
-        <button class="ep-info" type="button" data-ep-open="${n}" aria-expanded="${aberto ? "true" : "false"}">
-          <strong>Ep. ${n}</strong>
-          <small>👁 ${viram}/${membros}${coments.length ? ` · 💬 ${coments.length}` : ""}${iSaw ? " · você viu" : ""}</small>
-        </button>
-        <div class="ep-stars">${estrelas}</div>
-        <div class="ep-avg">${votes ? `★ ${avg.toFixed(1).replace(".0", "")} <em>(${votes})</em>` : "<span class='muted'>sem nota</span>"}</div>
-      </article>`);
-    if (aberto) linhas.push(episodioDetalheTemplate(n, iSaw, coments));
+    const rated = Number(ratingsMap[n]?.my_stars || 0) > 0;
+    const hasC = (comentsPorEp[n] || []).length > 0;
+    tiles.push(`
+      <button class="ep-tile ${iSaw ? "seen" : ""} ${sel === n ? "open" : ""}" type="button" data-ep-open="${n}" aria-label="Episódio ${n}${iSaw ? ", visto" : ""}">
+        <span class="ep-tile-n">${n}</span>
+        <span class="ep-tile-dots">${rated ? `<i class="dot star"></i>` : ""}${hasC ? `<i class="dot chat"></i>` : ""}</span>
+      </button>`);
   }
 
   const vistos = Math.min(meuEp, totalEps);
   const pctVisto = Math.round((vistos / totalEps) * 100);
+  const detalhe = sel
+    ? episodioDetalheTemplate(sel, meuEp >= sel, comentsPorEp[sel] || [], ratingsMap[sel], checkins.filter((c) => Number(c.current_episode || 0) >= sel).length, membros)
+    : "";
+
   return `
     <section class="ep-mode">
-      <details ${vistos < totalEps ? "open" : ""}>
+      <details open>
         <summary>
           <span class="ep-mode-top">
             <span class="ep-mode-title">🎬 Modo Episódio</span>
@@ -2869,18 +2862,43 @@ function clubEpisodiosTemplate() {
           </span>
           <span class="ep-mode-progress"><i style="width:${pctVisto}%"></i></span>
         </summary>
-        <p class="ep-mode-hint muted">Toque no <strong>✓</strong> pra marcar que assistiu (dá +1 no ranking 🎬) e nas <strong>⭐</strong> pra dar sua nota — a nota libera depois que você marca o episódio como visto. A média é do clube inteiro. Toque no episódio pra ver e comentar os surtos dele. 💬</p>
-        <div class="ep-list">${linhas.join("")}</div>
+        <p class="ep-mode-hint muted">Toque num episódio pra <strong>marcar como visto</strong> (+1 no ranking 🎬), dar <strong>nota ⭐</strong> e ver os <strong>surtos 💬</strong>. Quadradinho verde = você viu.</p>
+        <div class="ep-grid">${tiles.join("")}</div>
+        ${detalhe}
       </details>
     </section>`;
 }
 
-// Painel de discussão de um episódio (dentro do Modo Episódio).
-function episodioDetalheTemplate(n, iSaw, coments) {
+// Painel de um episódio: marcar visto + nota + surtos daquele episódio.
+function episodioDetalheTemplate(n, iSaw, coments, rating, viram, membros) {
+  const my = Number(rating?.my_stars || 0);
+  const avg = rating?.avg_stars != null ? Number(rating.avg_stars) : 0;
+  const votes = Number(rating?.votes || 0);
+  const estrelas = [1, 2, 3, 4, 5].map((s) =>
+    `<button class="ep-star ${my >= s ? "on" : ""}" type="button" data-ep-star="${n}" data-star="${s}" ${iSaw ? "" : "disabled"} title="${s} estrela${s > 1 ? "s" : ""}" aria-label="${s} estrela${s > 1 ? "s" : ""}">★</button>`).join("");
+
+  const head = `
+    <div class="ep-detail-head">
+      <strong>Ep. ${n}</strong>
+      <span class="ep-detail-seen">👁 ${viram}/${membros}</span>
+      <button class="ep-detail-close" type="button" data-ep-open="${n}" title="Fechar">✕</button>
+    </div>`;
+
+  const controls = `
+    <div class="ep-detail-controls">
+      <button class="ep-mark ${iSaw ? "on" : ""}" type="button" data-ep-toggle="${n}" data-seen="${iSaw ? 1 : 0}">${iSaw ? "✓ Você viu — desmarcar" : "Marcar como visto"}</button>
+      <div class="ep-detail-rate">
+        <span class="ep-stars">${estrelas}</span>
+        <span class="ep-avg">${votes ? `★ ${avg.toFixed(1).replace(".0", "")} <em>(${votes})</em>` : "<span class='muted'>sem nota</span>"}</span>
+      </div>
+    </div>`;
+
   if (!iSaw) {
     return `
-      <section class="ep-detail locked">
-        <div class="ep-detail-lock">🔒 Veja o <strong>ep. ${n}</strong> pra ver e comentar os surtos — sem spoiler de quem ainda não chegou lá. 👀</div>
+      <section class="ep-detail">
+        ${head}
+        ${controls}
+        <div class="ep-detail-lock">🔒 Marque o <strong>ep. ${n}</strong> como visto pra dar nota e ver os surtos — sem spoiler de quem não chegou lá. 👀</div>
       </section>`;
   }
   const lista = (coments || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
@@ -2889,12 +2907,16 @@ function episodioDetalheTemplate(n, iSaw, coments) {
     : `<p class="ep-detail-empty muted">Ninguém surtou sobre o ep. ${n} ainda. Abre a conversa! 💬</p>`;
   return `
     <section class="ep-detail">
-      <div class="ep-detail-head"><strong>💬 Surtos do ep. ${n}</strong><button class="ep-detail-close" type="button" data-ep-open="${n}" title="Fechar">✕</button></div>
-      ${posts}
-      <form class="ep-detail-form" data-ep-comment="${n}">
-        <textarea name="body" rows="2" placeholder="O que achou do ep. ${n}? (só quem já viu, vê) 💭" required></textarea>
-        <button class="btn" type="submit">Publicar no ep. ${n}</button>
-      </form>
+      ${head}
+      ${controls}
+      <div class="ep-detail-comments">
+        <strong class="ep-detail-ctitle">💬 Surtos do ep. ${n}</strong>
+        ${posts}
+        <form class="ep-detail-form" data-ep-comment="${n}">
+          <textarea name="body" rows="2" placeholder="O que achou do ep. ${n}? (só quem já viu, vê) 💭" required></textarea>
+          <button class="btn" type="submit">Publicar no ep. ${n}</button>
+        </form>
+      </div>
     </section>`;
 }
 
