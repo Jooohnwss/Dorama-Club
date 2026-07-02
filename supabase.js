@@ -963,6 +963,7 @@ export async function addCoupleDiary(coupleId, userId, entry) {
     who_cried: entry.whoCried || null,
     who_raged: entry.whoRaged || null,
     comment: entry.comment || null,
+    photo: entry.photo || null,
     author_id: userId,
   }).select("id").single();
   if (error) throw error;
@@ -1009,6 +1010,7 @@ export async function addCoupleLetter(coupleId, userId, letter) {
     couple_id: coupleId,
     kind: letter.kind || "memoria",
     body: letter.body,
+    photo: letter.photo || null,
     author_id: userId,
   }).select("id").single();
   if (error) throw error;

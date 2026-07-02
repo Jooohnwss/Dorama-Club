@@ -610,6 +610,8 @@ let coupleSection = state.coupleSection || "inicio"; // seção interna do ambie
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let coupleDiaryKind = "livre"; // tipo de página do diário sendo criada
 let coupleDiaryDay = null; // dia (YYYY-MM-DD) aberto no caderno; null = hoje
+let coupleDiaryFoto = null; // foto (data URL) pendente pra próxima página do diário
+let coupleLetterFoto = null; // foto (data URL) pendente pra próxima cartinha
 let recadoIndex = Math.floor(Math.random() * 1000); // qual recadinho mostrar no topo
 let recadosExpandidos = false; // mostrar todos os recadinhos ou só os recentes
 let cartinhasExpandidas = false; // mostrar todas as cartinhas ou só as recentes
@@ -4286,6 +4288,7 @@ function coupleDiaryEntryCard(e) {
       </div>
       ${headline ? `<strong class="diary-entry-title">${headline}</strong>` : ""}
       ${linha1 ? `<small class="diary-entry-sub">${linha1}</small>` : ""}
+      ${e.photo ? `<img class="diary-entry-foto" src="${esc(e.photo)}" alt="" loading="lazy" />` : ""}
       <div class="diary-entry-body">
         ${e.fav_moment ? `<p class="album-quote">“${esc(e.fav_moment)}”</p>` : ""}
         ${e.comment ? `<p>${esc(e.comment)}</p>` : ""}
@@ -4336,6 +4339,7 @@ function diarioNavega(delta) {
   let novo = addDias(atual, delta);
   if (novo > hoje) novo = hoje;
   coupleDiaryDay = novo;
+  coupleDiaryFoto = null;
   render();
 }
 
@@ -4353,7 +4357,11 @@ function cadernoPaginaHtml(diaK, porDia, opts = {}) {
         <input type="hidden" name="kind" value="livre" />
         <input type="hidden" name="watchedOn" value="${esc(diaK)}" />
         <textarea name="comment" rows="3" placeholder="Ex.: ${esc(diarioExemplo())} 💕"></textarea>
-        <div class="actions"><button class="btn" type="submit">✍️ Escrever aqui</button></div>
+        <div class="foto-anexo" id="diary-foto-wrap">${coupleDiaryFoto ? `<div class="foto-preview"><img src="${coupleDiaryFoto}" alt="" /><button type="button" class="foto-remove" data-diary-foto-remove>✕</button></div>` : ""}</div>
+        <div class="actions caderno-escrever-acoes">
+          <label class="foto-btn">📷 Foto<input type="file" accept="image/*" data-diary-foto hidden /></label>
+          <button class="btn" type="submit">✍️ Escrever aqui</button>
+        </div>
       </form>`
     : "";
   return `
@@ -4484,6 +4492,7 @@ function coupleLettersTemplate() {
         return `
           <article class="cartinha cart-${i % 4}">
             <span class="cartinha-tag">${emoji} ${label}</span>
+            ${l.photo ? `<img class="cartinha-foto" src="${esc(l.photo)}" alt="" loading="lazy" />` : ""}
             <p class="cartinha-body">${esc(l.body)}</p>
             <div class="cartinha-foot">
               <span>${esc(assinatura)}</span>
@@ -4499,8 +4508,10 @@ function coupleLettersTemplate() {
     <div class="section-title compact"><h2>💌 Cartinhas e memórias</h2></div>
     <form id="couple-letter-form" class="cartinha-form">
       <select name="kind"><option value="memoria">📸 Memória</option><option value="mensagem">💌 Mensagem</option><option value="lembrar">📌 Pra lembrar</option></select>
-      <input name="body" placeholder="Uma coisa que eu amei hoje…" required />
+      <input name="body" placeholder="Uma coisa que eu amei hoje…" />
+      <label class="foto-btn">📷<input type="file" accept="image/*" data-letter-foto hidden /></label>
       <button class="btn" type="submit">Guardar 💕</button>
+      <div class="foto-anexo" id="letter-foto-wrap">${coupleLetterFoto ? `<div class="foto-preview"><img src="${coupleLetterFoto}" alt="" /><button type="button" class="foto-remove" data-letter-foto-remove>✕</button></div>` : ""}</div>
     </form>
     <section class="cartinha-mural">${cards}</section>
     ${verMais}`;
@@ -7568,6 +7579,8 @@ async function handleLogout() {
   coupleAbout = {};
   coupleLetters = [];
   coupleDiaryDay = null;
+  coupleDiaryFoto = null;
+  coupleLetterFoto = null;
   coupleLoading = false;
   casais = [];
   casaisFor = null;
@@ -7849,6 +7862,10 @@ function bindShell() {
   listen(document.querySelector("#couple-add-drama-form"), "submit", handleCoupleAddDrama);
   listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
   listen(document.querySelector("#couple-letter-form"), "submit", handleCoupleLetter);
+  listen(document.querySelector("[data-diary-foto]"), "change", (e) => handleDiaryFoto(e.target));
+  listen(document.querySelector("[data-letter-foto]"), "change", (e) => handleLetterFoto(e.target));
+  listen(document.querySelector("[data-diary-foto-remove]"), "click", () => { coupleDiaryFoto = null; const w = document.querySelector("#diary-foto-wrap"); if (w) w.innerHTML = ""; });
+  listen(document.querySelector("[data-letter-foto-remove]"), "click", () => { coupleLetterFoto = null; const w = document.querySelector("#letter-foto-wrap"); if (w) w.innerHTML = ""; });
   listen(document.querySelector("[data-copy-couple-code]"), "click", copyCoupleCode);
   document.querySelectorAll("[data-date-roulette]").forEach((b) => listen(b, "click", handleDateRoulette));
   listen(document.querySelector("[data-leave-couple]"), "click", handleLeaveCouple);
@@ -7897,8 +7914,8 @@ function bindShell() {
   });
   listen(document.querySelector("[data-diary-older]"), "click", () => diarioNavega(-1));
   listen(document.querySelector("[data-diary-newer]"), "click", () => diarioNavega(1));
-  listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); render(); });
-  listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; render(); } });
+  listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); coupleDiaryFoto = null; render(); });
+  listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; coupleDiaryFoto = null; render(); } });
   document.querySelectorAll("[data-bingo-cell]").forEach((button) => {
     listen(button, "click", () => toggleBingoCell(Number(button.dataset.bingoCell)));
   });
@@ -9151,9 +9168,9 @@ async function handleCoupleDiary(event) {
   const drama = coupleDramas.find((d) => d.id === data.dramaId);
   // Tipos sem dorama usam um título livre; com dorama, usa o título dele.
   const titulo = drama?.title || String(data.titleLivre || "").trim();
-  // Exige ao menos algum conteúdo (título ou texto).
-  if (!titulo && !String(data.comment || "").trim() && !String(data.favMoment || "").trim()) {
-    toast("Escreva algo pra guardar essa página. 💕");
+  // Exige ao menos algum conteúdo (título, texto ou foto).
+  if (!titulo && !String(data.comment || "").trim() && !String(data.favMoment || "").trim() && !coupleDiaryFoto) {
+    toast("Escreva algo ou anexe uma foto pra guardar essa página. 💕");
     return;
   }
   try {
@@ -9174,14 +9191,40 @@ async function handleCoupleDiary(event) {
       whoCried: data.whoCried,
       whoRaged: data.whoRaged,
       comment: data.comment,
+      photo: coupleDiaryFoto,
     });
     if (memId) await ganharPontos(PONTOS.memoria, "memória no diário", "memory", memId);
     coupleMemoryDraft = null;
+    coupleDiaryFoto = null;
     coupleDiary = await loadCoupleDiary(state.couple.id);
     render();
     toast("Página guardada no álbum. 💕");
   } catch {
     toast("Não consegui guardar essa memória.");
+  }
+}
+
+// Anexar foto ao diário / cartinha (data URL, sem re-render pra não perder o texto digitado).
+async function handleDiaryFoto(input) {
+  const f = input.files?.[0];
+  if (!f) return;
+  try { coupleDiaryFoto = await resizeImage(f, 720); } catch { toast("Não consegui carregar a foto."); return; }
+  const wrap = document.querySelector("#diary-foto-wrap");
+  if (wrap) {
+    wrap.innerHTML = `<div class="foto-preview"><img src="${coupleDiaryFoto}" alt="" /><button type="button" class="foto-remove">✕ tirar foto</button></div>`;
+    const b = wrap.querySelector(".foto-remove");
+    if (b) b.onclick = () => { coupleDiaryFoto = null; wrap.innerHTML = ""; };
+  }
+}
+async function handleLetterFoto(input) {
+  const f = input.files?.[0];
+  if (!f) return;
+  try { coupleLetterFoto = await resizeImage(f, 720); } catch { toast("Não consegui carregar a foto."); return; }
+  const wrap = document.querySelector("#letter-foto-wrap");
+  if (wrap) {
+    wrap.innerHTML = `<div class="foto-preview"><img src="${coupleLetterFoto}" alt="" /><button type="button" class="foto-remove">✕ tirar foto</button></div>`;
+    const b = wrap.querySelector(".foto-remove");
+    if (b) b.onclick = () => { coupleLetterFoto = null; wrap.innerHTML = ""; };
   }
 }
 
@@ -9223,10 +9266,11 @@ async function handleCoupleLetter(event) {
   const form = event.currentTarget; // guarda antes do await (currentTarget vira null depois)
   const data = Object.fromEntries(new FormData(form));
   const body = String(data.body || "").trim();
-  if (!state.couple || !body) return;
+  if (!state.couple || (!body && !coupleLetterFoto)) return;
   try {
-    const lid = await addCoupleLetter(state.couple.id, authUser.id, { kind: data.kind, body });
+    const lid = await addCoupleLetter(state.couple.id, authUser.id, { kind: data.kind, body, photo: coupleLetterFoto });
     if (lid) await ganharPontos(PONTOS.cartinha, "cartinha", "letter", lid);
+    coupleLetterFoto = null;
     form.reset();
     coupleLetters = await loadCoupleLetters(state.couple.id);
     render();
