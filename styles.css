@@ -1772,7 +1772,10 @@ textarea:focus {
   padding: 6px 12px; border-radius: 999px; font-weight: 800; font-size: 0.8rem;
   border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); color: var(--cor-texto-suave);
 }
-.mural-kind-opt input { width: auto; margin: 0; accent-color: var(--cor-primaria); }
+.mural-kind-opt input {
+  position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; padding: 0;
+  border: 0; pointer-events: none;
+}
 .mural-kind-opt:has(input:checked) {
   border-color: color-mix(in srgb, var(--cor-primaria) 50%, var(--cor-borda));
   background: color-mix(in srgb, var(--cor-primaria) 12%, var(--cor-superficie));
