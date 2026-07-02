@@ -4603,7 +4603,6 @@ function coupleInicioSection() {
     ${coupleGreetingTemplate()}
     ${coupleCountdownTemplate()}
     ${coupleSaudadeMini()}
-    ${coupleProximoPasso()}
     ${coupleFocusCard()}
     ${couplePetMini()}
     <div class="section-title compact"><h2>Resumo de vocês</h2></div>
