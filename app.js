@@ -612,6 +612,7 @@ let coupleDiaryKind = "livre"; // tipo de página do diário sendo criada
 let coupleDiaryDay = null; // dia (YYYY-MM-DD) aberto no caderno; null = hoje
 let recadoIndex = Math.floor(Math.random() * 1000); // qual recadinho mostrar no topo
 let recadosExpandidos = false; // mostrar todos os recadinhos ou só os recentes
+let cartinhasExpandidas = false; // mostrar todas as cartinhas ou só as recentes
 let coupleAddSearch = { query: "", loading: false, results: [] }; // busca TMDB no add do casal
 let clubAddSearch = { query: "", loading: false, results: [] }; // busca TMDB na sala de escolha do clube
 let coupleAddCatSel = "watching"; // categoria escolhida no add do casal (persiste no re-render)
@@ -4396,8 +4397,10 @@ const CARTINHA_TIPOS = { memoria: ["📸", "Memória"], mensagem: ["💌", "Mens
 
 function coupleLettersTemplate() {
   const eu = authUser?.id;
+  const LIMITE = 6;
+  const lista = cartinhasExpandidas ? coupleLetters : coupleLetters.slice(0, LIMITE);
   const cards = coupleLetters.length
-    ? coupleLetters.map((l, i) => {
+    ? lista.map((l, i) => {
         const [emoji, label] = CARTINHA_TIPOS[l.kind] || ["💌", "Cartinha"];
         const autor = coupleMembers.find((m) => m.user_id === l.author_id);
         const mine = l.author_id && l.author_id === eu;
@@ -4414,6 +4417,9 @@ function coupleLettersTemplate() {
           </article>`;
       }).join("")
     : `<div class="empty">Guardem bilhetes, memórias e coisas que vocês querem lembrar. 💌</div>`;
+  const verMais = coupleLetters.length > LIMITE
+    ? `<button class="recados-more" type="button" data-cartinhas-toggle>${cartinhasExpandidas ? "Ver menos ▲" : `Ver todas as ${coupleLetters.length} cartinhas ▾`}</button>`
+    : "";
   return `
     <div class="section-title compact"><h2>💌 Cartinhas e memórias</h2></div>
     <form id="couple-letter-form" class="cartinha-form">
@@ -4421,7 +4427,8 @@ function coupleLettersTemplate() {
       <input name="body" placeholder="Uma coisa que eu amei hoje…" required />
       <button class="btn" type="submit">Guardar 💕</button>
     </form>
-    <section class="cartinha-mural">${cards}</section>`;
+    <section class="cartinha-mural">${cards}</section>
+    ${verMais}`;
 }
 
 // Cartinha fixa: carta sempre visível no topo do espaço do casal.
@@ -7843,6 +7850,7 @@ function bindShell() {
   listen(document.querySelector("[data-couple-name]"), "click", handleCoupleSetName);
   listen(document.querySelector("[data-couple-recado]"), "click", handleCoupleRecado);
   listen(document.querySelector("[data-recados-toggle]"), "click", () => { recadosExpandidos = !recadosExpandidos; render(); });
+  listen(document.querySelector("[data-cartinhas-toggle]"), "click", () => { cartinhasExpandidas = !cartinhasExpandidas; render(); });
   listen(document.querySelector("[data-recado-shuffle]"), "click", handleRecadoShuffle);
   document.querySelectorAll("[data-del-couple-drama]").forEach((button) => {
     listen(button, "click", () => handleDeleteCoupleDrama(button.dataset.delCoupleDrama));
