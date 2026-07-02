@@ -2732,19 +2732,10 @@ function clubeCicloTemplate() {
           <small>${terminaram}/${membros} do clube terminaram — só troca quando <strong>todos</strong> terminarem</small>
         </div>
 
-        <div class="checkin-ep">
-          <label for="club-ep-input">Até que episódio você já assistiu?</label>
-          <form id="club-checkin-form" class="checkin-ep-row">
-            <input id="club-ep-input" name="episode" type="number" min="0" inputmode="numeric" value="${Number(featured.my_episode || 0)}" />
-            <input type="hidden" name="status" value="${euTerminei ? "finished" : "watching"}" />
-            <button class="btn secondary" type="submit">✓ Assisti até aqui</button>
-          </form>
-        </div>
-
         <button class="checkin-finish ${euTerminei ? "done" : ""}" type="button" data-club-finish="${euTerminei ? "0" : "1"}">
           ${euTerminei ? "✅ Você já terminou o dorama — toque pra desmarcar" : "🏁 Já terminei o dorama inteiro"}
         </button>
-        <p class="ciclo-hint muted">Salvar o episódio dá <strong>+1 no ranking</strong> 🎬. O clube só libera sortear o próximo quando <strong>todo mundo</strong> marcar "terminei o dorama". 🔒</p>
+        <p class="ciclo-hint muted">Marque os episódios no <strong>Modo Episódio</strong> abaixo 👇 — cada um dá <strong>+1 no ranking</strong> 🎬. O clube só libera sortear o próximo quando <strong>todo mundo</strong> marcar "terminei o dorama". 🔒</p>
       </section>`
     : `<section class="ciclo-now"><span class="clf-eyebrow">🎬 Assistindo agora</span><p class="muted" style="margin:8px 0 0">Nenhum dorama oficial ainda. ${canManage ? "Sugiram abaixo e fixem o primeiro (botão Fixar)." : "Sugiram o primeiro abaixo."}</p></section>`;
 
@@ -2867,14 +2858,18 @@ function clubEpisodiosTemplate() {
   }
 
   const vistos = Math.min(meuEp, totalEps);
+  const pctVisto = Math.round((vistos / totalEps) * 100);
   return `
     <section class="ep-mode">
       <details ${vistos < totalEps ? "open" : ""}>
         <summary>
-          <span class="ep-mode-title">🎬 Modo Episódio</span>
-          <span class="ep-mode-sub">você viu ${vistos}/${totalEps}</span>
+          <span class="ep-mode-top">
+            <span class="ep-mode-title">🎬 Modo Episódio</span>
+            <span class="ep-mode-sub">${vistos}/${totalEps} vistos</span>
+          </span>
+          <span class="ep-mode-progress"><i style="width:${pctVisto}%"></i></span>
         </summary>
-        <p class="ep-mode-hint muted">Marque ✓ o que já assistiu e dê nota de 1 a 5 ⭐. As estrelas liberam quando você marca o episódio como visto (sem spoiler de nota). A média é do clube inteiro.</p>
+        <p class="ep-mode-hint muted">Toque no <strong>✓</strong> pra marcar que assistiu (dá +1 no ranking 🎬) e nas <strong>⭐</strong> pra dar sua nota — a nota libera depois que você marca o episódio como visto. A média é do clube inteiro. Toque no episódio pra ver e comentar os surtos dele. 💬</p>
         <div class="ep-list">${linhas.join("")}</div>
       </details>
     </section>`;
