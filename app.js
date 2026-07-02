@@ -617,6 +617,7 @@ let coupleAbout = {};
 let coupleLetters = [];
 let coupleLoading = false;
 let coupleSection = state.coupleSection || "inicio"; // seção interna do ambiente do casal (persistida)
+let nosTab = "hoje"; // sub-aba dentro do "Nós 🔥": hoje | brincar | desejos | progresso
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let coupleDiaryKind = "livre"; // tipo de página do diário sendo criada
 let coupleDiaryDay = null; // dia (YYYY-MM-DD) aberto no caderno; null = hoje
@@ -6414,30 +6415,35 @@ function nosSection() {
            </section>`
         : `<div class="empty">Sem desafio livre agora. Subam de nível ou ajustem os limites.</div>`}`;
 
+  const abas = [
+    ["hoje", "🔥 Hoje"],
+    ["brincar", "🎲 Brincadeiras"],
+    ["desejos", "💝 Desejos"],
+    ["progresso", "🏆 Progresso"],
+  ];
+  if (!abas.some(([k]) => k === nosTab)) nosTab = "hoje";
+  const subnav = `<div class="nos-subtabs">${abas.map(([k, l]) => `<button class="${nosTab === k ? "on" : ""}" type="button" data-nos-tab="${k}">${l}</button>`).join("")}</div>`;
+
+  let corpo = "";
+  if (nosTab === "hoje") {
+    corpo = `
+      <section class="nos-daily-grid">
+        <div class="nos-stack">${desafioHtml}${nosFeitosHtml()}</div>
+        <div class="nos-stack">${nosClimaHtml()}</div>
+      </section>`;
+  } else if (nosTab === "brincar") {
+    corpo = `${nosRoletaSafadaHtml()}${nosValesHtml()}${nosMissoesSecretasHtml()}${nosFetichesHtml()}`;
+  } else if (nosTab === "desejos") {
+    corpo = `${nosCofrinhoHtml()}${nosSurpresasHtml()}`;
+  } else {
+    corpo = `${nosProgressaoHtml()}${nosMissoesResumoHtml()}${nosConquistasHtml()}${nosTelegramHtml()}`;
+  }
+
   return `
     <div class="section-title"><h2>🔥 Nós</h2><span class="muted" style="font-size:.8rem">só de vocês dois</span></div>
     ${nosHeroHtml()}
-
-    <section class="nos-daily-grid">
-      <div class="nos-stack">
-        ${desafioHtml}
-        ${nosFeitosHtml()}
-        ${nosMissoesResumoHtml()}
-      </div>
-      <div class="nos-stack">
-        ${nosClimaHtml()}
-      </div>
-    </section>
-
-    ${nosValesHtml()}
-    ${nosRoletaSafadaHtml()}
-    ${nosMissoesSecretasHtml()}
-    ${nosCofrinhoHtml()}
-    ${nosFetichesHtml()}
-    ${nosSurpresasHtml()}
-    ${nosProgressaoHtml()}
-    ${nosConquistasHtml()}
-    ${nosTelegramHtml()}
+    ${subnav}
+    ${corpo}
 
     ${missoesModalTemplate()}
     ${desafiosModalTemplate()}`;
@@ -7934,6 +7940,7 @@ function bindShell() {
   listen(document.querySelector("[data-diary-newer]"), "click", () => diarioNavega(1));
   listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); coupleDiaryFoto = null; renderMantendoScroll(); });
   listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; coupleDiaryFoto = null; renderMantendoScroll(); } });
+  document.querySelectorAll("[data-nos-tab]").forEach((b) => listen(b, "click", () => { nosTab = b.dataset.nosTab; render(); }));
   document.querySelectorAll("[data-bingo-cell]").forEach((button) => {
     listen(button, "click", () => toggleBingoCell(Number(button.dataset.bingoCell)));
   });

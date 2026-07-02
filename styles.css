@@ -3059,6 +3059,20 @@ textarea:focus {
 .nos-hero-bar i { display: block; height: 100%; border-radius: 999px; background: #fff; }
 .nos-hero-sub { display: block; margin-top: 6px; font-size: 0.76rem; opacity: 0.9; font-weight: 700; }
 
+.nos-subtabs {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  margin: 6px 0 16px; padding-bottom: 2px;
+}
+.nos-subtabs::-webkit-scrollbar { display: none; }
+.nos-subtabs button {
+  flex: 0 0 auto; white-space: nowrap;
+  padding: 9px 16px; border-radius: 999px; font-weight: 800; font-size: 0.85rem;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); color: var(--cor-texto-suave); cursor: pointer;
+}
+.nos-subtabs button.on {
+  background: linear-gradient(135deg, #e0566b, #b23c86); color: #fff; border-color: transparent;
+}
+
 .nos-daily-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
