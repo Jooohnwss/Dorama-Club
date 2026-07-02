@@ -608,7 +608,8 @@ let coupleLetters = [];
 let coupleLoading = false;
 let coupleSection = state.coupleSection || "inicio"; // seção interna do ambiente do casal (persistida)
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
-let coupleDiaryKind = "episodio"; // tipo de página do diário sendo criada
+let coupleDiaryKind = "livre"; // tipo de página do diário sendo criada
+let coupleDiaryDay = null; // dia (YYYY-MM-DD) aberto no caderno; null = hoje
 let recadoIndex = Math.floor(Math.random() * 1000); // qual recadinho mostrar no topo
 let recadosExpandidos = false; // mostrar todos os recadinhos ou só os recentes
 let coupleAddSearch = { query: "", loading: false, results: [] }; // busca TMDB no add do casal
@@ -4137,6 +4138,7 @@ function coupleDramasTemplate() {
 }
 
 const DIARY_KINDS = [
+  ["livre", "📝", "Diário"],
   ["episodio", "📺", "Episódio"],
   ["date", "🍿", "Date"],
   ["cartinha", "💌", "Cartinha"],
@@ -4151,9 +4153,14 @@ function coupleDiaryFields(kind) {
   const options = coupleDramas.map((d) => `<option value="${d.id}" ${coupleMemoryDraft === d.id ? "selected" : ""}>${esc(d.title)}</option>`).join("");
   const dorama = `<div class="field"><label>Dorama</label><select name="dramaId">${options}<option value="">Outro / geral</option></select></div>`;
   const tituloLivre = (lbl, ph) => `<div class="field full"><label>${lbl}</label><input name="titleLivre" placeholder="${ph}" /></div>`;
-  const data = `<div class="field"><label>Data</label><input name="watchedOn" type="date" /></div>`;
+  // A data é a página do caderno (definida no form), então os tipos não repetem o campo de data.
+  const data = "";
   const texto = (lbl, ph) => `<div class="field full"><label>${lbl}</label><textarea name="comment" placeholder="${ph}"></textarea></div>`;
 
+  if (kind === "livre") {
+    return `
+      <div class="field full"><label>O que rolou nesse dia?</label><textarea name="comment" rows="5" placeholder="Hoje eu e a Abi assistimos ... foi muito legal. / Hoje a gente brigou, mas no fim..."></textarea></div>`;
+  }
   if (kind === "date") {
     return `
       ${tituloLivre("Nome do date", "Cinema em casa, jantar dorameiro…")}
@@ -4207,54 +4214,119 @@ function coupleDiaryFields(kind) {
     ${texto("O que esse dia teve de especial?", "Escreve como se fosse uma página de álbum.")}`;
 }
 
+function dataDiarioLonga(d) {
+  if (!d) return "";
+  const [y, m, dd] = String(d).slice(0, 10).split("-");
+  if (!y || !m || !dd) return "";
+  return new Date(Number(y), Number(m) - 1, Number(dd)).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+}
+
 function coupleDiaryEntryCard(e) {
   const [, emoji, label] = diaryKindMeta(e.kind);
-  const titulo = e.drama_title || label;
+  const livre = e.kind === "livre";
+  const autor = coupleMembers.find((m) => m.user_id === e.author_id);
+  const mine = e.author_id && e.author_id === authUser?.id;
+  const nomeAutor = autor?.nickname || autor?.name || (mine ? "Você" : "");
+  const avatar = autor ? clubAvatarMini(autor) : (nomeAutor ? muralAvatar(nomeAutor) : "");
   const linha1 = [e.place, e.snack, e.mood].filter(Boolean).map(esc).join(" · ");
   const placar = [e.chosen_by ? `Escolha: ${e.chosen_by}` : "", e.who_cried ? `Choro: ${e.who_cried}` : "", e.who_raged ? `Raiva: ${e.who_raged}` : ""].filter(Boolean).map(esc).join(" · ");
   const notas = [e.note_him ? `dele ${e.note_him}` : "", e.note_her ? `dela ${e.note_her}` : ""].filter(Boolean).map(esc).join(" · ");
+  const hora = e.created_at ? new Date(e.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+
+  // Título da entrada: livre não tem título (a página já é o dia); os outros mostram o tipo/dorama.
+  const headline = livre ? "" : `${esc(e.drama_title || label)}${e.episode ? ` · ep. ${e.episode}` : ""}`;
+
   return `
-    <article class="couple-memory album-page kind-${esc(e.kind || "episodio")}">
-      <header>
-        <span class="album-kind">${emoji} ${esc(label)}${e.watched_on ? ` · ${esc(formatDateShort(e.watched_on))}` : ""}</span>
-        <strong>${esc(titulo)}${e.episode ? ` · ep. ${e.episode}` : ""}</strong>
-        ${linha1 ? `<small>${linha1}</small>` : ""}
-      </header>
-      <div class="album-body">
+    <article class="diary-entry kind-${esc(e.kind || "livre")}">
+      <div class="diary-entry-top">
+        ${avatar}
+        <span class="diary-entry-who"><strong>${esc(nomeAutor || "Alguém")}${mine ? " (você)" : ""}</strong>${hora ? ` · ${esc(hora)}` : ""}</span>
+        <span class="diary-entry-kind">${emoji}${livre ? "" : ` ${esc(label)}`}</span>
+      </div>
+      ${headline ? `<strong class="diary-entry-title">${headline}</strong>` : ""}
+      ${linha1 ? `<small class="diary-entry-sub">${linha1}</small>` : ""}
+      <div class="diary-entry-body">
         ${e.fav_moment ? `<p class="album-quote">“${esc(e.fav_moment)}”</p>` : ""}
         ${e.comment ? `<p>${esc(e.comment)}</p>` : ""}
         ${e.inside_joke ? `<p><b>${e.kind === "date" ? "Faríamos de novo?" : "Frase que virou nossa:"}</b> ${esc(e.inside_joke)}</p>` : ""}
         ${placar ? `<p><b>Placar emocional:</b> ${placar}</p>` : ""}
         ${notas ? `<p><b>Notas:</b> ${notas}</p>` : ""}
       </div>
-      <div class="mini-actions"><button data-del-couple-diary="${e.id}">${icon("trash")} Apagar</button></div>
+      ${mine ? `<button class="diary-entry-del" data-del-couple-diary="${e.id}" title="Apagar">${icon("trash")}</button>` : ""}
     </article>`;
+}
+
+function diaKey(e) {
+  return e.watched_on ? String(e.watched_on).slice(0, 10) : String(e.created_at || "").slice(0, 10);
+}
+
+function diarioDias() {
+  const set = new Set([new Date().toISOString().slice(0, 10)]);
+  (coupleDiary || []).forEach((e) => set.add(diaKey(e)));
+  return Array.from(set).filter(Boolean).sort().reverse();
+}
+
+// Folheia o caderno (delta +1 = dia mais antigo, -1 = mais novo).
+function diarioNavega(delta) {
+  const dias = diarioDias();
+  const atual = coupleDiaryDay && dias.includes(coupleDiaryDay) ? coupleDiaryDay : dias[0];
+  const i = dias.indexOf(atual);
+  const ni = Math.min(dias.length - 1, Math.max(0, i + delta));
+  coupleDiaryDay = dias[ni];
+  render();
 }
 
 function coupleDiaryTemplate() {
   const [, emojiAtual, labelAtual] = diaryKindMeta(coupleDiaryKind);
-  const entries = coupleDiary.length
-    ? coupleDiary.map(coupleDiaryEntryCard).join("")
-    : `<div class="empty diary-empty"><strong>O diário ainda está em branco.</strong><span>A primeira página pode ser um episódio, um date, uma cartinha ou só um surto que vocês querem lembrar.</span></div>`;
+  const hoje = new Date().toISOString().slice(0, 10);
+
+  // Agrupa por dia (uma página por dia).
+  const porDia = {};
+  (coupleDiary || []).forEach((e) => { (porDia[diaKey(e)] ||= []).push(e); });
+  // Páginas = dias com registro + hoje, do mais novo pro mais antigo.
+  const dias = Array.from(new Set([hoje, ...Object.keys(porDia)])).filter(Boolean).sort().reverse();
+  const dia = coupleDiaryDay && dias.includes(coupleDiaryDay) ? coupleDiaryDay : dias[0];
+  const idx = dias.indexOf(dia);
+  const temMaisNovo = idx > 0;
+  const temMaisAntigo = idx < dias.length - 1;
+
+  const entradas = (porDia[dia] || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const corpo = entradas.length
+    ? entradas.map(coupleDiaryEntryCard).join("")
+    : `<div class="diary-page-empty">Nenhum registro nesse dia ainda. Escreve como foi 💕</div>`;
+
+  const tituloDia = dataDiarioLonga(dia) || dia;
+  const ehHoje = dia === hoje;
+
   return `
     <section class="diary-hero">
-      <span>Álbum vivo</span>
+      <span>Nosso caderno</span>
       <h2>Diário do casal</h2>
-      <p>Cada página é uma lembrança de vocês. Escolha o tipo e preencha só o que fizer sentido.</p>
+      <p>Uma página por dia, escrita a dois. Folheiem os dias e vejam quem escreveu cada coisa. 💕</p>
     </section>
-    <div class="diary-kinds">
-      ${DIARY_KINDS.map(([k, em, lb]) => `<button type="button" class="diary-kind ${coupleDiaryKind === k ? "on" : ""}" data-diary-kind="${k}">${em} ${lb}</button>`).join("")}
-    </div>
-    <form id="couple-diary-form" class="form-card form-grid diary-form">
-      <input type="hidden" name="kind" value="${esc(coupleDiaryKind)}" />
-      <div class="field full diary-form-title">
-        <strong>Nova página: ${emojiAtual} ${labelAtual}</strong>
-        <span>Preencha só o que fizer sentido. O resto pode ficar vazio.</span>
+
+    <section class="caderno">
+      <div class="caderno-nav">
+        <button class="caderno-arrow" type="button" data-diary-older ${temMaisAntigo ? "" : "disabled"} title="Dia anterior">‹</button>
+        <div class="caderno-dia">
+          <strong>${esc(tituloDia)}</strong>
+          <small>${ehHoje ? "Hoje" : ""}${!ehHoje ? `<button class="caderno-hoje" type="button" data-diary-hoje>ir pra hoje →</button>` : ""}</small>
+        </div>
+        <button class="caderno-arrow" type="button" data-diary-newer ${temMaisNovo ? "" : "disabled"} title="Próximo dia">›</button>
       </div>
-      ${coupleDiaryFields(coupleDiaryKind)}
-      <div class="actions field full"><button class="btn" type="submit">Guardar página</button></div>
-    </form>
-    <section class="couple-timeline">${entries}</section>`;
+
+      <div class="caderno-folha">${corpo}</div>
+
+      <form id="couple-diary-form" class="caderno-escrever">
+        <input type="hidden" name="kind" value="${esc(coupleDiaryKind)}" />
+        <input type="hidden" name="watchedOn" value="${esc(dia)}" />
+        <div class="diary-kinds">
+          ${DIARY_KINDS.map(([k, em, lb]) => `<button type="button" class="diary-kind ${coupleDiaryKind === k ? "on" : ""}" data-diary-kind="${k}">${em} ${lb}</button>`).join("")}
+        </div>
+        <div class="caderno-campos">${coupleDiaryFields(coupleDiaryKind)}</div>
+        <div class="actions"><button class="btn" type="submit">${emojiAtual} Escrever nesse dia</button></div>
+      </form>
+    </section>`;
 }
 
 function coupleAboutTemplate() {
@@ -7344,6 +7416,7 @@ async function handleLogout() {
   coupleDiary = [];
   coupleAbout = {};
   coupleLetters = [];
+  coupleDiaryDay = null;
   coupleLoading = false;
   casais = [];
   casaisFor = null;
@@ -7670,6 +7743,9 @@ function bindShell() {
   document.querySelectorAll("[data-diary-kind]").forEach((button) => {
     listen(button, "click", () => { coupleDiaryKind = button.dataset.diaryKind; render(); });
   });
+  listen(document.querySelector("[data-diary-older]"), "click", () => diarioNavega(1));
+  listen(document.querySelector("[data-diary-newer]"), "click", () => diarioNavega(-1));
+  listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); render(); });
   document.querySelectorAll("[data-bingo-cell]").forEach((button) => {
     listen(button, "click", () => toggleBingoCell(Number(button.dataset.bingoCell)));
   });
