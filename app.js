@@ -4343,6 +4343,13 @@ function addDias(iso, n) {
 }
 
 // Folheia o caderno de dia em dia (delta -1 = dia anterior, +1 = próximo, sem passar de hoje).
+// Re-renderiza mantendo a posição de scroll (evita a página pular ao trocar de dia).
+function renderMantendoScroll() {
+  const y = window.scrollY || document.documentElement.scrollTop || 0;
+  render();
+  requestAnimationFrame(() => window.scrollTo(0, y));
+}
+
 function diarioNavega(delta) {
   const hoje = new Date().toISOString().slice(0, 10);
   const atual = coupleDiaryDay || hoje;
@@ -4350,7 +4357,7 @@ function diarioNavega(delta) {
   if (novo > hoje) novo = hoje;
   coupleDiaryDay = novo;
   coupleDiaryFoto = null;
-  render();
+  renderMantendoScroll();
 }
 
 // Uma folha do caderno (página de um dia).
@@ -7872,6 +7879,7 @@ function bindShell() {
   listen(document.querySelector("#couple-add-drama-form"), "submit", handleCoupleAddDrama);
   listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
   listen(document.querySelector("#couple-letter-form"), "submit", handleCoupleLetter);
+  document.querySelectorAll(".diary-entry-foto, .cartinha-foto").forEach((img) => listen(img, "click", () => abrirFotoZoom(img.src)));
   listen(document.querySelector("[data-diary-foto]"), "change", (e) => handleDiaryFoto(e.target));
   listen(document.querySelector("[data-letter-foto]"), "change", (e) => handleLetterFoto(e.target));
   listen(document.querySelector("[data-diary-foto-remove]"), "click", () => { coupleDiaryFoto = null; const w = document.querySelector("#diary-foto-wrap"); if (w) w.innerHTML = ""; });
@@ -7924,8 +7932,8 @@ function bindShell() {
   });
   listen(document.querySelector("[data-diary-older]"), "click", () => diarioNavega(-1));
   listen(document.querySelector("[data-diary-newer]"), "click", () => diarioNavega(1));
-  listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); coupleDiaryFoto = null; render(); });
-  listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; coupleDiaryFoto = null; render(); } });
+  listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); coupleDiaryFoto = null; renderMantendoScroll(); });
+  listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; coupleDiaryFoto = null; renderMantendoScroll(); } });
   document.querySelectorAll("[data-bingo-cell]").forEach((button) => {
     listen(button, "click", () => toggleBingoCell(Number(button.dataset.bingoCell)));
   });
@@ -9212,6 +9220,18 @@ async function handleCoupleDiary(event) {
   } catch {
     toast("Não consegui guardar essa memória.");
   }
+}
+
+// Abre a foto em tela cheia (toca pra fechar).
+function abrirFotoZoom(src) {
+  if (!src) return;
+  const ov = document.createElement("div");
+  ov.className = "foto-zoom-overlay";
+  const img = document.createElement("img");
+  img.src = src;
+  ov.appendChild(img);
+  ov.addEventListener("click", () => ov.remove());
+  document.body.appendChild(ov);
 }
 
 // Carrega a foto; se o navegador não decodificar (ex.: HEIC), tenta converter pra JPEG.

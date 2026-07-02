@@ -4525,8 +4525,20 @@ textarea:focus {
   border-radius: 999px; padding: 3px 8px; font-size: 0.72rem; font-weight: 800; cursor: pointer;
 }
 .caderno-escrever-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.diary-entry-foto { display: block; max-width: 100%; border-radius: 12px; margin: 6px 0; border: 1px solid var(--cor-borda); }
-.cartinha-foto { display: block; width: 100%; border-radius: 6px; margin-bottom: 8px; }
+.diary-entry-foto {
+  display: block; width: auto; max-width: 220px; max-height: 220px; object-fit: cover;
+  border-radius: 12px; margin: 6px 0; border: 1px solid var(--cor-borda); cursor: zoom-in;
+}
+.cartinha-foto {
+  display: block; width: 100%; max-height: 150px; object-fit: cover;
+  border-radius: 6px; margin-bottom: 8px; cursor: zoom-in;
+}
+.foto-preview img { max-width: 130px; max-height: 130px; object-fit: cover; }
+.foto-zoom-overlay {
+  position: fixed; inset: 0; z-index: 9999; background: rgba(0, 0, 0, 0.88);
+  display: grid; place-items: center; padding: 20px; cursor: zoom-out;
+}
+.foto-zoom-overlay img { max-width: 100%; max-height: 100%; border-radius: 12px; }
 
 .caderno-escrever { margin-top: 10px; padding-top: 10px; border-top: 1px dashed color-mix(in srgb, #6f5aa6 25%, transparent); }
 .caderno-escrever textarea {
