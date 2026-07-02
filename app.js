@@ -4600,7 +4600,6 @@ function coupleCountdownTemplate() {
 
 function coupleInicioSection() {
   return `
-    ${coupleRecadoTemplate()}
     ${coupleGreetingTemplate()}
     ${coupleCountdownTemplate()}
     ${coupleSaudadeMini()}
