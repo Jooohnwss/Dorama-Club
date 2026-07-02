@@ -285,6 +285,7 @@ export async function clubLastNewsAt(clubId) {
 }
 
 export async function postComment(userId, clubId, comment) {
+  const kind = ["geral", "teoria", "meme"].includes(comment.kind) ? comment.kind : "geral";
   const { error } = await supabase.from("comments").insert({
     club_id: clubId,
     user_id: userId,
@@ -292,6 +293,7 @@ export async function postComment(userId, clubId, comment) {
     tmdb_id: comment.tmdbId ?? null,
     drama_title: comment.dramaTitle || null,
     spoiler_episode: Number(comment.spoilerEpisode) || 0,
+    kind,
   });
   if (error) throw error;
 }

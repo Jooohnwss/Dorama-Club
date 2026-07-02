@@ -382,6 +382,7 @@ let clubTab = "inicio"; // aba interna da tela Doramigas (lobby)
 let epDetailOpen = null; // episódio aberto no Modo Episódio (discussão por ep)
 let revealedPosts = new Set(); // posts cujo spoiler o leitor escolheu ver
 let clubMuralFilter = null; // null = dorama atual; "all" = tudo; ou um tmdb_id
+let clubMuralTab = "geral"; // aba de tipo do mural: geral | episodios | teorias | memes | agenda | finalizados
 let clubChannel = null; // canal Realtime do clube (chat + presença)
 let clubChannelFor = null; // id do clube cujo canal está ativo
 let clubOnline = []; // [{user_id, name}] presentes agora
@@ -3460,6 +3461,11 @@ function commentFormTemplate() {
       <div class="mural-composer-top">${muralAvatar(state.profile?.name)}<strong>Conta o surto pras doramigas…</strong></div>
       <form id="comment-form">
         <textarea id="commentBody" name="body" placeholder="Gente, o episódio de hoje… 😭" required>${esc(debateText)}</textarea>
+        <div class="mural-kind">
+          <label class="mural-kind-opt"><input type="radio" name="kind" value="geral" checked> 🗨️ Geral</label>
+          <label class="mural-kind-opt"><input type="radio" name="kind" value="teoria"> 🧠 Teoria</label>
+          <label class="mural-kind-opt"><input type="radio" name="kind" value="meme"> 😂 Meme</label>
+        </div>
         <div class="mural-composer-row">
           <select id="commentDrama" name="dramaId" aria-label="Sobre qual dorama">
             ${clubDebateDraft ? `<option value="__club_draft" selected>${esc(clubDebateDraft.title)} (escolha)</option>` : ""}
@@ -3491,23 +3497,54 @@ function podeVerComentario(item) {
 
 function clubFeedTemplate() {
   if (clubFeedFor !== state.club.id) return `<div class="empty">Carregando o mural…</div>`;
-  const clubDramas = clubSocial.clubDramas || [];
-  const ativo = clubDramas.find((d) => d.status === "active");
-  // Por padrão mostra o mural do dorama ATUAL (thread aberta). "Tudo" e os
-  // finalizados ficam acessíveis nas abas — o antigo continua revisitável.
-  const filtro = clubMuralFilter !== null ? clubMuralFilter : (ativo?.tmdb_id ? String(ativo.tmdb_id) : "all");
-  const abas = [["all", "Tudo"]].concat(
-    clubDramas.filter((d) => d.tmdb_id).map((d) => [String(d.tmdb_id), `${d.status === "active" ? "🎬 " : "✓ "}${d.title}`]),
-  );
-  const filtroRow = abas.length > 1
-    ? `<div class="mural-filter">${abas.map(([k, l]) => `<button class="mural-fchip ${filtro === k ? "on" : ""}" type="button" data-mural-filter="${esc(k)}">${esc(l)}</button>`).join("")}</div>`
-    : "";
-  const itens = filtro === "all" ? clubFeedItems : clubFeedItems.filter((i) => String(i.tmdb_id || "") === String(filtro));
-  if (!itens.length) {
-    const nomeDrama = abas.find(([k]) => k === filtro)?.[1] || "";
-    return filtroRow + `<div class="empty">${filtro === "all" ? `Ninguém surtou ainda. Seja ${gx("o primeiro", "a primeira", "a primeira pessoa")}! 💜` : `Nenhum surto sobre ${esc(nomeDrama.replace(/^[🎬✓]\s*/, ""))} ainda. Comecem! 💜`}</div>`;
+
+  const finalizados = (clubSocial.clubDramas || []).filter((d) => d.status !== "active");
+  const agora = Date.now() - 3600000;
+  const futuros = (clubSocial.events || [])
+    .filter((e) => e.status !== "cancelled" && new Date(e.starts_at).getTime() >= agora)
+    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+
+  // Cada post cai em EXATAMENTE uma aba (meme > teoria > episódio > geral).
+  const bucket = (i) => i.kind === "meme" ? "memes" : i.kind === "teoria" ? "teorias" : (Number(i.spoiler_episode) >= 1 ? "episodios" : "geral");
+  const grupos = { geral: [], episodios: [], teorias: [], memes: [] };
+  (clubFeedItems || []).forEach((i) => grupos[bucket(i)].push(i));
+
+  const tabs = [
+    ["geral", "🗨️ Geral", grupos.geral.length],
+    ["episodios", "🎬 Episódios", grupos.episodios.length],
+    ["teorias", "🧠 Teorias", grupos.teorias.length],
+    ["memes", "😂 Memes", grupos.memes.length],
+    ["agenda", "📅 Agenda", futuros.length],
+    ["finalizados", "✅ Finalizados", finalizados.length],
+  ];
+  const aba = clubMuralTab || "geral";
+  const tabRow = `<div class="mural-tabs">${tabs.map(([k, l, n]) => `<button class="mural-tab ${aba === k ? "on" : ""}" type="button" data-mural-tab="${k}">${l}${n ? ` <span class="mural-tab-n">${n}</span>` : ""}</button>`).join("")}</div>`;
+
+  let corpo;
+  if (aba === "agenda") {
+    corpo = futuros.length
+      ? `<section class="mural-agenda">${futuros.slice(0, 6).map((e) => {
+          const [emoji, label] = EVENTO_TIPOS[e.type] || EVENTO_TIPOS.other;
+          return `<article class="agenda-mini"><span class="agenda-emoji">${emoji}</span><div><strong>${esc(e.title)}</strong><small>${esc(quandoTexto(e.starts_at))} · ${esc(label)}</small></div></article>`;
+        }).join("")}<button class="btn ghost" type="button" data-club-tab="eventos">Ver agenda completa →</button></section>`
+      : `<div class="empty">Nenhum encontro marcado ainda.<br/><button class="btn ghost" type="button" data-club-tab="eventos" style="margin-top:10px">📅 Marcar um encontro</button></div>`;
+  } else if (aba === "finalizados") {
+    corpo = finalizados.length
+      ? `<section class="mural-fin-grid">${finalizados.map((d) => `<article class="mural-fin">${d.cover ? `<img src="${esc(thumb(d.cover) || POSTER_PLACEHOLDER)}" alt="" loading="lazy" />` : `<span class="mural-fin-noimg">🎬</span>`}<strong>${esc(d.title)}</strong>${d.starts_at ? `<small>${esc(new Date(d.starts_at).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }))}</small>` : ""}</article>`).join("")}</section>`
+      : `<div class="empty">Nenhum dorama encerrado ainda. Terminem o primeiro juntas! 🎬</div>`;
+  } else {
+    const itens = grupos[aba] || [];
+    const vazio = {
+      geral: `Nada no geral ainda. Solta um oi ou um surto! 💜`,
+      episodios: `Nenhum surto por episódio ainda. Marque um episódio como visto no <strong>Modo Episódio</strong> (aba Escolha) e comente por lá 🎬`,
+      teorias: `Nenhuma teoria ainda. Solta a sua marcando <strong>🧠 Teoria</strong> ao publicar!`,
+      memes: `Nenhum meme ainda. Manda o primeiro marcando <strong>😂 Meme</strong>! 😂`,
+    }[aba] || "Nada aqui ainda.";
+    corpo = itens.length
+      ? `<section class="mural-list">${itens.map((item) => muralPostCard(item, { canDelete: true })).join("")}</section>`
+      : `<div class="empty">${vazio}</div>`;
   }
-  return filtroRow + `<section class="mural-list">${itens.map((item) => muralPostCard(item, { canDelete: true })).join("")}</section>`;
+  return tabRow + corpo;
 }
 
 const coupleStatusLabel = { wishlist: "Queremos ver", watching: "Assistindo juntos", watched: "Já vimos", favorite: "Favorito do casal" };
@@ -7566,6 +7603,9 @@ function bindShell() {
   document.querySelectorAll("[data-mural-filter]").forEach((button) => {
     listen(button, "click", () => { clubMuralFilter = button.dataset.muralFilter; render(); });
   });
+  document.querySelectorAll("[data-mural-tab]").forEach((button) => {
+    listen(button, "click", () => { clubMuralTab = button.dataset.muralTab; render(); });
+  });
   document.querySelectorAll("[data-react]").forEach((button) => {
     listen(button, "click", () => handleToggleReaction(button.dataset.react, button.dataset.emoji));
   });
@@ -8006,6 +8046,7 @@ async function loadClubSocial() {
   chatReplyTo = null;
   clubChatSpoilerOn = false;
   epDetailOpen = null;
+  clubMuralTab = "geral";
   clubSocial = { ...clubSocial, for: state.club.id };
   const empty = emptyClubSocial(state.club.id);
   try {
@@ -9414,11 +9455,14 @@ async function handlePostComment(event) {
     dramaTitle = partes.slice(2).join(":") || null;
     spoilerEpisode = Number(data.spoiler) || 0;
   }
+  const kind = ["geral", "teoria", "meme"].includes(String(data.kind)) ? String(data.kind) : "geral";
   try {
-    await postComment(authUser.id, state.club.id, { body, tmdbId, dramaTitle, spoilerEpisode });
+    await postComment(authUser.id, state.club.id, { body, tmdbId, dramaTitle, spoilerEpisode, kind });
     commentDraft = null;
     clubDebateDraft = null;
     clubFeedFor = null;
+    // Manda pra aba do que acabou de postar (episódio > teoria/meme > geral).
+    clubMuralTab = spoilerEpisode >= 1 ? "episodios" : (kind === "teoria" ? "teorias" : kind === "meme" ? "memes" : "geral");
     loadClubFeed();
     toast("Publicado no mural! 💜");
   } catch {

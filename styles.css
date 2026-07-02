@@ -1745,6 +1745,65 @@ textarea:focus {
 }
 .mural-fchip.on { background: var(--cor-primaria); color: var(--cor-primaria-texto); border-color: transparent; }
 
+/* Abas do mural por tipo */
+.mural-tabs {
+  display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none;
+  margin: 0 0 12px; padding-bottom: 2px;
+}
+.mural-tabs::-webkit-scrollbar { display: none; }
+.mural-tab {
+  flex: 0 0 auto; white-space: nowrap;
+  padding: 7px 13px; border-radius: 999px; font-weight: 800; font-size: 0.82rem;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); color: var(--cor-texto-suave);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.mural-tab.on { background: var(--cor-primaria); color: var(--cor-primaria-texto); border-color: transparent; }
+.mural-tab-n {
+  font-size: 0.72rem; font-weight: 850; line-height: 1;
+  padding: 2px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--cor-texto-suave) 18%, transparent);
+}
+.mural-tab.on .mural-tab-n { background: rgba(255, 255, 255, 0.28); color: #fff; }
+
+/* Composer: tipo do post */
+.mural-kind { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.mural-kind-opt {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  padding: 6px 12px; border-radius: 999px; font-weight: 800; font-size: 0.8rem;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); color: var(--cor-texto-suave);
+}
+.mural-kind-opt input { width: auto; margin: 0; accent-color: var(--cor-primaria); }
+.mural-kind-opt:has(input:checked) {
+  border-color: color-mix(in srgb, var(--cor-primaria) 50%, var(--cor-borda));
+  background: color-mix(in srgb, var(--cor-primaria) 12%, var(--cor-superficie));
+  color: var(--cor-primaria);
+}
+
+/* Aba Agenda (resumo) */
+.mural-agenda { display: grid; gap: 8px; }
+.agenda-mini {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2);
+}
+.agenda-emoji { font-size: 1.3rem; }
+.agenda-mini strong { font-size: 0.9rem; display: block; }
+.agenda-mini small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.78rem; }
+.mural-agenda .btn.ghost { margin-top: 4px; }
+
+/* Aba Finalizados (pôsteres) */
+.mural-fin-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px;
+}
+.mural-fin { display: grid; gap: 4px; }
+.mural-fin img, .mural-fin-noimg {
+  width: 100%; aspect-ratio: 2 / 3; border-radius: 12px; object-fit: cover;
+  border: 1px solid var(--cor-borda);
+}
+.mural-fin-noimg { display: grid; place-items: center; font-size: 1.8rem; background: var(--cor-superficie-2); }
+.mural-fin strong { font-size: 0.82rem; line-height: 1.15; }
+.mural-fin small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.74rem; }
+
 .mural-list { display: grid; gap: 12px; }
 .mural-post {
   padding: 14px; border-radius: 16px;
