@@ -379,6 +379,7 @@ let clubMembersFor = null; // id do clube cujos membros já buscamos (evita loop
 let clubFeedItems = [];
 let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 let clubTab = "inicio"; // aba interna da tela Doramigas (lobby)
+let epDetailOpen = null; // episódio aberto no Modo Episódio (discussão por ep)
 let revealedPosts = new Set(); // posts cujo spoiler o leitor escolheu ver
 let clubMuralFilter = null; // null = dorama atual; "all" = tudo; ou um tmdb_id
 let clubChannel = null; // canal Realtime do clube (chat + presença)
@@ -2830,6 +2831,16 @@ function clubEpisodiosTemplate() {
   const ratingsMap = {};
   (clubSocial.epRatings || []).forEach((r) => { ratingsMap[Number(r.episode_number)] = r; });
 
+  // Comentários do dorama atual agrupados por episódio (spoiler_episode = "é sobre o ep N").
+  const comentsPorEp = {};
+  if (featured.tmdb_id) {
+    (clubFeedItems || []).forEach((i) => {
+      if (Number(i.tmdb_id) === Number(featured.tmdb_id) && Number(i.spoiler_episode) >= 1) {
+        (comentsPorEp[Number(i.spoiler_episode)] ||= []).push(i);
+      }
+    });
+  }
+
   const linhas = [];
   for (let n = 1; n <= totalEps; n++) {
     const iSaw = meuEp >= n;
@@ -2838,18 +2849,21 @@ function clubEpisodiosTemplate() {
     const my = Number(r?.my_stars || 0);
     const avg = r?.avg_stars != null ? Number(r.avg_stars) : 0;
     const votes = Number(r?.votes || 0);
+    const coments = comentsPorEp[n] || [];
+    const aberto = epDetailOpen === n;
     const estrelas = [1, 2, 3, 4, 5].map((s) =>
       `<button class="ep-star ${my >= s ? "on" : ""}" type="button" data-ep-star="${n}" data-star="${s}" ${iSaw ? "" : "disabled"} title="${s} estrela${s > 1 ? "s" : ""}" aria-label="${s} estrela${s > 1 ? "s" : ""}">★</button>`).join("");
     linhas.push(`
-      <article class="ep-row ${iSaw ? "seen" : ""}">
+      <article class="ep-row ${iSaw ? "seen" : ""} ${aberto ? "open" : ""}">
         <button class="ep-check" type="button" data-ep-toggle="${n}" data-seen="${iSaw ? 1 : 0}" title="${iSaw ? "Você viu — toque pra desmarcar" : "Marcar como visto"}" aria-label="Episódio ${n} visto">${iSaw ? "✓" : ""}</button>
-        <div class="ep-info">
+        <button class="ep-info" type="button" data-ep-open="${n}" aria-expanded="${aberto ? "true" : "false"}">
           <strong>Ep. ${n}</strong>
-          <small>👁 ${viram}/${membros}${iSaw ? " · você viu" : ""}</small>
-        </div>
+          <small>👁 ${viram}/${membros}${coments.length ? ` · 💬 ${coments.length}` : ""}${iSaw ? " · você viu" : ""}</small>
+        </button>
         <div class="ep-stars">${estrelas}</div>
         <div class="ep-avg">${votes ? `★ ${avg.toFixed(1).replace(".0", "")} <em>(${votes})</em>` : "<span class='muted'>sem nota</span>"}</div>
       </article>`);
+    if (aberto) linhas.push(episodioDetalheTemplate(n, iSaw, coments));
   }
 
   const vistos = Math.min(meuEp, totalEps);
@@ -2863,6 +2877,29 @@ function clubEpisodiosTemplate() {
         <p class="ep-mode-hint muted">Marque ✓ o que já assistiu e dê nota de 1 a 5 ⭐. As estrelas liberam quando você marca o episódio como visto (sem spoiler de nota). A média é do clube inteiro.</p>
         <div class="ep-list">${linhas.join("")}</div>
       </details>
+    </section>`;
+}
+
+// Painel de discussão de um episódio (dentro do Modo Episódio).
+function episodioDetalheTemplate(n, iSaw, coments) {
+  if (!iSaw) {
+    return `
+      <section class="ep-detail locked">
+        <div class="ep-detail-lock">🔒 Veja o <strong>ep. ${n}</strong> pra ver e comentar os surtos — sem spoiler de quem ainda não chegou lá. 👀</div>
+      </section>`;
+  }
+  const lista = (coments || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const posts = lista.length
+    ? `<div class="mural-list ep-detail-list">${lista.map((it) => muralPostCard(it, { canDelete: true, reactions: false })).join("")}</div>`
+    : `<p class="ep-detail-empty muted">Ninguém surtou sobre o ep. ${n} ainda. Abre a conversa! 💬</p>`;
+  return `
+    <section class="ep-detail">
+      <div class="ep-detail-head"><strong>💬 Surtos do ep. ${n}</strong><button class="ep-detail-close" type="button" data-ep-open="${n}" title="Fechar">✕</button></div>
+      ${posts}
+      <form class="ep-detail-form" data-ep-comment="${n}">
+        <textarea name="body" rows="2" placeholder="O que achou do ep. ${n}? (só quem já viu, vê) 💭" required></textarea>
+        <button class="btn" type="submit">Publicar no ep. ${n}</button>
+      </form>
     </section>`;
 }
 
@@ -7527,6 +7564,11 @@ function bindShell() {
   document.querySelectorAll("[data-club-finish]").forEach((b) => listen(b, "click", () => handleClubFinish(b.dataset.clubFinish)));
   document.querySelectorAll("[data-ep-toggle]").forEach((b) => listen(b, "click", () => handleEpToggle(b.dataset.epToggle, b.dataset.seen === "1")));
   document.querySelectorAll("[data-ep-star]").forEach((b) => listen(b, "click", () => handleRateEpisode(b.dataset.epStar, b.dataset.star)));
+  document.querySelectorAll("[data-ep-open]").forEach((b) => listen(b, "click", () => toggleEpisodioDetalhe(b.dataset.epOpen)));
+  document.querySelectorAll("[data-ep-comment]").forEach((f) => listen(f, "submit", (e) => {
+    e.preventDefault();
+    handlePostEpisodeComment(f.dataset.epComment, new FormData(f).get("body"));
+  }));
   listen(document.querySelector("[data-club-open-voting]"), "click", handleClubOpenVoting);
   listen(document.querySelector("[data-club-close-voting]"), "click", handleClubCloseVoting);
   document.querySelectorAll("[data-list-vote]").forEach((button) => {
@@ -7934,6 +7976,7 @@ async function loadClubSocial() {
   chatDraft = "";
   chatReplyTo = null;
   clubChatSpoilerOn = false;
+  epDetailOpen = null;
   clubSocial = { ...clubSocial, for: state.club.id };
   const empty = emptyClubSocial(state.club.id);
   try {
@@ -8997,6 +9040,33 @@ async function handleRateEpisode(n, stars) {
     if (nova) toast(`Ep. ${num}: ${nova}★`);
   } catch {
     toast("Não consegui salvar sua nota.");
+  }
+}
+
+// Modo Episódio: abrir/fechar o painel de discussão de um episódio.
+function toggleEpisodioDetalhe(n) {
+  const num = Number(n) || 0;
+  epDetailOpen = epDetailOpen === num ? null : num;
+  render();
+}
+
+// Modo Episódio: publicar um surto amarrado a um episódio (usa o mural + trava de spoiler no ep N).
+async function handlePostEpisodeComment(n, body) {
+  const texto = String(body || "").trim();
+  const featured = clubSocial.featured;
+  if (!texto || !state.club || !featured) return;
+  try {
+    await postComment(authUser.id, state.club.id, {
+      body: texto,
+      tmdbId: featured.tmdb_id ?? null,
+      dramaTitle: featured.title || null,
+      spoilerEpisode: Number(n) || 0,
+    });
+    clubFeedFor = null;
+    await loadClubFeed(); // recarrega o mural (e o contador por episódio) + re-render
+    toast(`Surto no ep. ${n} publicado 💬`);
+  } catch {
+    toast("Não consegui publicar agora.");
   }
 }
 
