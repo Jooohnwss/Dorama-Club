@@ -4261,15 +4261,23 @@ function diaKey(e) {
 }
 
 function diarioDias() {
-  const set = new Set([new Date().toISOString().slice(0, 10)]);
+  const set = new Set([new Date().toISOString().slice(0, 10), coupleDiaryDay]);
   (coupleDiary || []).forEach((e) => set.add(diaKey(e)));
   return Array.from(set).filter(Boolean).sort().reverse();
 }
 
+// A outra pessoa do casal.
+function parceiraMembro() {
+  return (coupleMembers || []).find((m) => m.user_id !== authUser?.id) || null;
+}
+// Texto no gênero da parceira/o (masc/fem/neutro). Fallback neutro quando não escolheu.
+function gxP(masc, fem, neutro) {
+  const g = parceiraMembro()?.gender;
+  return g === "masc" ? masc : g === "fem" ? fem : (neutro != null ? neutro : fem);
+}
 // Exemplo de placeholder usando o nome da parceira do casal (ou neutro).
 function diarioExemplo() {
-  const parceira = (coupleMembers || []).find((m) => m.user_id !== authUser?.id);
-  const nome = (parceira?.nickname || parceira?.name || "").trim();
+  const nome = (parceiraMembro()?.nickname || parceiraMembro()?.name || "").trim();
   return nome ? `eu e ${nome} assistimos um dorama, foi muito legal` : "hoje a gente assistiu um dorama, foi muito legal";
 }
 
@@ -4289,8 +4297,8 @@ function coupleDiaryTemplate() {
   // Agrupa por dia (uma página por dia).
   const porDia = {};
   (coupleDiary || []).forEach((e) => { (porDia[diaKey(e)] ||= []).push(e); });
-  // Páginas = dias com registro + hoje, do mais novo pro mais antigo.
-  const dias = Array.from(new Set([hoje, ...Object.keys(porDia)])).filter(Boolean).sort().reverse();
+  // Páginas = dias com registro + hoje + o dia escolhido, do mais novo pro mais antigo.
+  const dias = Array.from(new Set([hoje, coupleDiaryDay, ...Object.keys(porDia)])).filter(Boolean).sort().reverse();
   const dia = coupleDiaryDay && dias.includes(coupleDiaryDay) ? coupleDiaryDay : dias[0];
   const idx = dias.indexOf(dia);
   const temMaisNovo = idx > 0;
@@ -4320,6 +4328,7 @@ function coupleDiaryTemplate() {
         </div>
         <button class="caderno-arrow" type="button" data-diary-newer ${temMaisNovo ? "" : "disabled"} title="Próximo dia">›</button>
       </div>
+      <label class="caderno-cal">📅 <span>Ir pra uma data</span><input type="date" value="${esc(dia)}" max="${esc(hoje)}" data-diary-goto /></label>
 
       <div class="caderno-folha">${corpo}</div>
 
@@ -7749,6 +7758,7 @@ function bindShell() {
   listen(document.querySelector("[data-diary-older]"), "click", () => diarioNavega(1));
   listen(document.querySelector("[data-diary-newer]"), "click", () => diarioNavega(-1));
   listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); render(); });
+  listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; render(); } });
   document.querySelectorAll("[data-bingo-cell]").forEach((button) => {
     listen(button, "click", () => toggleBingoCell(Number(button.dataset.bingoCell)));
   });

@@ -4436,6 +4436,13 @@ textarea:focus {
 .caderno-dia strong { display: block; font-size: 1.05rem; text-transform: capitalize; }
 .caderno-dia small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.78rem; }
 .caderno-hoje { background: none; border: 0; color: var(--cor-primaria); font-weight: 800; font-size: 0.78rem; cursor: pointer; padding: 0; }
+.caderno-cal {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px 12px; border-bottom: 1px solid var(--cor-borda);
+  font-size: 0.8rem; font-weight: 700; color: var(--cor-texto-suave);
+}
+.caderno-cal span { flex-shrink: 0; }
+.caderno-cal input { width: auto; flex: 1; padding: 8px 10px; border-radius: 10px; }
 
 .caderno-folha {
   padding: 14px 16px;
