@@ -60,6 +60,8 @@ import {
   clubCloseVoting,
   setClubFeaturedDrama,
   saveClubDramaCheckin,
+  clubEpisodeRatings,
+  rateClubEpisode,
   clubPollsFeed,
   createClubPoll,
   voteClubPoll,
@@ -585,6 +587,8 @@ function emptyClubSocial(id = null) {
     cycle: null,
     clubDramas: [],
     myPoints: [],
+    epRatings: [],
+    epCount: 0,
   };
 }
 let clubSocial = emptyClubSocial(null);
@@ -2543,6 +2547,7 @@ function clubTemplate() {
     chat: clubeChatTemplate(),
     doramas: `
       ${clubeCicloTemplate()}
+      ${clubEpisodiosTemplate()}
       <div class="section-title compact"><h2>🤝 Doramas em comum</h2></div>${doramasEmComumTemplate()}`,
     ranking: `
       <div class="section-title"><h2>🏆 Ranking de pontos</h2></div>${clubPointsTemplate()}
@@ -2810,6 +2815,54 @@ function listaCompartilhadaTemplate(votingOpen = true, minhasSug = 0, canManage 
       <p class="choice-sub">${votingOpen ? "Todo mundo sugeriu! O mais votado entra quando o clube terminar o atual." : `Cada um sugere 2 doramas. Quando todos sugerirem, a votação abre sozinha.`} ${progresso}</p>
       ${busca}
       ${total ? `<div class="choice-cards">${cards}</div>` : `<div class="empty" style="margin-top:10px">Ninguém sugeriu ainda. Seja ${gx("o primeiro", "a primeira", "a primeira pessoa")}! 🎬</div>`}
+    </section>`;
+}
+
+function clubEpisodiosTemplate() {
+  if (clubSocial.for !== state.club.id) return "";
+  const featured = clubSocial.featured;
+  if (!featured?.id) return "";
+  const checkins = Array.isArray(featured.checkins) ? featured.checkins : [];
+  const membros = Math.max(1, clubMembers.length || checkins.length || 1);
+  const meuEp = Number(featured.my_episode || 0);
+  const maxCheckin = checkins.reduce((m, c) => Math.max(m, Number(c.current_episode || 0)), 0);
+  const totalEps = Math.min(200, Math.max(Number(clubSocial.epCount || 0), maxCheckin, meuEp, 1));
+  const ratingsMap = {};
+  (clubSocial.epRatings || []).forEach((r) => { ratingsMap[Number(r.episode_number)] = r; });
+
+  const linhas = [];
+  for (let n = 1; n <= totalEps; n++) {
+    const iSaw = meuEp >= n;
+    const viram = checkins.filter((c) => Number(c.current_episode || 0) >= n).length;
+    const r = ratingsMap[n];
+    const my = Number(r?.my_stars || 0);
+    const avg = r?.avg_stars != null ? Number(r.avg_stars) : 0;
+    const votes = Number(r?.votes || 0);
+    const estrelas = [1, 2, 3, 4, 5].map((s) =>
+      `<button class="ep-star ${my >= s ? "on" : ""}" type="button" data-ep-star="${n}" data-star="${s}" ${iSaw ? "" : "disabled"} title="${s} estrela${s > 1 ? "s" : ""}" aria-label="${s} estrela${s > 1 ? "s" : ""}">★</button>`).join("");
+    linhas.push(`
+      <article class="ep-row ${iSaw ? "seen" : ""}">
+        <button class="ep-check" type="button" data-ep-toggle="${n}" data-seen="${iSaw ? 1 : 0}" title="${iSaw ? "Você viu — toque pra desmarcar" : "Marcar como visto"}" aria-label="Episódio ${n} visto">${iSaw ? "✓" : ""}</button>
+        <div class="ep-info">
+          <strong>Ep. ${n}</strong>
+          <small>👁 ${viram}/${membros}${iSaw ? " · você viu" : ""}</small>
+        </div>
+        <div class="ep-stars">${estrelas}</div>
+        <div class="ep-avg">${votes ? `★ ${avg.toFixed(1).replace(".0", "")} <em>(${votes})</em>` : "<span class='muted'>sem nota</span>"}</div>
+      </article>`);
+  }
+
+  const vistos = Math.min(meuEp, totalEps);
+  return `
+    <section class="ep-mode">
+      <details ${vistos < totalEps ? "open" : ""}>
+        <summary>
+          <span class="ep-mode-title">🎬 Modo Episódio</span>
+          <span class="ep-mode-sub">você viu ${vistos}/${totalEps}</span>
+        </summary>
+        <p class="ep-mode-hint muted">Marque ✓ o que já assistiu e dê nota de 1 a 5 ⭐. As estrelas liberam quando você marca o episódio como visto (sem spoiler de nota). A média é do clube inteiro.</p>
+        <div class="ep-list">${linhas.join("")}</div>
+      </details>
     </section>`;
 }
 
@@ -7472,6 +7525,8 @@ function bindShell() {
     listen(button, "click", () => handleClubAddTmdb(button.dataset.clubAddTmdb));
   });
   document.querySelectorAll("[data-club-finish]").forEach((b) => listen(b, "click", () => handleClubFinish(b.dataset.clubFinish)));
+  document.querySelectorAll("[data-ep-toggle]").forEach((b) => listen(b, "click", () => handleEpToggle(b.dataset.epToggle, b.dataset.seen === "1")));
+  document.querySelectorAll("[data-ep-star]").forEach((b) => listen(b, "click", () => handleRateEpisode(b.dataset.epStar, b.dataset.star)));
   listen(document.querySelector("[data-club-open-voting]"), "click", handleClubOpenVoting);
   listen(document.querySelector("[data-club-close-voting]"), "click", handleClubCloseVoting);
   document.querySelectorAll("[data-list-vote]").forEach((button) => {
@@ -7903,10 +7958,26 @@ async function loadClubSocial() {
       clubFeaturedHistory(state.club.id).catch(() => []),
       clubMyPointsLedger(state.club.id, authUser?.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger, epRatings: [], epCount: 0 };
   } catch {
     clubSocial = empty;
   }
+  render();
+  carregarModoEpisodio(); // notas + contagem de episódios (não bloqueia o render principal)
+}
+
+// Modo Episódio: nota por episódio + total de episódios (TMDB). Carrega em 2º plano.
+async function carregarModoEpisodio() {
+  const featured = clubSocial.featured;
+  if (!featured?.id || clubSocial.for !== state.club?.id) return;
+  const clubeAlvo = state.club.id;
+  const [ratings, detalhe] = await Promise.all([
+    clubEpisodeRatings(featured.id).catch(() => []),
+    featured.tmdb_id && tmdbReady() ? getDramaDetails(featured.tmdb_id).catch(() => null) : Promise.resolve(null),
+  ]);
+  if (clubSocial.for !== clubeAlvo || clubSocial.featured?.id !== featured.id) return; // trocou de clube/dorama no meio
+  clubSocial.epRatings = ratings || [];
+  clubSocial.epCount = Number(detalhe?.episodes || 0) || 0;
   render();
 }
 
@@ -8904,6 +8975,31 @@ async function handleClubFeaturedCheckin(episode, status, opts = {}) {
     return false;
   }
 }
+// Modo Episódio: marcar/desmarcar um episódio como visto (usa o check-in sequencial).
+async function handleEpToggle(n, seen) {
+  const num = Number(n) || 0;
+  const novoEp = seen ? Math.max(0, num - 1) : num;
+  const ok = await handleClubFeaturedCheckin(novoEp, "watching", { silent: true });
+  if (ok) toast(seen ? `Ep. ${num} desmarcado` : `Ep. ${num} visto 👁`);
+}
+
+// Modo Episódio: dar/limpar nota (toca na mesma estrela pra limpar).
+async function handleRateEpisode(n, stars) {
+  if (!clubSocial.featured?.id) return;
+  const num = Number(n) || 0;
+  const r = (clubSocial.epRatings || []).find((x) => Number(x.episode_number) === num);
+  const atual = Number(r?.my_stars || 0);
+  const nova = atual === Number(stars) ? 0 : Number(stars);
+  try {
+    await rateClubEpisode(clubSocial.featured.id, num, nova);
+    clubSocial.epRatings = await clubEpisodeRatings(clubSocial.featured.id).catch(() => clubSocial.epRatings || []);
+    render();
+    if (nova) toast(`Ep. ${num}: ${nova}★`);
+  } catch {
+    toast("Não consegui salvar sua nota.");
+  }
+}
+
 // "Terminei" (ou reabrir) — marca o check-in como finished mantendo o ep. atual.
 async function handleClubFinish(v) {
   const titulo = clubSocial.featured?.title || "o dorama do clube";
