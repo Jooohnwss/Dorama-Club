@@ -1337,7 +1337,7 @@ function coupleSidebarTemplate() {
     ["inicio", "Painel", "home"],
     ["assistindo", "Assistindo", "play"],
     ["diario", "Diário", "lists"],
-    ["sobre", "Sobre nós", "heart"],
+    ["sobre", "Nossa história", "heart"],
     ["planos", "Planos", "calendar"],
     ["diversao", "Diversão", "dice"],
     ...(casalPrivadoOn() ? [["nos", "Nós 🔥", "heart"]] : []),
@@ -3685,6 +3685,13 @@ function clubFeedTemplate() {
 const coupleStatusLabel = { wishlist: "Queremos ver", watching: "Assistindo juntos", watched: "Já vimos", favorite: "Favorito do casal" };
 // "Sobre nós" agrupado por tema (estilo Day One / Daylio: cards de pergunta).
 const aboutGrupos = [
+  ["💕 Nossa história", [
+    ["como_conhecemos", "Como a gente se conheceu"],
+    ["primeiro_date", "Nosso primeiro date"],
+    ["pedido_namoro", "Como foi o pedido de namoro"],
+    ["o_que_amo", "O que eu mais amo na gente"],
+    ["nosso_sonho", "Um sonho nosso"],
+  ]],
   ["💞 Nossos favoritos", [
     ["dorama_conforto", "Nosso dorama conforto"],
     ["casal_favorito", "Casal fictício favorito"],
@@ -4355,6 +4362,49 @@ function coupleDiaryTemplate() {
     </div>`;
 }
 
+// Nome do casal: título definido ou "A & B" dos membros.
+function coupleNome() {
+  const nomes = (coupleMembers || []).map((m) => (m.nickname || m.name || "").trim()).filter(Boolean);
+  return state.couple?.title || (nomes.length ? nomes.join(" & ") : "Nossa história");
+}
+
+// "Juntos há X" a partir da data de início do namoro (aaaa-mm-dd).
+function tempoJuntos(iso) {
+  const s = String(iso || "").slice(0, 10);
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  const ini = new Date(y, m - 1, d);
+  const hoje = new Date();
+  if (isNaN(ini) || ini > hoje) return "";
+  let meses = (hoje.getFullYear() - ini.getFullYear()) * 12 + (hoje.getMonth() - ini.getMonth());
+  if (hoje.getDate() < ini.getDate()) meses -= 1;
+  const anos = Math.floor(meses / 12);
+  const rm = meses % 12;
+  const partes = [];
+  if (anos) partes.push(`${anos} ano${anos > 1 ? "s" : ""}`);
+  if (rm) partes.push(`${rm} ${rm > 1 ? "meses" : "mês"}`);
+  if (!partes.length) {
+    const dias = Math.max(0, Math.round((hoje - ini) / 86400000));
+    return `${dias} dia${dias === 1 ? "" : "s"}`;
+  }
+  return partes.join(" e ");
+}
+
+function coupleAniversarioTemplate() {
+  const dataIni = String(coupleAbout.namoro_inicio || "").slice(0, 10);
+  const tempo = tempoJuntos(dataIni);
+  const hoje = new Date().toISOString().slice(0, 10);
+  return `
+    <section class="aniversario ${tempo ? "on" : ""}">
+      <div class="aniversario-txt">
+        <span>💕 Juntos</span>
+        <strong>${tempo ? `há ${tempo}` : "Desde quando vocês estão juntos?"}</strong>
+        ${dataIni && tempo ? `<small>desde ${esc(dataDiarioLonga(dataIni) || dataIni)}</small>` : ""}
+      </div>
+      <label class="aniversario-set">${dataIni ? "editar" : "definir data"}<input type="date" value="${esc(dataIni)}" max="${esc(hoje)}" data-namoro-inicio /></label>
+    </section>`;
+}
+
 function coupleAboutTemplate() {
   const total = aboutLabels.length;
   const preenchidos = aboutLabels.filter(([key]) => String(coupleAbout[key] || "").trim()).length;
@@ -4377,12 +4427,13 @@ function coupleAboutTemplate() {
 
   return `
     <section class="about-hero">
-      <span>Ficha de vocês</span>
-      <h2>Sobre nós</h2>
-      <p>As respostas que viram piada interna, tradição e lembrança. Toque num card pra responder — não precisa preencher tudo de uma vez.</p>
+      <span>💕 Nossa história</span>
+      <h2>${esc(coupleNome())}</h2>
+      <p>Quando começou, como se conheceram e as coisas que só vocês entendem.</p>
       <div class="about-progress"><span style="width:${pct}%"></span></div>
       <small>${preenchidos}/${total} respostas guardadas</small>
     </section>
+    ${coupleAniversarioTemplate()}
     ${destaque
       ? `<button class="about-prompt" type="button" data-about-pick="${esc(destaque[0])}">
            <span>💬 Pergunta pra vocês</span>
@@ -6513,7 +6564,7 @@ function coupleTemaSection() {
 function coupleSectionTabs() {
   const secoes = [
     ["inicio", "Painel"], ["assistindo", "Assistindo"], ["diario", "Diário"],
-    ["sobre", "Sobre nós"], ["planos", "Planos"], ["diversao", "Diversão"],
+    ["sobre", "Nossa história"], ["planos", "Planos"], ["diversao", "Diversão"],
     ...(casalPrivadoOn() ? [["nos", "Nós 🔥"]] : []),
     ["ajustes", "Ajustes"],
   ];
@@ -7760,6 +7811,7 @@ function bindShell() {
   document.querySelectorAll("[data-about-pick]").forEach((button) => {
     listen(button, "click", () => handleAboutPick(button.dataset.aboutPick));
   });
+  listen(document.querySelector("[data-namoro-inicio]"), "change", (e) => handleNamoroInicio(e.target.value));
   // Tema do casal (compartilhado)
   document.querySelectorAll("[data-tema-casal]").forEach((button) => {
     listen(button, "click", () => salvarTemaCasal(button.dataset.temaCasal));
@@ -9080,6 +9132,20 @@ async function handleCoupleDiary(event) {
     toast("Página guardada no álbum. 💕");
   } catch {
     toast("Não consegui guardar essa memória.");
+  }
+}
+
+// Define a data de início do namoro (destaque do "Sobre nós").
+async function handleNamoroInicio(value) {
+  if (!state.couple) return;
+  const val = String(value || "").slice(0, 10);
+  try {
+    await saveCoupleAbout(state.couple.id, authUser.id, "namoro_inicio", val);
+    coupleAbout.namoro_inicio = val;
+    render();
+    toast(val ? "Data guardada 💕" : "Data removida.");
+  } catch {
+    toast("Não consegui salvar a data.");
   }
 }
 
