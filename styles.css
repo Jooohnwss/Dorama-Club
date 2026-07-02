@@ -3059,19 +3059,62 @@ textarea:focus {
 .nos-hero-bar i { display: block; height: 100%; border-radius: 999px; background: #fff; }
 .nos-hero-sub { display: block; margin-top: 6px; font-size: 0.76rem; opacity: 0.9; font-weight: 700; }
 
+/* ===== Ambiente "Nós 🔥" (premium, provocante) ===== */
+.nos-wrap {
+  margin: 4px 0 8px;
+  padding: 16px 14px 18px;
+  border-radius: 26px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(224, 86, 107, 0.30), transparent 55%),
+    radial-gradient(120% 90% at 0% 100%, rgba(138, 40, 120, 0.30), transparent 55%),
+    linear-gradient(160deg, #2a0f1e, #1a0b18 60%, #140a16);
+  border: 1px solid rgba(224, 86, 107, 0.28);
+  box-shadow: 0 24px 50px -28px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: #f6e9f0;
+}
+.nos-title { display: flex; align-items: baseline; gap: 10px; padding: 2px 4px 12px; }
+.nos-title h2 { margin: 0; font-size: 1.5rem; color: #fff; }
+.nos-title span { color: rgba(246, 233, 240, 0.6); font-size: 0.74rem; font-weight: 700; }
+
 .nos-subtabs {
   display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
-  margin: 6px 0 16px; padding-bottom: 2px;
+  margin: 4px 0 16px; padding-bottom: 2px;
 }
 .nos-subtabs::-webkit-scrollbar { display: none; }
 .nos-subtabs button {
   flex: 0 0 auto; white-space: nowrap;
   padding: 9px 16px; border-radius: 999px; font-weight: 800; font-size: 0.85rem;
-  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); color: var(--cor-texto-suave); cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.06); color: rgba(246, 233, 240, 0.75); cursor: pointer;
 }
 .nos-subtabs button.on {
-  background: linear-gradient(135deg, #e0566b, #b23c86); color: #fff; border-color: transparent;
+  background: linear-gradient(135deg, #ff5f8d, #b23c86); color: #fff; border-color: transparent;
+  box-shadow: 0 8px 20px -8px rgba(255, 95, 141, 0.7);
 }
+
+/* Painéis (cards) dentro do Nós: card claro que "brilha" sobre o fundo vinho */
+.nos-wrap .nos-panel {
+  margin: 0 0 12px;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  box-shadow: 0 16px 34px -22px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+}
+.nos-wrap .nos-panel::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: linear-gradient(180deg, #ff5f8d, #b23c86);
+}
+.nos-wrap .nos-panel > summary span { font-size: 1rem; }
+.nos-wrap .nos-panel[open] { box-shadow: 0 18px 36px -18px rgba(255, 95, 141, 0.45); }
+
+/* Fora dos cards, o texto do ambiente é claro */
+.nos-wrap .section-title h2 { color: #fff; }
+.nos-wrap .section-title span,
+.nos-wrap .section-title .muted { color: rgba(246, 233, 240, 0.6); }
+/* Cards soltos (desafio) ficam opacos e nítidos sobre o fundo escuro */
+.nos-wrap .desafio-card { background: var(--cor-superficie); box-shadow: 0 16px 34px -22px rgba(0, 0, 0, 0.8); }
 
 .nos-daily-grid {
   display: grid;
