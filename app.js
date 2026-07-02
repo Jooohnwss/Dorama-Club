@@ -4309,28 +4309,37 @@ function coupleLettersTemplate() {
 }
 
 // Cartinha fixa: carta sempre visível no topo do espaço do casal.
-// "Nossos recadinhos": rotaciona os bilhetes do casal (muda sempre) + deixar novo.
+// "Nossos recadinhos": mural de bilhetes do casal, com autor, avatar e data.
 function coupleRecadoTemplate() {
-  const recados = (coupleLetters || []).map((l) => (l.body || "").trim()).filter(Boolean);
-  const pinned = (state.couple?.pinnedLetter || "").trim();
-  const pool = recados.length ? recados : (pinned ? [pinned] : []);
-  if (!pool.length) {
+  const letters = (coupleLetters || []).filter((l) => (l.body || "").trim());
+  if (!letters.length) {
     return `
-      <section class="couple-pinned empty">
+      <section class="recados empty">
         <span class="couple-pinned-tag">💌 Nossos recadinhos</span>
         <p class="muted" style="margin:6px 0 10px">Nenhum recadinho ainda. Deixe um pra sua pessoa encontrar. 💕</p>
         <button class="recado-mini" type="button" data-couple-recado>✏️ Deixar recadinho</button>
       </section>`;
   }
-  const texto = pool[recadoIndex % pool.length];
+  const eu = authUser?.id;
+  const cards = letters.map((l) => {
+    const autor = coupleMembers.find((m) => m.user_id === l.author_id);
+    const mine = l.author_id && l.author_id === eu;
+    const nome = autor?.nickname || autor?.name || (mine ? "Você" : "Alguém do casal");
+    const avatar = autor ? clubAvatarMini(autor) : muralAvatar(nome);
+    return `
+      <article class="recado-card ${mine ? "mine" : ""}">
+        <div class="recado-head">
+          ${avatar}
+          <div class="recado-who"><strong>${esc(nome)}${mine ? " (você)" : ""}</strong><small>${esc(timeAgo(l.created_at))}</small></div>
+          ${mine ? `<button class="recado-del" data-del-couple-letter="${l.id}" title="Apagar">${icon("trash")}</button>` : ""}
+        </div>
+        <p class="recado-body">${esc(l.body)}</p>
+      </article>`;
+  }).join("");
   return `
-    <section class="couple-pinned">
-      <span class="couple-pinned-tag">💌 Nossos recadinhos</span>
-      <p>${esc(texto)}</p>
-      <div class="recado-actions">
-        ${pool.length > 1 ? `<button class="recado-mini" type="button" data-recado-shuffle>🔀 Outro</button>` : ""}
-        <button class="recado-mini" type="button" data-couple-recado>✏️ Deixar recadinho</button>
-      </div>
+    <section class="recados">
+      <div class="recados-head"><span class="couple-pinned-tag">💌 Nossos recadinhos</span><button class="recado-mini" type="button" data-couple-recado>✏️ Novo</button></div>
+      <div class="recados-list">${cards}</div>
     </section>`;
 }
 

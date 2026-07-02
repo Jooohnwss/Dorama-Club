@@ -2826,6 +2826,41 @@ textarea:focus {
   background: color-mix(in srgb, var(--cor-primaria) 22%, transparent);
 }
 
+/* Mural de recadinhos do casal */
+.recados { margin: 0 0 16px; }
+.recados.empty {
+  padding: 16px 18px; border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--cor-primaria) 30%, transparent);
+  background: color-mix(in srgb, var(--cor-primaria) 9%, var(--cor-superficie));
+}
+.recados-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;
+}
+.recados-head .couple-pinned-tag { margin-bottom: 0; }
+.recados-list { display: grid; gap: 10px; }
+.recado-card {
+  padding: 12px 14px; border-radius: 16px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie);
+  box-shadow: 0 8px 20px -18px var(--cor-sombra);
+}
+.recado-card.mine {
+  border-color: color-mix(in srgb, var(--cor-primaria) 35%, transparent);
+  background: color-mix(in srgb, var(--cor-primaria) 7%, var(--cor-superficie));
+}
+.recado-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.recado-head .club-av { width: 34px; height: 34px; font-size: 0.9rem; flex-shrink: 0; margin: 0; }
+.recado-who { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.recado-who strong { font-size: 0.9rem; }
+.recado-who small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.74rem; }
+.recado-del {
+  background: transparent; border: 0; color: var(--cor-texto-suave); opacity: 0.6;
+  padding: 6px; flex-shrink: 0; cursor: pointer;
+}
+.recado-del:hover { opacity: 1; color: #e0566b; }
+.recado-del .ico { width: 15px; height: 15px; }
+.recado-body { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+
 /* Nível do casal (chip na saudação) */
 .couple-level {
   flex: 0 0 auto;
