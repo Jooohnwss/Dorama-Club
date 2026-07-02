@@ -4406,21 +4406,16 @@ function coupleAniversarioTemplate() {
 }
 
 function coupleAboutTemplate() {
-  const total = aboutLabels.length;
-  const preenchidos = aboutLabels.filter(([key]) => String(coupleAbout[key] || "").trim()).length;
-  const pct = total ? Math.round((preenchidos / total) * 100) : 0;
-  const vazios = aboutLabels.filter(([key]) => !String(coupleAbout[key] || "").trim());
-  const destaque = vazios.length ? vazios[aboutPerguntaIdx % vazios.length] : null;
-
   const grupos = aboutGrupos.map(([titulo, itens]) => `
     <div class="section-title compact"><h2>${titulo}</h2></div>
-    <section class="about-grid">
+    <section class="hist-lista">
       ${itens.map(([key, label]) => {
         const value = String(coupleAbout[key] || "").trim();
         return `
-          <button class="about-card ${value ? "filled" : ""}" type="button" data-about-pick="${esc(key)}">
-            <span class="about-label">${esc(label)}</span>
-            <strong class="about-value">${value ? esc(value) : "Responder +"}</strong>
+          <button class="hist-row ${value ? "" : "vazio"}" type="button" data-about-pick="${esc(key)}">
+            <span class="hist-label">${esc(label)}</span>
+            <span class="hist-value">${value ? esc(value) : "toque pra escrever"}</span>
+            <span class="hist-edit">${icon("detail")}</span>
           </button>`;
       }).join("")}
     </section>`).join("");
@@ -4429,18 +4424,9 @@ function coupleAboutTemplate() {
     <section class="about-hero">
       <span>💕 Nossa história</span>
       <h2>${esc(coupleNome())}</h2>
-      <p>Quando começou, como se conheceram e as coisas que só vocês entendem.</p>
-      <div class="about-progress"><span style="width:${pct}%"></span></div>
-      <small>${preenchidos}/${total} respostas guardadas</small>
+      <p>A ficha de vocês: quando começou, como se conheceram e as coisas que só vocês entendem. Toque pra escrever ou editar.</p>
     </section>
     ${coupleAniversarioTemplate()}
-    ${destaque
-      ? `<button class="about-prompt" type="button" data-about-pick="${esc(destaque[0])}">
-           <span>💬 Pergunta pra vocês</span>
-           <strong>${esc(destaque[1])}</strong>
-           <em>Responder →</em>
-         </button>`
-      : `<div class="about-done">💛 Vocês preencheram tudo! Toque num card pra revisar quando quiser.</div>`}
     ${grupos}`;
 }
 

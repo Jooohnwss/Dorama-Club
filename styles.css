@@ -4640,6 +4640,36 @@ textarea:focus {
   margin-bottom: 6px;
 }
 
+/* Nossa história: ficha fixa (não quiz) */
+.hist-lista { display: grid; gap: 8px; margin-bottom: 6px; }
+.hist-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  width: 100%; text-align: left; cursor: pointer;
+  padding: 12px 14px; border-radius: 14px;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.hist-row:hover { border-color: color-mix(in srgb, var(--cor-primaria) 40%, var(--cor-borda)); }
+.hist-label {
+  grid-column: 1; grid-row: 1;
+  color: var(--cor-texto-suave); font-weight: 800; font-size: 0.74rem;
+  text-transform: uppercase; letter-spacing: 0.02em;
+}
+.hist-value {
+  grid-column: 1; grid-row: 2; margin-top: 2px;
+  font-size: 1rem; font-weight: 600; line-height: 1.35; white-space: pre-wrap; word-break: break-word;
+}
+.hist-row.vazio .hist-value { color: color-mix(in srgb, var(--cor-texto-suave) 65%, transparent); font-style: italic; }
+.hist-edit {
+  grid-column: 2; grid-row: 1 / span 2; align-self: center;
+  color: var(--cor-texto-suave); opacity: 0.45;
+}
+.hist-row:hover .hist-edit { opacity: 0.9; color: var(--cor-primaria); }
+.hist-edit .ico { width: 16px; height: 16px; }
+
 /* Pergunta em destaque (estilo Happy Couple / DailyBean) */
 .about-prompt {
   display: block;
