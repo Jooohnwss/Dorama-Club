@@ -401,6 +401,8 @@ let clubFeedFor = null; // id do clube cujo feed já buscamos (evita loop)
 let clubTab = "inicio"; // aba interna da tela Doramigas (lobby)
 let epDetailOpen = null; // episódio aberto no Modo Episódio (discussão por ep)
 let clubProfileOpen = null; // user_id do membro com o perfil aberto (aba Sobre)
+let memoriaHall = null; // registro do Hall aberto (Memória do dorama)
+let memoriaRatings = []; // notas por episódio do dorama da memória
 let revealedPosts = new Set(); // posts cujo spoiler o leitor escolheu ver
 let clubMuralFilter = null; // null = dorama atual; "all" = tudo; ou um tmdb_id
 let clubMuralTab = "geral"; // aba de tipo do mural: geral | episodios | teorias | memes | agenda | finalizados
@@ -2684,7 +2686,7 @@ function clubHallTemplate() {
   return `
     <div class="section-title compact"><h2>🏆 Hall da Fama</h2></div>
     <section class="hall">${hall.map((h) => `
-      <article class="hall-item">
+      <button class="hall-item" type="button" data-hall-open="${esc(h.featured_id)}">
         ${h.cover ? `<img src="${esc(h.cover)}" alt="" loading="lazy" />` : `<span class="hall-noimg">🎬</span>`}
         <div class="hall-info">
           <strong>${esc(h.title || "Dorama")}</strong>
@@ -2695,7 +2697,53 @@ function clubHallTemplate() {
             <span class="hall-badge">✅ ${h.finished_count || 0}/${h.members_count || 0}</span>
           </div>
         </div>
-      </article>`).join("")}</section>`;
+        <span class="cl-go">›</span>
+      </button>`).join("")}</section>`;
+}
+
+// Memória do dorama finalizado (recap ao tocar num troféu do Hall).
+function memoriaTemplate() {
+  const h = memoriaHall;
+  if (!h) return "";
+  const ratings = memoriaRatings || [];
+  const comVoto = ratings.filter((r) => Number(r.votes) > 0);
+  let melhor = null;
+  comVoto.forEach((r) => { if (!melhor || Number(r.avg_stars) > Number(melhor.avg_stars)) melhor = r; });
+  // Comentários daquele dorama (por tmdb), agrupados por episódio pro "mais comentado".
+  const coments = (clubFeedItems || []).filter((i) => h.tmdb_id && Number(i.tmdb_id) === Number(h.tmdb_id));
+  const porEp = {};
+  coments.forEach((i) => { if (Number(i.spoiler_episode) >= 1) porEp[i.spoiler_episode] = (porEp[i.spoiler_episode] || 0) + 1; });
+  let maisComentado = null;
+  Object.entries(porEp).forEach(([ep, nn]) => { if (!maisComentado || nn > maisComentado.n) maisComentado = { ep: Number(ep), n: nn }; });
+  const star = (v) => Number(v).toFixed(1).replace(".0", "");
+
+  const linhas = [
+    h.mvp_name ? ["🥇 MVP", esc(h.mvp_name)] : null,
+    h.first_name ? ["🏁 Terminou primeiro", esc(h.first_name)] : null,
+    ["✅ Terminaram", `${h.finished_count || 0}/${h.members_count || 0}`],
+    h.avg_stars != null ? ["📊 Média do clube", `${star(h.avg_stars)}★`] : null,
+    melhor ? ["⭐ Melhor episódio", `Ep. ${melhor.episode_number} · ${star(melhor.avg_stars)}★`] : null,
+    maisComentado ? ["💬 Mais comentado", `Ep. ${maisComentado.ep} · ${maisComentado.n}`] : null,
+    coments.length ? ["🗨️ Surtos no total", `${coments.length}`] : null,
+  ].filter(Boolean);
+
+  const topSurtos = coments.slice(0, 5);
+  return `
+    <div class="memoria-overlay" data-memoria-close>
+      <section class="memoria" role="dialog">
+        <button class="memoria-x" type="button" data-memoria-close>✕</button>
+        <div class="memoria-hero">
+          ${h.cover ? `<img src="${esc(h.cover)}" alt="" />` : `<span class="memoria-noimg">🎬</span>`}
+          <div><span class="memoria-eyebrow">🎬 Memória do dorama</span><strong>${esc(h.title || "Dorama")}</strong><small>encerrado ${esc(timeAgo(h.archived_at))}</small></div>
+        </div>
+        <div class="memoria-grid">${linhas.map(([l, v]) => `<div class="memoria-item"><span>${l}</span><b>${v}</b></div>`).join("")}</div>
+        ${topSurtos.length ? `
+          <div class="memoria-surtos">
+            <strong>💬 Surtos marcantes</strong>
+            ${topSurtos.map((c) => `<div class="memoria-surto"><b>${esc(c.author || "Membro")}</b>${c.spoiler_episode ? ` <em>ep.${c.spoiler_episode}</em>` : ""}: ${esc(corte(c.body, 120))}</div>`).join("")}
+          </div>` : ""}
+      </section>
+    </div>`;
 }
 
 function clubAboutTemplate() {
@@ -2822,6 +2870,7 @@ function clubTemplate() {
       ${subtabs.map(([k, l]) => `<button class="${clubTab === k ? "active" : ""}" data-club-tab="${k}">${l}</button>`).join("")}
     </div>
     ${conteudo[clubTab] || conteudo.inicio}
+    ${memoriaTemplate()}
   `;
 }
 
@@ -8341,6 +8390,12 @@ function bindShell() {
   document.querySelectorAll("[data-club-profile]").forEach((button) => {
     listen(button, "click", () => toggleClubProfile(button.dataset.clubProfile));
   });
+  document.querySelectorAll("[data-hall-open]").forEach((button) => {
+    listen(button, "click", () => abrirMemoria(button.dataset.hallOpen));
+  });
+  document.querySelectorAll("[data-memoria-close]").forEach((el) => {
+    listen(el, "click", (e) => { if (e.target === el) fecharMemoria(); });
+  });
   listen(document.querySelector("[data-club-profile-close]"), "click", () => { clubProfileOpen = null; render(); });
   listen(document.querySelector("[data-set-notice]"), "click", handleSetNotice);
   listen(document.querySelector("[data-clear-notice]"), "click", handleClearNotice);
@@ -8773,6 +8828,18 @@ async function loadClubMembers() {
   }
   render();
 }
+
+// Memória do dorama: abre o recap de um troféu do Hall.
+async function abrirMemoria(featuredId) {
+  const h = (clubSocial.hall || []).find((x) => x.featured_id === featuredId);
+  if (!h) return;
+  memoriaHall = h;
+  memoriaRatings = [];
+  render();
+  try { memoriaRatings = await clubEpisodeRatings(featuredId); } catch { memoriaRatings = []; }
+  render();
+}
+function fecharMemoria() { memoriaHall = null; memoriaRatings = []; render(); }
 
 // Perfil do membro (aba Sobre): abre/fecha.
 function toggleClubProfile(userId) {
