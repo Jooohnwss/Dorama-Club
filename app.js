@@ -411,6 +411,7 @@ let coupleChannelFor = null;
 let clubOnline = []; // [{user_id, name}] presentes agora
 let clubChatSpoilerOn = false; // toggle de spoiler no compositor do chat
 let chatDraft = ""; // texto do chat preservado entre re-renders
+let chatEpDraft = ""; // episódio marcado na mensagem do chat (opcional)
 let revealedChat = new Set(); // mensagens de spoiler reveladas pelo leitor
 let chatReactPicker = null; // id da mensagem com o seletor de reação aberto
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
@@ -3172,10 +3173,21 @@ function episodioDetalheTemplate(n, iSaw, coments, rating, viram, membros) {
   const posts = lista.length
     ? `<div class="mural-list ep-detail-list">${lista.map((it) => muralPostCard(it, { canDelete: true, reactions: false })).join("")}</div>`
     : `<p class="ep-detail-empty muted">Ninguém surtou sobre o ep. ${n} ainda. Abre a conversa! 💬</p>`;
+  const chatDoEp = (clubSocial.chat || [])
+    .filter((c) => Number(c.episode_number || 0) === Number(n))
+    .slice()
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const chatBloco = chatDoEp.length
+    ? `<div class="ep-chat">
+         <strong class="ep-detail-ctitle">💬 Do chat sobre o ep. ${n}</strong>
+         ${chatDoEp.map((c) => `<div class="ep-chat-msg"><b style="color:${AVATAR_CORES[hashStr(c.author || "?") % AVATAR_CORES.length]}">${esc(c.author || "Membro")}</b> ${esc(c.body)} <small>${esc(timeAgo(c.created_at))}</small></div>`).join("")}
+       </div>`
+    : "";
   return `
     <section class="ep-detail">
       ${head}
       ${controls}
+      ${chatBloco}
       <div class="ep-detail-comments">
         <strong class="ep-detail-ctitle">💬 Surtos do ep. ${n}</strong>
         ${posts}
@@ -3319,6 +3331,7 @@ function clubeChatTemplate() {
     <form id="club-chat-form" class="chat-composer">
       <button type="button" class="chat-spoiler-toggle ${clubChatSpoilerOn ? "on" : ""}" data-chat-spoiler title="${clubChatSpoilerOn ? "Spoiler ligado (toque pra desligar)" : "Marcar a mensagem como spoiler"}" aria-label="Marcar spoiler">🔒</button>
       <input id="clubChatBody" name="body" placeholder="${clubChatSpoilerOn ? "Mensagem com spoiler…" : "Mensagem ao vivo…"}" autocomplete="off" value="${esc(chatDraft)}" required />
+      <label class="chat-ep" title="Marcar que é sobre um episódio (aparece no Modo Episódio)">📺<input id="clubChatEp" name="episode" type="number" min="0" inputmode="numeric" placeholder="ep" value="${esc(chatEpDraft)}" /></label>
       <input type="hidden" name="hasSpoiler" value="${clubChatSpoilerOn ? "1" : ""}" />
       <input type="hidden" name="replyTo" value="${esc(chatReplyTo || "")}" />
       <button class="btn chat-send" type="submit" aria-label="Enviar">➤</button>
@@ -8421,6 +8434,10 @@ function bindShell() {
   if (chatInput) {
     listen(chatInput, "input", () => { chatDraft = chatInput.value; });
   }
+  const chatEpInput = document.querySelector("#clubChatEp");
+  if (chatEpInput) {
+    listen(chatEpInput, "input", () => { chatEpDraft = chatEpInput.value; });
+  }
   listen(document.querySelector("[data-chat-spoiler]"), "click", () => { clubChatSpoilerOn = !clubChatSpoilerOn; render(); });
   listen(document.querySelector("[data-cancel-chat-reply]"), "click", () => { chatReplyTo = null; render(); });
   document.querySelectorAll("[data-reveal-chat]").forEach((b) => listen(b, "click", () => { revealedChat.add(b.dataset.revealChat); render(); }));
@@ -10403,10 +10420,12 @@ async function handleCreateClubChatMessage(event) {
   const body = String(data.body || "").trim();
   if (!body) return;
   const spoiler = Boolean(data.hasSpoiler);
+  const episodeNumber = Math.max(0, Number(data.episode) || 0);
   chatDraft = "";
+  chatEpDraft = "";
   clubChatSpoilerOn = false;
   try {
-    await createClubChatMessage(state.club.id, { body, hasSpoiler: spoiler, episodeNumber: 0 });
+    await createClubChatMessage(state.club.id, { body, hasSpoiler: spoiler, episodeNumber });
     // Recarrega como fallback (o Realtime já adiciona ao vivo; dedup por id evita repetir).
     const [chat, points] = await Promise.all([
       clubChatFeed(state.club.id).catch(() => clubSocial.chat || []),

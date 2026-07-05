@@ -1567,6 +1567,22 @@ textarea:focus {
 }
 .ep-detail-rate { display: flex; align-items: center; gap: 8px; }
 .ep-detail-lock { font-size: 0.85rem; font-weight: 700; color: var(--cor-texto-suave); }
+.ep-chat {
+  display: grid; gap: 5px; margin-bottom: 6px; padding: 10px 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--cor-secundaria) 8%, var(--cor-superficie)); border: 1px solid color-mix(in srgb, var(--cor-secundaria) 22%, var(--cor-borda));
+}
+.ep-chat-msg { font-size: 0.86rem; line-height: 1.35; }
+.ep-chat-msg b { font-weight: 800; }
+.ep-chat-msg small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.72rem; }
+
+.chat-ep {
+  display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto;
+  font-size: 0.9rem; color: var(--cor-texto-suave);
+}
+.chat-ep input {
+  width: 46px; padding: 8px 6px; text-align: center; border-radius: 10px; font-size: 0.85rem;
+}
+
 .ep-detail-comments { display: grid; gap: 8px; }
 .ep-detail-ctitle { font-size: 0.9rem; }
 .ep-detail-list { gap: 8px; }
