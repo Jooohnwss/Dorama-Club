@@ -96,6 +96,26 @@ export async function sendPushClub(toClub, title, body, url) {
   } catch { /* silencioso */ }
 }
 
+// ---------- Palpites do dorama ----------
+export async function clubPredictionsFeed(clubId) {
+  const { data, error } = await supabase.rpc("club_predictions_feed", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+export async function createClubPrediction(clubId, question, options, featuredId) {
+  const { data, error } = await supabase.rpc("create_club_prediction", { p_club: clubId, p_question: question, p_options: options, p_featured: featuredId || null });
+  if (error) throw error;
+  return data;
+}
+export async function voteClubPrediction(predictionId, choice) {
+  const { error } = await supabase.rpc("vote_club_prediction", { p_prediction: predictionId, p_choice: Number(choice) });
+  if (error) throw error;
+}
+export async function resolveClubPrediction(predictionId, answer) {
+  const { error } = await supabase.rpc("resolve_club_prediction", { p_prediction: predictionId, p_answer: Number(answer) });
+  if (error) throw error;
+}
+
 export async function clubVotersTally(clubId) {
   const { data, error } = await supabase.rpc("club_voters_tally", { p_club: clubId });
   if (error) throw error;

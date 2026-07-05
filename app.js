@@ -18,6 +18,10 @@ import {
   updateClubDetails,
   manageClubMember,
   setClubNotice,
+  clubPredictionsFeed,
+  createClubPrediction,
+  voteClubPrediction,
+  resolveClubPrediction,
   clubVotersTally,
   archiveClubHall,
   clubHallList,
@@ -617,6 +621,7 @@ function emptyClubSocial(id = null) {
     myPoints: [],
     hall: [],
     voters: [],
+    predictions: [],
     epRatings: [],
     epCount: 0,
   };
@@ -2680,6 +2685,51 @@ function formatDateTimeShort(value) {
   }
 }
 
+function clubPalpitesTemplate() {
+  if (clubSocial.for !== state.club.id) return "";
+  const preds = clubSocial.predictions || [];
+  const canManage = currentClubMember()?.role === "owner" || currentClubMember()?.role === "moderator" || state.club.owner_id === authUser?.id;
+  const cards = preds.map((p) => {
+    const total = Number(p.total || 0);
+    const resolved = p.answer != null;
+    const mine = Number(p.my_choice || 0);
+    const acertei = resolved && mine && Number(p.answer) === mine;
+    const souDono = p.created_by === authUser?.id || canManage;
+    const opts = (p.options || []).map((o, idx) => {
+      const i = idx + 1;
+      const n = Number((p.counts || [])[idx] || 0);
+      const pct = total ? Math.round((n / total) * 100) : 0;
+      const cls = [(resolved && Number(p.answer) === i) ? "certa" : "", mine === i ? "minha" : ""].filter(Boolean).join(" ");
+      return resolved
+        ? `<div class="palpite-opt ${cls}"><span>${Number(p.answer) === i ? "✅ " : ""}${esc(o)}</span><b>${n}</b></div>`
+        : `<button class="palpite-opt ${cls}" type="button" data-palpite-vote="${p.id}" data-choice="${i}"><span>${esc(o)}</span><b>${total ? `${pct}%` : ""}</b></button>`;
+    }).join("");
+    const rodape = resolved
+      ? `<div class="palpite-result ${acertei ? "ok" : "no"}">${mine ? (acertei ? "🎉 Você acertou!" : "❌ Você errou dessa vez") : "Você não palpitou"}</div>${souDono ? `<button class="palpite-mini" type="button" data-palpite-resolve="${p.id}:0">reabrir</button>` : ""}`
+      : (souDono ? `<div class="palpite-resolver"><span>Revelar resposta:</span>${(p.options || []).map((o, idx) => `<button class="palpite-mini" type="button" data-palpite-resolve="${p.id}:${idx + 1}">${esc(o)}</button>`).join("")}</div>` : "");
+    return `
+      <article class="palpite ${resolved ? "fechado" : ""}">
+        <div class="palpite-q">🔮 ${esc(p.question)}${resolved ? " <small>encerrado</small>" : ` <small>${total} voto${total === 1 ? "" : "s"}</small>`}</div>
+        <div class="palpite-opts">${opts}</div>
+        ${rodape}
+      </article>`;
+  }).join("");
+  return `
+    <div class="section-title compact"><h2>🔮 Palpites do dorama</h2></div>
+    <details class="palpite-criar">
+      <summary>＋ Criar um palpite</summary>
+      <form id="palpite-form" class="palpite-form">
+        <input name="question" placeholder="Ex.: Quem é o vilão? 👀" required />
+        <input name="o1" placeholder="Opção 1" required />
+        <input name="o2" placeholder="Opção 2" required />
+        <input name="o3" placeholder="Opção 3 (opcional)" />
+        <input name="o4" placeholder="Opção 4 (opcional)" />
+        <button class="btn" type="submit">Criar palpite 🔮</button>
+      </form>
+    </details>
+    ${preds.length ? `<section class="palpites">${cards}</section>` : `<div class="empty">Nenhum palpite ainda. Cria o primeiro — "quem fica com quem?" 🔮</div>`}`;
+}
+
 function clubHallTemplate() {
   const hall = (clubSocial.for === state.club.id ? clubSocial.hall : []) || [];
   if (!hall.length) return "";
@@ -2860,6 +2910,7 @@ function clubTemplate() {
     doramas: `
       ${clubeCicloTemplate()}
       ${clubEpisodiosTemplate()}
+      ${clubPalpitesTemplate()}
       ${clubSugestoesTemplate()}
       <div class="section-title compact"><h2>🤝 Doramas em comum</h2></div>${doramasEmComumTemplate()}`,
     ranking: `
@@ -8403,6 +8454,9 @@ function bindShell() {
   document.querySelectorAll("[data-hall-open]").forEach((button) => {
     listen(button, "click", () => abrirMemoria(button.dataset.hallOpen));
   });
+  listen(document.querySelector("#palpite-form"), "submit", handleCreatePalpite);
+  document.querySelectorAll("[data-palpite-vote]").forEach((b) => listen(b, "click", () => handleVotePalpite(b.dataset.palpiteVote, b.dataset.choice)));
+  document.querySelectorAll("[data-palpite-resolve]").forEach((b) => listen(b, "click", () => handleResolvePalpite(b.dataset.palpiteResolve)));
   document.querySelectorAll("[data-memoria-close]").forEach((el) => {
     listen(el, "click", (e) => { if (e.target === el) fecharMemoria(); });
   });
@@ -8839,6 +8893,48 @@ async function loadClubMembers() {
   render();
 }
 
+// ===== Palpites do dorama =====
+async function recarregarPalpites() {
+  clubSocial.predictions = await clubPredictionsFeed(state.club.id).catch(() => clubSocial.predictions || []);
+  render();
+}
+async function handleCreatePalpite(event) {
+  event.preventDefault();
+  if (!state.club) return;
+  const form = event.currentTarget;
+  const d = Object.fromEntries(new FormData(form));
+  const question = String(d.question || "").trim();
+  const options = [d.o1, d.o2, d.o3, d.o4].map((o) => String(o || "").trim()).filter(Boolean);
+  if (!question || options.length < 2) { toast("Escreva a pergunta e ao menos 2 opções."); return; }
+  try {
+    await createClubPrediction(state.club.id, question, options, clubSocial.featured?.id);
+    form.reset();
+    await recarregarPalpites();
+    toast("Palpite criado! 🔮");
+  } catch (error) {
+    toast(error?.message || "Não consegui criar o palpite.");
+  }
+}
+async function handleVotePalpite(id, choice) {
+  try {
+    await voteClubPrediction(id, choice);
+    await recarregarPalpites();
+  } catch (error) {
+    toast(error?.message?.includes("encerrado") ? "Esse palpite já foi revelado." : "Não consegui votar.");
+  }
+}
+async function handleResolvePalpite(payload) {
+  const [id, answer] = String(payload).split(":");
+  if (Number(answer) !== 0 && !(await confirmar("Revelar a resposta certa?", { sub: "Isso encerra o palpite e mostra quem acertou.", ok: "Revelar 🎉" }))) return;
+  try {
+    await resolveClubPrediction(id, Number(answer));
+    await recarregarPalpites();
+    if (Number(answer) !== 0) toast("Revelado! 🎉");
+  } catch (error) {
+    toast(error?.message?.includes("criou") ? "Só quem criou (ou dono/mod) pode revelar." : "Não consegui revelar.");
+  }
+}
+
 // Memória do dorama: abre o recap de um troféu do Hall.
 async function abrirMemoria(featuredId) {
   const h = (clubSocial.hall || []).find((x) => x.featured_id === featuredId);
@@ -8926,7 +9022,7 @@ async function loadClubSocial() {
   clubSocial = { ...clubSocial, for: state.club.id };
   const empty = emptyClubSocial(state.club.id);
   try {
-    const [activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramasHist, myPointsLedger, clubHallList_result, clubVoters_result] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramasHist, myPointsLedger, clubHallList_result, clubVoters_result, clubPred_result] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -8948,8 +9044,9 @@ async function loadClubSocial() {
       clubMyPointsLedger(state.club.id, authUser?.id).catch(() => []),
       clubHallList(state.club.id).catch(() => []),
       clubVotersTally(state.club.id).catch(() => []),
+      clubPredictionsFeed(state.club.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger, hall: clubHallList_result, voters: clubVoters_result, epRatings: [], epCount: 0 };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger, hall: clubHallList_result, voters: clubVoters_result, predictions: clubPred_result, epRatings: [], epCount: 0 };
   } catch {
     clubSocial = empty;
   }
