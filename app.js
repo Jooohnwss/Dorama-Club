@@ -1,5 +1,6 @@
 import { searchDramas, getDramaDetails, getEpisodeRuntime, getWatchProviders, getBackdrop, trendingWeek, discoverDramas, tmdbReady } from "./tmdb.js";
 import { temas, acharTema, temaPadrao, categorias } from "./temas.js";
+import { VAPID_PUBLIC_KEY } from "./config.js";
 import {
   supabaseReady,
   getCurrentUser,
@@ -17,6 +18,8 @@ import {
   updateClubDetails,
   manageClubMember,
   setClubNotice,
+  savePushSubscription,
+  sendPush,
   saveTheme,
   loadDramas,
   upsertDrama,
@@ -6476,6 +6479,8 @@ async function enviarCarta() {
     coupleAbout.carta_ativa = payload;
     cartaAtual = null;
     render();
+    const parc = parceiraMembro();
+    if (parc) sendPush(parc.user_id, "💌 Carta nova 🔥", "Alguém te mandou uma carta no baralho.");
     toast(`Carta enviada pra ${nomeParceiroCurto()}! 🔥`);
   } catch { toast("Não consegui enviar a carta."); }
 }
@@ -9481,13 +9486,34 @@ async function handleCoupleDiary(event) {
   }
 }
 
-// ===== Notificações do sistema (quando o app está aberto/em 2º plano) =====
+// ===== Notificações do sistema =====
 function notifSuportada() { return typeof Notification !== "undefined"; }
+function urlBase64ToUint8Array(base64) {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(b64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+// Inscreve no push (app fechado) se a chave VAPID estiver configurada.
+async function inscreverPush() {
+  if (!VAPID_PUBLIC_KEY || !("serviceWorker" in navigator) || !("PushManager" in window) || !authUser) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+    }
+    await savePushSubscription(authUser.id, sub);
+  } catch { /* push opcional — se falhar, segue com aviso em 1º plano */ }
+}
 async function ativarNotificacoes() {
   if (!notifSuportada()) { toast("Seu navegador não suporta avisos."); return; }
   try {
     const p = await Notification.requestPermission();
-    toast(p === "granted" ? "Avisos ativados! 🔔" : "Você bloqueou os avisos (dá pra reativar nas config. do navegador).");
+    if (p === "granted") { await inscreverPush(); toast("Avisos ativados! 🔔"); }
+    else toast("Você bloqueou os avisos (dá pra reativar nas config. do navegador).");
     render();
   } catch { toast("Não consegui ativar os avisos."); }
 }

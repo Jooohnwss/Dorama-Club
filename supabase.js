@@ -74,6 +74,22 @@ export async function updateClubDetails(clubId, payload) {
   if (error) throw error;
 }
 
+// ---------- Push (notificações com app fechado) ----------
+export async function savePushSubscription(userId, sub) {
+  const j = sub.toJSON ? sub.toJSON() : sub;
+  const { error } = await supabase.from("push_subscriptions").upsert(
+    { user_id: userId, endpoint: j.endpoint, subscription: j },
+    { onConflict: "endpoint" },
+  );
+  if (error) throw error;
+}
+// Dispara um push pra outra pessoa (via função Edge send-push).
+export async function sendPush(toUser, title, body, url) {
+  try {
+    await supabase.functions.invoke("send-push", { body: { toUser, title, body, url } });
+  } catch { /* silencioso: se a função não estiver configurada, não atrapalha */ }
+}
+
 export async function setClubNotice(clubId, text) {
   const { error } = await supabase.rpc("set_club_notice", { p_club: clubId, p_text: text || "" });
   if (error) throw error;
