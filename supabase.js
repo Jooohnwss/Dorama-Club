@@ -1014,6 +1014,7 @@ export async function addCoupleLetter(coupleId, userId, letter) {
     kind: letter.kind || "memoria",
     body: letter.body,
     photo: letter.photo || null,
+    reveal_at: letter.revealAt || null,
     author_id: userId,
   }).select("id").single();
   if (error) throw error;

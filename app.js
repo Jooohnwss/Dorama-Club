@@ -4516,9 +4516,21 @@ function coupleLettersTemplate() {
         const mine = l.author_id && l.author_id === eu;
         const nome = autor?.nickname || autor?.name || (mine ? "Você" : "");
         const assinatura = [nome ? `${nome}${mine ? " (você)" : ""}` : "", l.created_at ? timeAgo(l.created_at) : ""].filter(Boolean).join(" · ");
+        const revealAt = l.reveal_at ? new Date(l.reveal_at) : null;
+        const lacrada = revealAt && !isNaN(revealAt) && revealAt > new Date();
+        const quando = revealAt ? revealAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" }) : "";
+        // Lacrada pra quem não escreveu: some o conteúdo até a data.
+        if (lacrada && !mine) {
+          return `
+          <article class="cartinha cart-${i % 4} lacrada">
+            <span class="cartinha-tag">💌 Cartinha programada</span>
+            <p class="cartinha-body cartinha-lock">🔒 Chega em <strong>${esc(quando)}</strong></p>
+            <div class="cartinha-foot"><span>${esc(nome)} preparou algo pra você 💕</span></div>
+          </article>`;
+        }
         return `
           <article class="cartinha cart-${i % 4}">
-            <span class="cartinha-tag">${emoji} ${label}</span>
+            <span class="cartinha-tag">${emoji} ${label}${lacrada ? ` · ⏳ chega ${esc(quando)}` : ""}</span>
             ${l.photo ? `<img class="cartinha-foto" src="${esc(l.photo)}" alt="" loading="lazy" />` : ""}
             <p class="cartinha-body">${esc(l.body)}</p>
             <div class="cartinha-foot">
@@ -4538,6 +4550,7 @@ function coupleLettersTemplate() {
       <input name="body" placeholder="Uma coisa que eu amei hoje…" />
       <label class="foto-btn">📷<input type="file" accept="image/*" data-letter-foto hidden /></label>
       <button class="btn" type="submit">Guardar 💕</button>
+      <label class="cartinha-quando" title="Deixe vazio pra aparecer já">⏳ chega em <input name="revealAt" type="date" /></label>
       <div class="foto-anexo" id="letter-foto-wrap">${coupleLetterFoto ? `<div class="foto-preview"><img src="${coupleLetterFoto}" alt="" /><button type="button" class="foto-remove" data-letter-foto-remove>✕</button></div>` : ""}</div>
     </form>
     <section class="cartinha-mural">${cards}</section>
@@ -4781,6 +4794,15 @@ function coupleAjustesSection() {
       <p class="muted" style="margin:0 0 10px">O histórico de pontos do 🔥 Nós (ganhos, gastos e estornos).</p>
       <div class="actions" style="margin:0"><button class="btn secondary" type="button" data-extrato-open>Ver extrato</button></div>
     </section>` : ""}
+    <div class="section-title"><h2>🔔 Avisos</h2></div>
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 10px">Receba um aviso do sistema quando ${gxP("seu parceiro", "sua parceira", "sua pessoa")} te mandar uma carta ou aparecer novidade — mesmo com o app aberto em outra aba.</p>
+      <div class="actions" style="margin:0">
+        ${notifSuportada() && Notification.permission === "granted"
+          ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Avisos ativados</span>`
+          : `<button class="btn secondary" type="button" data-ativar-notif>🔔 Ativar avisos</button>`}
+      </div>
+    </section>
     ${coupleTemaSection()}
     ${extratoModalTemplate()}`;
 }
@@ -8122,6 +8144,7 @@ function bindShell() {
   listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); coupleDiaryFoto = null; renderMantendoScroll(); });
   listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; coupleDiaryFoto = null; renderMantendoScroll(); } });
   document.querySelectorAll("[data-nos-tab]").forEach((b) => listen(b, "click", () => { nosTab = b.dataset.nosTab; render(); }));
+  listen(document.querySelector("[data-ativar-notif]"), "click", ativarNotificacoes);
   document.querySelectorAll("[data-carta-puxar]").forEach((b) => listen(b, "click", () => puxarCarta(b.dataset.cartaPuxar)));
   listen(document.querySelector("[data-carta-enviar]"), "click", enviarCarta);
   listen(document.querySelector("[data-carta-cumpri]"), "click", () => limparCarta(true));
@@ -8820,6 +8843,7 @@ async function onRealtimeCoupleAbout(payload) {
   const c = cartaAtiva();
   if (c && c.by !== authUser?.id && coupleAbout.carta_ativa !== antesCarta) {
     toast(`💌 ${nomeParceiroCurto()} te mandou uma carta! 🔥`);
+    notificar("💌 Carta nova 🔥", `${nomeParceiroCurto()} te mandou uma carta no baralho.`);
   }
   render();
 }
@@ -8830,6 +8854,7 @@ function onRealtimeChatInsert(row) {
   const msg = { ...row, author: nome };
   const prev = (clubSocial.chat || [])[0]; // mais recente atual = anterior na exibição
   clubSocial.chat = [msg, ...(clubSocial.chat || [])];
+  if (row.user_id !== authUser?.id) notificar(`💬 ${nome} no clube`, row.body || "Nova mensagem no chat.");
   const list = document.querySelector("#club-chat-list");
   if (state.view === "club" && clubTab === "chat" && list) {
     list.insertAdjacentHTML("beforeend", chatBubbleHtml(msg, prev));
@@ -9456,6 +9481,25 @@ async function handleCoupleDiary(event) {
   }
 }
 
+// ===== Notificações do sistema (quando o app está aberto/em 2º plano) =====
+function notifSuportada() { return typeof Notification !== "undefined"; }
+async function ativarNotificacoes() {
+  if (!notifSuportada()) { toast("Seu navegador não suporta avisos."); return; }
+  try {
+    const p = await Notification.requestPermission();
+    toast(p === "granted" ? "Avisos ativados! 🔔" : "Você bloqueou os avisos (dá pra reativar nas config. do navegador).");
+    render();
+  } catch { toast("Não consegui ativar os avisos."); }
+}
+function notificar(titulo, corpo) {
+  try {
+    if (!notifSuportada() || Notification.permission !== "granted") return;
+    if (!document.hidden) return; // se a tela já está na frente, o toast basta
+    const n = new Notification(titulo, { body: corpo, icon: "icon.svg", tag: "dorama-club" });
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch { /* ignore */ }
+}
+
 // Abre a foto em tela cheia (toca pra fechar).
 function abrirFotoZoom(src) {
   if (!src) return;
@@ -9567,14 +9611,16 @@ async function handleCoupleLetter(event) {
   const data = Object.fromEntries(new FormData(form));
   const body = String(data.body || "").trim();
   if (!state.couple || (!body && !coupleLetterFoto)) return;
+  // "chega em" (opcional): meia-noite daquele dia.
+  const revealAt = data.revealAt ? new Date(`${data.revealAt}T00:00:00`).toISOString() : null;
   try {
-    const lid = await addCoupleLetter(state.couple.id, authUser.id, { kind: data.kind, body, photo: coupleLetterFoto });
+    const lid = await addCoupleLetter(state.couple.id, authUser.id, { kind: data.kind, body, photo: coupleLetterFoto, revealAt });
     if (lid) await ganharPontos(PONTOS.cartinha, "cartinha", "letter", lid);
     coupleLetterFoto = null;
     form.reset();
     coupleLetters = await loadCoupleLetters(state.couple.id);
     render();
-    toast("Cartinha guardada. 💌");
+    toast(revealAt ? "Cartinha programada! 💌⏳" : "Cartinha guardada. 💌");
   } catch (error) {
     console.error("cartinha:", error);
     toast(error?.message || "Não consegui guardar a cartinha.");

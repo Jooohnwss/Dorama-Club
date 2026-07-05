@@ -4760,6 +4760,11 @@ textarea:focus {
 .cartinha-form select { flex: 0 0 auto; width: auto; }
 .cartinha-form input { flex: 1; min-width: 150px; }
 .cartinha-form .btn { flex: 0 0 auto; }
+.cartinha-quando { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 700; color: var(--cor-texto-suave); }
+.cartinha-quando input { width: auto; padding: 6px 8px; border-radius: 8px; }
+.cartinha.lacrada { background: linear-gradient(160deg, #efe4ff, #e2d2ff); border-color: #c9b3f0; }
+.cartinha-lock { text-align: center; font-family: inherit; font-size: 1rem; }
+.cartinha-lock strong { color: var(--cor-secundaria); }
 .cartinha-mural {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px;
   padding: 4px 4px 8px;
