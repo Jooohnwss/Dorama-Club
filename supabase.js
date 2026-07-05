@@ -96,6 +96,12 @@ export async function sendPushClub(toClub, title, body, url) {
   } catch { /* silencioso */ }
 }
 
+export async function clubVotersTally(clubId) {
+  const { data, error } = await supabase.rpc("club_voters_tally", { p_club: clubId });
+  if (error) throw error;
+  return data || [];
+}
+
 // ---------- Hall da Fama ----------
 export async function archiveClubHall(featuredId) {
   const { error } = await supabase.rpc("archive_club_hall", { p_featured: featuredId });

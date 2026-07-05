@@ -18,6 +18,7 @@ import {
   updateClubDetails,
   manageClubMember,
   setClubNotice,
+  clubVotersTally,
   archiveClubHall,
   clubHallList,
   savePushSubscription,
@@ -612,6 +613,7 @@ function emptyClubSocial(id = null) {
     clubDramas: [],
     myPoints: [],
     hall: [],
+    voters: [],
     epRatings: [],
     epCount: 0,
   };
@@ -2372,6 +2374,25 @@ function clubRoleLabel(role) {
 }
 
 // Painel de perfil de um membro (aba Sobre): cargo, progresso, pontos, match, badges e moderação.
+// Quem detém cada "título" do clube (o líder de cada comportamento).
+function clubTitulos() {
+  const topPor = (obj) => { let id = null, best = 0; for (const k in obj) { if (obj[k] > best) { best = obj[k]; id = k; } } return id; };
+  const cont = { teoria: {}, meme: {}, chat: {} };
+  (clubFeedItems || []).forEach((i) => {
+    if (i.kind === "teoria") cont.teoria[i.user_id] = (cont.teoria[i.user_id] || 0) + 1;
+    if (i.kind === "meme") cont.meme[i.user_id] = (cont.meme[i.user_id] || 0) + 1;
+  });
+  (clubSocial.chat || []).forEach((mmsg) => { if (mmsg.user_id) cont.chat[mmsg.user_id] = (cont.chat[mmsg.user_id] || 0) + 1; });
+  const votos = {};
+  (clubSocial.voters || []).forEach((v) => { votos[v.user_id] = Number(v.votes || 0); });
+  return {
+    teoria: topPor(cont.teoria),
+    meme: topPor(cont.meme),
+    chat: topPor(cont.chat),
+    votos: topPor(votos),
+  };
+}
+
 function clubMemberProfileTemplate(m) {
   const isMe = m.user_id === authUser?.id;
   const featured = clubSocial.featured;
@@ -2384,10 +2405,15 @@ function clubMemberProfileTemplate(m) {
   const topId = ranking[0] && Number(ranking[0].points || 0) > 0 ? ranking[0].user_id : null;
   const finishers = (featured?.checkins || []).filter((c) => c.status === "finished").sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
   const firstFinisherId = finishers[0]?.user_id || null;
+  const titulos = clubTitulos();
   const badges = [];
   if (m.user_id === topId) badges.push("🥇 Mais ativo");
-  if (m.user_id === firstFinisherId) badges.push("🏁 Terminou primeiro");
+  if (m.user_id === firstFinisherId) badges.push("🏁 Chegou no ep primeiro");
   else if (ck?.status === "finished") badges.push("🎬 Maratonista");
+  if (m.user_id === titulos.teoria) badges.push("🧠 Teórica oficial");
+  if (m.user_id === titulos.meme) badges.push("😂 Rainha dos memes");
+  if (m.user_id === titulos.chat) badges.push("💬 Mais presente no chat");
+  if (m.user_id === titulos.votos) badges.push("🗳️ A que sempre vota");
 
   const progresso = !featured
     ? `<span class="muted">Sem dorama atual</span>`
@@ -8806,7 +8832,7 @@ async function loadClubSocial() {
   clubSocial = { ...clubSocial, for: state.club.id };
   const empty = emptyClubSocial(state.club.id);
   try {
-    const [activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramasHist, myPointsLedger, clubHallList_result] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramasHist, myPointsLedger, clubHallList_result, clubVoters_result] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -8827,8 +8853,9 @@ async function loadClubSocial() {
       clubFeaturedHistory(state.club.id).catch(() => []),
       clubMyPointsLedger(state.club.id, authUser?.id).catch(() => []),
       clubHallList(state.club.id).catch(() => []),
+      clubVotersTally(state.club.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger, hall: clubHallList_result, epRatings: [], epCount: 0 };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger, hall: clubHallList_result, voters: clubVoters_result, epRatings: [], epCount: 0 };
   } catch {
     clubSocial = empty;
   }
