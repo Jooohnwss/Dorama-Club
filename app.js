@@ -18,6 +18,8 @@ import {
   updateClubDetails,
   manageClubMember,
   setClubNotice,
+  archiveClubHall,
+  clubHallList,
   savePushSubscription,
   sendPush,
   sendPushClub,
@@ -609,6 +611,7 @@ function emptyClubSocial(id = null) {
     cycle: null,
     clubDramas: [],
     myPoints: [],
+    hall: [],
     epRatings: [],
     epCount: 0,
   };
@@ -2647,6 +2650,26 @@ function formatDateTimeShort(value) {
   }
 }
 
+function clubHallTemplate() {
+  const hall = (clubSocial.for === state.club.id ? clubSocial.hall : []) || [];
+  if (!hall.length) return "";
+  return `
+    <div class="section-title compact"><h2>🏆 Hall da Fama</h2></div>
+    <section class="hall">${hall.map((h) => `
+      <article class="hall-item">
+        ${h.cover ? `<img src="${esc(h.cover)}" alt="" loading="lazy" />` : `<span class="hall-noimg">🎬</span>`}
+        <div class="hall-info">
+          <strong>${esc(h.title || "Dorama")}</strong>
+          <div class="hall-badges">
+            ${h.mvp_name ? `<span class="hall-badge mvp">🥇 MVP: ${esc(h.mvp_name)}</span>` : ""}
+            ${h.first_name ? `<span class="hall-badge">🏁 1º: ${esc(h.first_name)}</span>` : ""}
+            ${h.avg_stars != null ? `<span class="hall-badge">⭐ ${Number(h.avg_stars).toFixed(1).replace(".0", "")}</span>` : ""}
+            <span class="hall-badge">✅ ${h.finished_count || 0}/${h.members_count || 0}</span>
+          </div>
+        </div>
+      </article>`).join("")}</section>`;
+}
+
 function clubAboutTemplate() {
   const souDono = state.club.owner_id === authUser?.id;
   const rules = state.club.rules || "Sem regras ainda. Sugestão: avisar spoilers, respeitar opiniões e manter o clima leve. 💜";
@@ -2698,6 +2721,7 @@ function clubAboutTemplate() {
 
     <div class="section-title compact"><h2>🏆 Doramas do clube</h2></div>
     ${dramaCards}
+    ${clubHallTemplate()}
 
     <div class="section-title compact"><h2>📜 Regras</h2></div>
     <section class="form-card"><p style="margin:0;line-height:1.5">${esc(rules)}</p></section>
@@ -8775,7 +8799,7 @@ async function loadClubSocial() {
   clubSocial = { ...clubSocial, for: state.club.id };
   const empty = emptyClubSocial(state.club.id);
   try {
-    const [activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramasHist, myPointsLedger] = await Promise.all([
+    const [activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramasHist, myPointsLedger, clubHallList_result] = await Promise.all([
       clubActivities(state.club.id),
       clubPicksTally(state.club.id),
       clubRanking(state.club.id),
@@ -8795,8 +8819,9 @@ async function loadClubSocial() {
       clubCycle(state.club.id).catch(() => null),
       clubFeaturedHistory(state.club.id).catch(() => []),
       clubMyPointsLedger(state.club.id, authUser?.id).catch(() => []),
+      clubHallList(state.club.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger, epRatings: [], epCount: 0 };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger, hall: clubHallList_result, epRatings: [], epCount: 0 };
   } catch {
     clubSocial = empty;
   }
@@ -9894,6 +9919,8 @@ async function handleSetClubFeaturedFromList(listId) {
   const item = (clubSocial.list || []).find((entry) => entry.id === listId);
   if (!item || !state.club) return;
   try {
+    // Antes de trocar, guarda o dorama atual no Hall da Fama.
+    if (clubSocial.featured?.id) await archiveClubHall(clubSocial.featured.id).catch(() => {});
     await setClubFeaturedDrama(
       state.club.id,
       { title: item.title, tmdbId: item.tmdb_id ?? null, cover: item.cover || null },
