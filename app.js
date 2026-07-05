@@ -281,6 +281,7 @@ const dramaDefaults = {
   comfort: false,
   note: "",
   cry: "",
+  laugh: "",
   hype: "",
   rage: "",
   personalRating: "",
@@ -1782,6 +1783,7 @@ async function gerarCardMeuDia(drama, opts = {}) {
     if (drama?.personalRating) extras.push(`⭐ ${drama.personalRating}/10`);
     if (drama?.semaforo) extras.push(semaforoEmoji(drama.semaforo));
     if (Number(drama?.cry) > 0) extras.push(`😭 ${drama.cry}`);
+    if (Number(drama?.laugh) > 0) extras.push(`😂 ${drama.laugh}`);
     if (Number(drama?.hype) > 0) extras.push(`🔥 ${drama.hype}`);
     if (extras.length) {
       ctx.fillStyle = "#ffffff";
@@ -5816,12 +5818,16 @@ function nosClimaHtml() {
         <span><b>${esc(nomeP)}</b> ${dela ? esc(moodLabel(dela.mood)) : "esperando…"}</span>
       </div>
 
+      ${(() => {
+        const maxN = niveisVis[niveisVis.length - 1].n;
+        const val = limiteHoje || 1;
+        const lv = NIVEIS.find((x) => x.n === val) || NIVEIS[0];
+        return `
       <div class="clima-heat-wrap">
-        <span class="clima-heat-cap">Hoje eu topo até <b>${limiteHoje ? esc(nomeLimite(limiteHoje)) : "—"}</b></span>
-        <div class="heat-scale">
-          ${niveisVis.map((x) => `<button class="heat ${limiteHoje >= x.n ? "on" : ""} ${limiteHoje === x.n ? "sel" : ""}" type="button" data-day-limit="${x.n}" title="${esc(x.nome)}" aria-label="${esc(x.nome)}">${x.emoji}</button>`).join("")}
-        </div>
-      </div>
+        <span class="clima-heat-cap">Hoje eu topo até <b class="heat-cap-val">${lv.emoji} ${esc(lv.nome)}</b></span>
+        <input class="heat-slider" type="range" min="1" max="${maxN}" step="1" value="${val}" data-day-limit-range aria-label="Limite de hoje" />
+      </div>`;
+      })()}
       ${fixo
         ? `<div class="clima-combina">💞 Vocês combinam até <strong>${esc(nomeLimite(permitida))}</strong></div>`
         : `<div class="clima-combina warn">Defina seu limite no ⚙️ abaixo pra abrir o baralho.</div>`}
@@ -5829,9 +5835,13 @@ function nosClimaHtml() {
       <details class="clima-fixo">
         <summary>⚙️ Limite fixo & conteúdo adulto</summary>
         <p class="muted" style="margin:8px 0;font-size:.82rem">O limite fixo é o seu padrão. O “hoje eu topo até” vale só pra hoje.</p>
-        <div class="heat-scale">
-          ${niveisVis.map((x) => `<button class="heat ${fixo >= x.n ? "on" : ""} ${fixo === x.n ? "sel" : ""}" type="button" data-set-intensity="${x.n}" title="${esc(x.nome)}" aria-label="${esc(x.nome)}">${x.emoji}</button>`).join("")}
-        </div>
+        ${(() => {
+          const maxN = niveisVis[niveisVis.length - 1].n;
+          const val = fixo || 1;
+          const lv = NIVEIS.find((x) => x.n === val) || NIVEIS[0];
+          return `<span class="clima-heat-cap">Meu limite fixo: <b class="fix-cap-val">${lv.emoji} ${esc(lv.nome)}</b></span>
+          <input class="heat-slider" type="range" min="1" max="${maxN}" step="1" value="${val}" data-fix-range aria-label="Limite fixo" />`;
+        })()}
         ${!adulto
           ? `<button class="btn ghost" type="button" data-adulto18 style="margin-top:10px">🔞 Liberar conteúdo adulto (18+)</button>`
           : `<small class="muted" style="display:block;margin-top:10px">🔞 Adulto liberado neste aparelho. <button class="linkish" type="button" data-adulto18-off>esconder</button></small>`}
@@ -5962,10 +5972,9 @@ function nosHeroHtml() {
           <span class="nh-emoji">${atual.emoji}</span>
           <div class="nh-vibe-txt"><strong>${esc(atual.nome)}</strong><span>Nível ${atual.n} de vocês</span></div>
         </div>
-        <span class="nh-pts" title="pontos pra gastar nos vales">${carregando ? "…" : saldo} pts</span>
       </div>
       <div class="nos-hero-bar"><i style="width:${pct}%"></i></div>
-      <small class="nos-hero-sub">${proximo ? `faltam ${Math.max(0, proximo.req - acumulados)} pts pro ${proximo.emoji} ${esc(proximo.nome)}` : `nível máximo 👑`}</small>
+      <small class="nos-hero-sub">${proximo ? `a caminho de ${proximo.emoji} ${esc(proximo.nome)}` : `nível máximo 👑`}</small>
     </section>`;
 }
 
@@ -7181,6 +7190,7 @@ function linhaDoTempoTemplate() {
 function rankingEmocionalTemplate() {
   const itens = [
     ["😭 Mais me fez chorar", topPor("cry"), "cry"],
+    ["😂 Mais me fez rir", topPor("laugh"), "laugh"],
     ["🔥 Mais me fez surtar", topPor("hype"), "hype"],
     ["😡 Mais me fez passar raiva", topPor("rage"), "rage"],
   ];
@@ -7372,6 +7382,7 @@ function dramaCard(drama) {
     drama.status === "paused" && drama.pauseReason ? `<span class="chip">⏸️ ${esc(drama.pauseReason)}</span>` : "",
     drama.status === "dropped" && drama.dropReason ? `<span class="chip">🚫 ${esc(drama.dropReason)}</span>` : "",
     Number(drama.cry) > 0 ? `<span class="chip choro">😭 ${drama.cry}</span>` : "",
+    Number(drama.laugh) > 0 ? `<span class="chip riso">😂 ${drama.laugh}</span>` : "",
     Number(drama.hype) > 0 ? `<span class="chip surto">🔥 ${drama.hype}</span>` : "",
     Number(drama.rage) > 0 ? `<span class="chip raiva">😡 ${drama.rage}</span>` : "",
     drama.personalRating ? `<span class="chip">⭐ ${esc(drama.personalRating)}</span>` : "",
@@ -7527,6 +7538,10 @@ function modalTemplate() {
             <div class="field">
               <label for="cry">Quanto chorou?</label>
               <input id="cry" name="cry" type="range" min="0" max="10" value="${drama.cry || 0}" />
+            </div>
+            <div class="field">
+              <label for="laugh">Quanto riu?</label>
+              <input id="laugh" name="laugh" type="range" min="0" max="10" value="${drama.laugh || 0}" />
             </div>
             <div class="field">
               <label for="hype">Quanto surtou?</label>
@@ -8121,6 +8136,16 @@ function bindShell() {
   document.querySelectorAll("[data-undo-challenge]").forEach((b) => listen(b, "click", () => handleUndoChallenge(b.dataset.undoChallenge)));
   document.querySelectorAll("[data-checkin]").forEach((b) => listen(b, "click", () => handleCheckin(b.dataset.checkin)));
   document.querySelectorAll("[data-day-limit]").forEach((b) => listen(b, "click", () => handleDayLimit(b.dataset.dayLimit)));
+  const climaSlider = document.querySelector("[data-day-limit-range]");
+  if (climaSlider) {
+    listen(climaSlider, "input", (e) => { const lv = NIVEIS.find((x) => x.n === Number(e.target.value)); const c = document.querySelector(".heat-cap-val"); if (c && lv) c.textContent = `${lv.emoji} ${lv.nome}`; });
+    listen(climaSlider, "change", (e) => handleDayLimit(e.target.value));
+  }
+  const fixSlider = document.querySelector("[data-fix-range]");
+  if (fixSlider) {
+    listen(fixSlider, "input", (e) => { const lv = NIVEIS.find((x) => x.n === Number(e.target.value)); const c = document.querySelector(".fix-cap-val"); if (c && lv) c.textContent = `${lv.emoji} ${lv.nome}`; });
+    listen(fixSlider, "change", (e) => handleSetIntensity(e.target.value));
+  }
   listen(document.querySelector("#couple-add-cat"), "change", (e) => { coupleAddCatSel = e.target.value; });
   listen(document.querySelector("#couple-search-form"), "submit", runCoupleSearch);
   document.querySelectorAll("[data-couple-add-tmdb]").forEach((button) => {
@@ -8474,6 +8499,7 @@ function saveDramaDetails(event) {
       currentEpisode: Number(data.currentEpisode || 0),
       personalRating: data.personalRating,
       cry: data.cry,
+      laugh: data.laugh,
       hype: data.hype,
       rage: data.rage,
       note: data.note,

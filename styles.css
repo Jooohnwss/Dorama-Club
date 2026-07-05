@@ -13,6 +13,7 @@
 
   /* Acentos emocionais (fixos em todos os temas). */
   --cor-choro: #38bdf8;
+  --cor-riso: #facc15;
   --cor-surto: #ec4899;
   --cor-raiva: #f97316;
 
@@ -2523,6 +2524,7 @@ textarea:focus {
 }
 
 .chip.choro { color: var(--cor-choro); border-color: color-mix(in srgb, var(--cor-choro) 40%, transparent); }
+.chip.riso { color: var(--cor-riso); border-color: color-mix(in srgb, var(--cor-riso) 40%, transparent); }
 .chip.surto { color: var(--cor-surto); border-color: color-mix(in srgb, var(--cor-surto) 40%, transparent); }
 .chip.raiva { color: var(--cor-raiva); border-color: color-mix(in srgb, var(--cor-raiva) 40%, transparent); }
 .chip.fav { color: var(--cor-primaria); border-color: color-mix(in srgb, var(--cor-primaria) 40%, transparent); }
@@ -3178,14 +3180,19 @@ textarea:focus {
 
 .clima-heat-wrap { margin-top: 12px; }
 .clima-heat-cap { display: block; font-size: 0.84rem; font-weight: 700; margin-bottom: 6px; }
-.heat-scale { display: flex; gap: 6px; }
-.heat {
-  flex: 1; min-width: 0; padding: 9px 0; border-radius: 12px; font-size: 1.15rem; line-height: 1; cursor: pointer;
-  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); filter: grayscale(0.7); opacity: 0.55;
-  transition: transform 0.1s ease, filter 0.1s ease, opacity 0.1s ease;
+.heat-cap-val, .fix-cap-val { color: var(--cor-primaria); }
+.heat-slider {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 10px; border: 0; border-radius: 999px; margin: 4px 0 2px; padding: 0;
+  background: linear-gradient(90deg, #f8b6c8, #ff7a9c 40%, #e0566b 70%, #8a2878);
+  outline: none; cursor: pointer;
 }
-.heat.on { filter: none; opacity: 1; background: color-mix(in srgb, #e0566b 12%, var(--cor-superficie)); border-color: color-mix(in srgb, #e0566b 35%, var(--cor-borda)); }
-.heat.sel { transform: translateY(-3px) scale(1.06); border-color: #e0566b; box-shadow: 0 8px 16px -8px rgba(224,86,107,0.6); }
+.heat-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 26px; height: 26px; border-radius: 50%;
+  background: #fff; border: 3px solid #e0566b; box-shadow: 0 4px 10px -3px rgba(224,86,107,0.7); cursor: grab;
+}
+.heat-slider::-moz-range-thumb {
+  width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 3px solid #e0566b; box-shadow: 0 4px 10px -3px rgba(224,86,107,0.7); cursor: grab;
+}
 .clima-combina { margin-top: 12px; font-size: 0.84rem; font-weight: 700; color: var(--cor-texto-suave); }
 .clima-combina strong { color: var(--cor-primaria); }
 .clima-combina.warn { color: #b45309; }
