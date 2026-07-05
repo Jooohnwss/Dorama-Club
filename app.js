@@ -82,6 +82,7 @@ import {
   clubChatReactions,
   toggleClubChatReaction,
   subscribeClubRealtime,
+  subscribeCoupleRealtime,
   unsubscribeChannel,
   clubMyPointsLedger,
   loadFavoritos,
@@ -398,6 +399,8 @@ let clubMuralFilter = null; // null = dorama atual; "all" = tudo; ou um tmdb_id
 let clubMuralTab = "geral"; // aba de tipo do mural: geral | episodios | teorias | memes | agenda | finalizados
 let clubChannel = null; // canal Realtime do clube (chat + presença)
 let clubChannelFor = null; // id do clube cujo canal está ativo
+let coupleChannel = null; // canal Realtime do casal (baralho ao vivo)
+let coupleChannelFor = null;
 let clubOnline = []; // [{user_id, name}] presentes agora
 let clubChatSpoilerOn = false; // toggle de spoiler no compositor do chat
 let chatDraft = ""; // texto do chat preservado entre re-renders
@@ -4695,7 +4698,6 @@ function coupleInicioSection() {
     ${coupleSaudadeMini()}
     ${coupleFocusCard()}
     ${couplePetMini()}
-    <div class="section-title compact"><h2>Resumo de vocês</h2></div>
     ${coupleResumoTemplate()}
     <div class="section-title compact"><h2>Linha do tempo</h2></div>
     ${coupleTimelineTemplate()}`;
@@ -4715,20 +4717,24 @@ function coupleResumoTemplate() {
     return isNaN(ini) || ini > new Date() ? null : Math.round((new Date() - ini) / 86400000);
   })();
   const itens = [
-    ...(diasJuntos != null ? [["💕", diasJuntos, "Dias namorando"]] : []),
     ["📺", eps, "Episódios juntos"],
     ["⏱️", horas ? `~${horas}h` : "—", "Horas juntos"],
     ["🍿", coupleDramas.length, "Doramas"],
     ["🏁", finalizados, "Finalizados"],
     ["📖", coupleDiary.length, "Memórias"],
+    ["💌", coupleLetters.length, "Cartinhas"],
     ["🎓", certs, "Certificados"],
   ];
-  return `<section class="couple-resumo">${itens.map(([emoji, valor, label]) => `
-    <div class="couple-resumo-item">
-      <span class="cr-emoji">${emoji}</span>
-      <strong>${valor}</strong>
-      <span class="cr-label">${esc(label)}</span>
-    </div>`).join("")}</section>`;
+  const destaque = diasJuntos != null
+    ? `<div class="retro-destaque"><span>💕 Juntos há</span><strong>${diasJuntos}</strong><small>${diasJuntos === 1 ? "dia" : "dias"}${tempoJuntos(iniNamoro) ? ` · ${esc(tempoJuntos(iniNamoro))}` : ""}</small></div>`
+    : `<div class="retro-destaque sem"><span>💕 Nossa história</span><strong>${esc(coupleNome())}</strong><small>defina a data do namoro em “Nossa história”</small></div>`;
+  return `
+    <section class="retro">
+      <div class="retro-topo"><span class="retro-tag">💞 Vocês em números</span></div>
+      ${destaque}
+      <div class="retro-grid">${itens.map(([emoji, valor, label]) => `
+        <div class="retro-item"><span class="retro-emoji">${emoji}</span><strong>${valor}</strong><small>${esc(label)}</small></div>`).join("")}</div>
+    </section>`;
 }
 
 function coupleAjustesSection() {
@@ -8337,6 +8343,7 @@ function bindShell() {
   if (state.view === "club" && state.club && clubFeedFor !== state.club.id) loadClubFeed();
   if (state.view === "club" && state.club && clubSocial.for !== state.club.id) loadClubSocial();
   if (state.view === "club" && state.club) ensureClubRealtime(); else teardownClubRealtime();
+  if (state.space === "couple" && state.couple) ensureCoupleRealtime(); else teardownCoupleRealtime();
   if (state.space === "couple" && state.couple && coupleFor !== state.couple.id) loadCoupleData();
   if (state.space === "couple" && state.couple && coupleSection === "certificados" && coupleFor === state.couple.id && coupleRuntimesFor !== state.couple.id) loadCoupleRuntimes();
   if (state.space === "couple" && state.couple && coupleSection === "diversao" && coupleFor === state.couple.id && coupleQuizFor !== `${state.couple.id}:${semanaAtual()}`) loadCoupleQuizData();
@@ -8756,6 +8763,35 @@ function teardownClubRealtime() {
   clubChannel = null;
   clubChannelFor = null;
   clubOnline = [];
+}
+
+// Realtime do casal: baralho aparece na hora pro parceiro.
+function ensureCoupleRealtime() {
+  if (!cloudOn() || !state.couple || state.space !== "couple") { teardownCoupleRealtime(); return; }
+  if (coupleChannelFor === state.couple.id && coupleChannel) return;
+  teardownCoupleRealtime();
+  coupleChannelFor = state.couple.id;
+  coupleChannel = subscribeCoupleRealtime(state.couple.id, { onAboutChange: onRealtimeCoupleAbout });
+}
+function teardownCoupleRealtime() {
+  if (coupleChannel) unsubscribeChannel(coupleChannel);
+  coupleChannel = null;
+  coupleChannelFor = null;
+}
+async function onRealtimeCoupleAbout(payload) {
+  if (!state.couple || coupleChannelFor !== state.couple.id) return;
+  const row = payload?.new || payload?.old;
+  // Recarrega o "sobre" e re-renderiza; avisa se chegou carta nova pra você.
+  const antesCarta = coupleAbout.carta_ativa;
+  try {
+    const aboutRows = await loadCoupleAbout(state.couple.id);
+    coupleAbout = Object.fromEntries((aboutRows || []).map((r) => [r.key, r.value || ""]));
+  } catch { return; }
+  const c = cartaAtiva();
+  if (c && c.by !== authUser?.id && coupleAbout.carta_ativa !== antesCarta) {
+    toast(`💌 ${nomeParceiroCurto()} te mandou uma carta! 🔥`);
+  }
+  render();
 }
 function onRealtimeChatInsert(row) {
   if (!row || !state.club || (clubSocial.chat || []).some((m) => m.id === row.id)) return;

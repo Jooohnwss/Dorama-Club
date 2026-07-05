@@ -1364,6 +1364,16 @@ export function unsubscribeChannel(channel) {
   if (channel && supabase) supabase.removeChannel(channel);
 }
 
+// Realtime do casal: avisa quando o "sobre" muda (ex.: carta do baralho enviada).
+export function subscribeCoupleRealtime(coupleId, { onAboutChange } = {}) {
+  if (!supabase) return null;
+  const channel = supabase.channel(`couple:${coupleId}`);
+  channel
+    .on("postgres_changes", { event: "*", schema: "public", table: "couple_about", filter: `couple_id=eq.${coupleId}` }, (payload) => onAboutChange?.(payload))
+    .subscribe();
+  return channel;
+}
+
 // Meu extrato de pontos no clube (pra mostrar COMO pontuei).
 export async function clubMyPointsLedger(clubId, userId) {
   const { data, error } = await supabase

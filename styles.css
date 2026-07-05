@@ -3949,6 +3949,29 @@ textarea:focus {
 }
 
 /* Resumo do casal — cards com ícone */
+/* Retrospectiva "Vocês em números" (estilo Wrapped) */
+.retro {
+  margin: 6px 0 14px; padding: 18px; border-radius: 22px; color: #fff;
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(255,255,255,0.18), transparent 55%),
+    linear-gradient(150deg, var(--cor-primaria), var(--cor-secundaria));
+  box-shadow: 0 18px 40px -20px color-mix(in srgb, var(--cor-primaria) 70%, transparent);
+}
+.retro-tag { font-size: 0.74rem; font-weight: 850; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.9; }
+.retro-destaque { margin: 10px 0 14px; display: grid; }
+.retro-destaque > span { font-size: 0.82rem; font-weight: 800; opacity: 0.9; }
+.retro-destaque > strong { font-size: 2.8rem; font-weight: 900; line-height: 1; }
+.retro-destaque.sem > strong { font-size: 1.6rem; }
+.retro-destaque > small { font-size: 0.82rem; font-weight: 700; opacity: 0.9; margin-top: 2px; }
+.retro-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 10px; }
+.retro-item {
+  display: grid; justify-items: center; gap: 2px; text-align: center;
+  padding: 12px 6px; border-radius: 14px; background: rgba(255,255,255,0.14);
+}
+.retro-emoji { font-size: 1.3rem; }
+.retro-item strong { font-size: 1.25rem; font-weight: 900; }
+.retro-item small { font-size: 0.7rem; font-weight: 700; opacity: 0.9; }
+
 .couple-resumo {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
