@@ -2805,6 +2805,16 @@ function clubAboutTemplate() {
     <div class="section-title compact"><h2>👥 Membros (${membros || "…"})</h2></div>
     ${membersHtml}
 
+    <div class="section-title compact"><h2>🔔 Avisos</h2></div>
+    <section class="form-card">
+      <p class="muted" style="margin:0 0 10px">Receba notificação quando alguém surtar no mural ou entrar um dorama novo — mesmo com o app em outra aba/fechado.</p>
+      <div class="actions" style="margin:0">
+        ${notifSuportada() && Notification.permission === "granted"
+          ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Avisos ativados</span>`
+          : `<button class="btn secondary" type="button" data-ativar-notif>🔔 Ativar avisos</button>`}
+      </div>
+    </section>
+
     <div class="section-title compact"><h2>Convidar e gerenciar</h2></div>
     <section class="grid cards">
       <button class="card" data-share-club><strong>💬 Chamar no WhatsApp</strong><p class="muted">Manda um convite com link pronto.</p></button>
