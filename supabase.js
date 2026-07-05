@@ -301,6 +301,7 @@ export async function postComment(userId, clubId, comment) {
     drama_title: comment.dramaTitle || null,
     spoiler_episode: Number(comment.spoilerEpisode) || 0,
     kind,
+    photo: comment.photo || null,
   });
   if (error) throw error;
 }

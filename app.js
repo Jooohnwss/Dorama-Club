@@ -623,6 +623,7 @@ let coupleLoading = false;
 let coupleSection = state.coupleSection || "inicio"; // seção interna do ambiente do casal (persistida)
 let nosTab = "hoje"; // sub-aba dentro do "Nós 🔥": hoje | brincar | desejos | progresso
 let cartaAtual = null; // carta puxada do baralho (ainda não enviada), local
+let clubCommentFoto = null; // foto (data URL) pendente pro surto do clube
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let coupleDiaryKind = "livre"; // tipo de página do diário sendo criada
 let coupleDiaryDay = null; // dia (YYYY-MM-DD) aberto no caderno; null = hoje
@@ -3604,7 +3605,7 @@ function muralPostCard(item, opts = {}) {
   const podeApagar = opts.canDelete && authUser && (item.user_id === authUser.id || isAdmin());
   const chip = item.drama_title ? `<span class="mural-chip">🎬 ${esc(item.drama_title)}${item.spoiler_episode ? ` · ep. ${item.spoiler_episode}` : ""}</span>` : "";
   const corpo = liberado
-    ? `<p class="mural-body">${esc(item.body)}</p>`
+    ? `${item.body ? `<p class="mural-body">${esc(item.body)}</p>` : ""}${item.photo ? `<img class="mural-foto" src="${esc(item.photo)}" alt="" loading="lazy" />` : ""}`
     : `<div class="mural-locked">
          <span>🔒 Spoiler até o ep. ${item.spoiler_episode}${item.drama_title ? ` de ${esc(item.drama_title)}` : ""}</span>
          ${item.id ? `<button class="btn ghost" type="button" data-reveal-post="${item.id}">Ver mesmo assim 👀</button>` : ""}
@@ -3646,7 +3647,7 @@ function commentFormTemplate() {
     <section class="mural-composer">
       <div class="mural-composer-top">${muralAvatar(state.profile?.name)}<strong>Conta o surto pras doramigas…</strong></div>
       <form id="comment-form">
-        <textarea id="commentBody" name="body" placeholder="Gente, o episódio de hoje… 😭" required>${esc(debateText)}</textarea>
+        <textarea id="commentBody" name="body" placeholder="Gente, o episódio de hoje… 😭 (ou só uma foto 📷)">${esc(debateText)}</textarea>
         <div class="mural-kind">
           <label class="mural-kind-opt"><input type="radio" name="kind" value="geral" checked> 🗨️ Geral</label>
           <label class="mural-kind-opt"><input type="radio" name="kind" value="teoria"> 🧠 Teoria</label>
@@ -3659,8 +3660,10 @@ function commentFormTemplate() {
             <option value="" ${!ativo && !clubDebateDraft ? "selected" : ""}>🎬 Geral (sem dorama)</option>
           </select>
           <label class="mural-spoiler-field" title="0 = sem spoiler">🔒 ep <input id="commentSpoiler" name="spoiler" type="number" min="0" value="0" /></label>
+          <label class="foto-btn">📷<input type="file" accept="image/*" data-comment-foto hidden /></label>
           <button class="btn" type="submit">Publicar</button>
         </div>
+        <div class="foto-anexo" id="comment-foto-wrap">${clubCommentFoto ? `<div class="foto-preview"><img src="${clubCommentFoto}" alt="" /><button type="button" class="foto-remove" data-comment-foto-remove>✕</button></div>` : ""}</div>
       </form>
     </section>
   `;
@@ -6454,16 +6457,40 @@ async function enviarCarta() {
     toast(`Carta enviada pra ${nomeParceiroCurto()}! 🔥`);
   } catch { toast("Não consegui enviar a carta."); }
 }
+function cartasHistorico() {
+  try { return JSON.parse(coupleAbout.cartas_hist || "[]"); } catch { return []; }
+}
 async function limparCarta(cumprida) {
   const c = cartaAtiva();
   if (!state.couple) return;
   try {
+    if (cumprida && c) {
+      const hist = [{ tipo: c.tipo, texto: c.texto, nome: c.nome || "", nivel: c.nivel, by: c.by, at: new Date().toISOString() }, ...cartasHistorico()].slice(0, 20);
+      const histStr = JSON.stringify(hist);
+      await saveCoupleAbout(state.couple.id, authUser.id, "cartas_hist", histStr);
+      coupleAbout.cartas_hist = histStr;
+      await ganharPontos(PONTOS.desafio[c.nivel] || 8, `carta cumprida (${c.tipo})`, "carta", `carta:${Date.now()}`);
+    }
     await saveCoupleAbout(state.couple.id, authUser.id, "carta_ativa", "");
     coupleAbout.carta_ativa = "";
-    if (cumprida && c) await ganharPontos(PONTOS.desafio[c.nivel] || 8, `carta cumprida (${c.tipo})`, "carta", `carta:${Date.now()}`);
     render();
     toast(cumprida ? "Cumprido! 💋" : "Carta descartada.");
   } catch { toast("Não consegui atualizar."); }
+}
+
+function baralhoHistoricoTemplate() {
+  const hist = cartasHistorico();
+  if (!hist.length) return "";
+  return `
+    <details class="nos-panel cartas-hist">
+      <summary><span>📜 Cartas que rolaram</span><small>${hist.length}</small></summary>
+      <div class="cartas-hist-list">
+        ${hist.map((c) => {
+          const quem = c.by === authUser?.id ? "você mandou" : `${esc(nomeParceiroCurto())} mandou`;
+          return `<div class="cartas-hist-item"><span class="chi-selo ${c.tipo}">${c.tipo === "verdade" ? "💬" : "😈"}</span><div><p>${esc(c.texto)}</p><small>${quem} · ${esc(timeAgo(c.at))}</small></div></div>`;
+        }).join("")}
+      </div>
+    </details>`;
 }
 
 // Card visual de uma carta.
@@ -6572,6 +6599,7 @@ function nosSection() {
   if (nosTab === "hoje") {
     corpo = `
       ${baralhoTemplate()}
+      ${baralhoHistoricoTemplate()}
       ${nosClimaHtml()}
       ${nosTelegramHtml()}`;
   } else if (nosTab === "brincar") {
@@ -8036,7 +8064,9 @@ function bindShell() {
   listen(document.querySelector("#couple-add-drama-form"), "submit", handleCoupleAddDrama);
   listen(document.querySelector("#couple-diary-form"), "submit", handleCoupleDiary);
   listen(document.querySelector("#couple-letter-form"), "submit", handleCoupleLetter);
-  document.querySelectorAll(".diary-entry-foto, .cartinha-foto").forEach((img) => listen(img, "click", () => abrirFotoZoom(img.src)));
+  document.querySelectorAll(".diary-entry-foto, .cartinha-foto, .mural-foto").forEach((img) => listen(img, "click", () => abrirFotoZoom(img.src)));
+  listen(document.querySelector("[data-comment-foto]"), "change", (e) => handleCommentFoto(e.target));
+  listen(document.querySelector("[data-comment-foto-remove]"), "click", () => { clubCommentFoto = null; const w = document.querySelector("#comment-foto-wrap"); if (w) w.innerHTML = ""; });
   listen(document.querySelector("[data-diary-foto]"), "change", (e) => handleDiaryFoto(e.target));
   listen(document.querySelector("[data-letter-foto]"), "change", (e) => handleLetterFoto(e.target));
   listen(document.querySelector("[data-diary-foto-remove]"), "click", () => { coupleDiaryFoto = null; const w = document.querySelector("#diary-foto-wrap"); if (w) w.innerHTML = ""; });
@@ -9475,6 +9505,17 @@ async function handleDiaryFoto(input) {
     if (b) b.onclick = () => { coupleDiaryFoto = null; wrap.innerHTML = ""; };
   }
 }
+async function handleCommentFoto(input) {
+  const f = input.files?.[0];
+  if (!f) return;
+  try { clubCommentFoto = await carregarFoto(f); } catch (e) { console.error("foto surto:", f?.type, f?.size, e); toast(fotoErroMsg(f)); return; }
+  const wrap = document.querySelector("#comment-foto-wrap");
+  if (wrap) {
+    wrap.innerHTML = `<div class="foto-preview"><img src="${clubCommentFoto}" alt="" /><button type="button" class="foto-remove">✕ tirar foto</button></div>`;
+    const b = wrap.querySelector(".foto-remove");
+    if (b) b.onclick = () => { clubCommentFoto = null; wrap.innerHTML = ""; };
+  }
+}
 async function handleLetterFoto(input) {
   const f = input.files?.[0];
   if (!f) return;
@@ -10203,7 +10244,7 @@ async function handlePostComment(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(event.currentTarget));
   const body = String(data.body || "").trim();
-  if (!body || !state.club) return;
+  if ((!body && !clubCommentFoto) || !state.club) return;
   let tmdbId = null;
   let dramaTitle = null;
   let spoilerEpisode = 0;
@@ -10220,9 +10261,10 @@ async function handlePostComment(event) {
   }
   const kind = ["geral", "teoria", "meme"].includes(String(data.kind)) ? String(data.kind) : "geral";
   try {
-    await postComment(authUser.id, state.club.id, { body, tmdbId, dramaTitle, spoilerEpisode, kind });
+    await postComment(authUser.id, state.club.id, { body, tmdbId, dramaTitle, spoilerEpisode, kind, photo: clubCommentFoto });
     commentDraft = null;
     clubDebateDraft = null;
+    clubCommentFoto = null;
     clubFeedFor = null;
     // Manda pra aba do que acabou de postar (episódio > teoria/meme > geral).
     clubMuralTab = spoilerEpisode >= 1 ? "episodios" : (kind === "teoria" ? "teorias" : kind === "meme" ? "memes" : "geral");
