@@ -1,6 +1,7 @@
 -- ============================================================
 -- 60 - Clube: foto no surto/comentário do mural
--- Rode SÓ ESTE arquivo (depois da 54). Idempotente.
+-- Rode SÓ ESTE arquivo. NÃO re-rode a 54 (ela já está aplicada; re-rodar arquivos
+-- antigos pode dar conflito). Idempotente (pode rodar de novo sem problema).
 -- Foto guardada como data URL (base64), igual ao casal — sem bucket.
 -- club_feed ganha a coluna photo -> muda o retorno -> DROP antes.
 -- ============================================================
