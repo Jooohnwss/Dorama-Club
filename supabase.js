@@ -1265,6 +1265,20 @@ export async function rateClubEpisode(featuredId, episode, stars) {
   if (error) throw error;
 }
 
+export async function clubEpisodeFeels(featuredId) {
+  const { data, error } = await supabase.rpc("club_episode_feels", { p_featured: featuredId });
+  if (error) throw error;
+  return data || [];
+}
+export async function rateClubEpisodeFeel(featuredId, episode, feel) {
+  const { error } = await supabase.rpc("rate_club_episode_feel", {
+    p_featured: featuredId,
+    p_episode: Number(episode) || 0,
+    p_feel: Number(feel) || 0,
+  });
+  if (error) throw error;
+}
+
 // ---------- Enquetes livres do clube ----------
 export async function clubPollsFeed(clubId) {
   const { data, error } = await supabase.rpc("club_polls_feed", { p_club: clubId });

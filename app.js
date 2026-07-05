@@ -74,6 +74,8 @@ import {
   saveClubDramaCheckin,
   clubEpisodeRatings,
   rateClubEpisode,
+  clubEpisodeFeels,
+  rateClubEpisodeFeel,
   clubPollsFeed,
   createClubPoll,
   voteClubPoll,
@@ -623,6 +625,7 @@ function emptyClubSocial(id = null) {
     voters: [],
     predictions: [],
     epRatings: [],
+    epFeels: [],
     epCount: 0,
   };
 }
@@ -2685,6 +2688,34 @@ function formatDateTimeShort(value) {
   }
 }
 
+const FEEL_EMOJI = { 1: "😌", 2: "🥲", 3: "😢", 4: "😭", 5: "💔" };
+const FEEL_LABEL = { 1: "de boa", 2: "apertou", 3: "chorei", 4: "surtei", 5: "destruída" };
+function feelColor(v) {
+  // 1 (calmo/verde) -> 5 (vermelho)
+  const t = Math.max(0, Math.min(1, (Number(v) - 1) / 4));
+  return `color-mix(in srgb, #e0566b ${Math.round(t * 100)}%, #22c55e)`;
+}
+
+function clubTermometroTemplate() {
+  if (clubSocial.for !== state.club.id) return "";
+  const f = clubSocial.featured;
+  if (!f?.id) return "";
+  const feels = (clubSocial.epFeels || []).slice().sort((a, b) => Number(a.episode_number) - Number(b.episode_number));
+  if (!feels.length) return "";
+  const pico = feels.slice().sort((a, b) => Number(b.avg_feel) - Number(a.avg_feel))[0];
+  const bars = feels.map((x) => {
+    const v = Number(x.avg_feel || 0);
+    const h = Math.max(6, Math.round((v / 5) * 100));
+    return `<div class="term-bar" title="Ep ${x.episode_number}: ${v}★ sofrimento (${x.votes})"><i style="height:${h}%;background:${feelColor(v)}"></i><small>${x.episode_number}</small></div>`;
+  }).join("");
+  return `
+    <div class="section-title compact"><h2>🌡️ Termômetro de sofrimento</h2></div>
+    <section class="termometro">
+      <div class="term-graph">${bars}</div>
+      ${pico ? `<p class="term-pico">${FEEL_EMOJI[Math.round(Number(pico.avg_feel)) || 1]} O ep. <strong>${pico.episode_number}</strong> foi o mais sofrido do clube (${Number(pico.avg_feel).toFixed(1).replace(".0", "")}/5).</p>` : ""}
+    </section>`;
+}
+
 function clubPalpitesTemplate() {
   if (clubSocial.for !== state.club.id) return "";
   const preds = clubSocial.predictions || [];
@@ -2910,6 +2941,7 @@ function clubTemplate() {
     doramas: `
       ${clubeCicloTemplate()}
       ${clubEpisodiosTemplate()}
+      ${clubTermometroTemplate()}
       ${clubPalpitesTemplate()}
       ${clubSugestoesTemplate()}
       <div class="section-title compact"><h2>🤝 Doramas em comum</h2></div>${doramasEmComumTemplate()}`,
@@ -3293,10 +3325,21 @@ function episodioDetalheTemplate(n, iSaw, coments, rating, viram, membros) {
          ${chatDoEp.map((c) => `<div class="ep-chat-msg"><b style="color:${AVATAR_CORES[hashStr(c.author || "?") % AVATAR_CORES.length]}">${esc(c.author || "Membro")}</b> ${esc(c.body)} <small>${esc(timeAgo(c.created_at))}</small></div>`).join("")}
        </div>`
     : "";
+  const feel = (clubSocial.epFeels || []).find((x) => Number(x.episode_number) === Number(n));
+  const myFeel = Number(feel?.my_feel || 0);
+  const feelScale = `
+    <div class="ep-feel">
+      <span class="ep-feel-label">Quanto você sofreu nesse ep?</span>
+      <div class="ep-feel-scale">
+        ${[1, 2, 3, 4, 5].map((l) => `<button class="ep-feel-btn ${myFeel === l ? "on" : ""}" type="button" data-ep-feel="${n}" data-feel="${l}" title="${FEEL_LABEL[l]}" aria-label="${FEEL_LABEL[l]}">${FEEL_EMOJI[l]}</button>`).join("")}
+      </div>
+      ${Number(feel?.votes || 0) ? `<span class="ep-feel-avg">clube: ${FEEL_EMOJI[Math.round(Number(feel.avg_feel)) || 1]} ${Number(feel.avg_feel).toFixed(1).replace(".0", "")}/5 <em>(${feel.votes})</em></span>` : ""}
+    </div>`;
   return `
     <section class="ep-detail">
       ${head}
       ${controls}
+      ${feelScale}
       ${chatBloco}
       <div class="ep-detail-comments">
         <strong class="ep-detail-ctitle">💬 Surtos do ep. ${n}</strong>
@@ -8493,6 +8536,7 @@ function bindShell() {
   document.querySelectorAll("[data-club-finish]").forEach((b) => listen(b, "click", () => handleClubFinish(b.dataset.clubFinish)));
   document.querySelectorAll("[data-ep-toggle]").forEach((b) => listen(b, "click", () => handleEpToggle(b.dataset.epToggle, b.dataset.seen === "1")));
   document.querySelectorAll("[data-ep-star]").forEach((b) => listen(b, "click", () => handleRateEpisode(b.dataset.epStar, b.dataset.star)));
+  document.querySelectorAll("[data-ep-feel]").forEach((b) => listen(b, "click", () => handleRateEpisodeFeel(b.dataset.epFeel, b.dataset.feel)));
   document.querySelectorAll("[data-ep-open]").forEach((b) => listen(b, "click", () => toggleEpisodioDetalhe(b.dataset.epOpen)));
   document.querySelectorAll("[data-ep-comment]").forEach((f) => listen(f, "submit", (e) => {
     e.preventDefault();
@@ -9046,7 +9090,7 @@ async function loadClubSocial() {
       clubVotersTally(state.club.id).catch(() => []),
       clubPredictionsFeed(state.club.id).catch(() => []),
     ]);
-    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger, hall: clubHallList_result, voters: clubVoters_result, predictions: clubPred_result, epRatings: [], epCount: 0 };
+    clubSocial = { for: state.club.id, activities, picks, ranking, shared, reactions, surtoReactions, commonDramas, list, compat, featured, polls, events, points, challenges, chat, chatReactions, cycle, clubDramas: clubDramasHist, myPoints: myPointsLedger, hall: clubHallList_result, voters: clubVoters_result, predictions: clubPred_result, epRatings: [], epFeels: [], epCount: 0 };
   } catch {
     clubSocial = empty;
   }
@@ -9059,12 +9103,14 @@ async function carregarModoEpisodio() {
   const featured = clubSocial.featured;
   if (!featured?.id || clubSocial.for !== state.club?.id) return;
   const clubeAlvo = state.club.id;
-  const [ratings, detalhe] = await Promise.all([
+  const [ratings, detalhe, feels] = await Promise.all([
     clubEpisodeRatings(featured.id).catch(() => []),
     featured.tmdb_id && tmdbReady() ? getDramaDetails(featured.tmdb_id).catch(() => null) : Promise.resolve(null),
+    clubEpisodeFeels(featured.id).catch(() => []),
   ]);
   if (clubSocial.for !== clubeAlvo || clubSocial.featured?.id !== featured.id) return; // trocou de clube/dorama no meio
   clubSocial.epRatings = ratings || [];
+  clubSocial.epFeels = feels || [];
   clubSocial.epCount = Number(detalhe?.episodes || 0) || 0;
   render();
 }
@@ -10316,6 +10362,22 @@ async function handleRateEpisode(n, stars) {
     if (nova) toast(`Ep. ${num}: ${nova}★`);
   } catch {
     toast("Não consegui salvar sua nota.");
+  }
+}
+
+async function handleRateEpisodeFeel(n, feel) {
+  if (!clubSocial.featured?.id) return;
+  const num = Number(n) || 0;
+  const cur = (clubSocial.epFeels || []).find((x) => Number(x.episode_number) === num);
+  const atual = Number(cur?.my_feel || 0);
+  const nova = atual === Number(feel) ? 0 : Number(feel);
+  try {
+    await rateClubEpisodeFeel(clubSocial.featured.id, num, nova);
+    clubSocial.epFeels = await clubEpisodeFeels(clubSocial.featured.id).catch(() => clubSocial.epFeels || []);
+    render();
+    if (nova) toast(`Ep. ${num}: ${FEEL_EMOJI[nova]} ${FEEL_LABEL[nova]}`);
+  } catch {
+    toast("Não consegui salvar.");
   }
 }
 

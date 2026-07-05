@@ -1686,6 +1686,35 @@ textarea:focus {
   border: 1px solid color-mix(in srgb, var(--cor-primaria) 30%, var(--cor-borda));
   background: color-mix(in srgb, var(--cor-primaria) 8%, var(--cor-superficie));
 }
+/* Termômetro de sofrimento */
+.termometro {
+  padding: 14px; border-radius: 16px;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie);
+  box-shadow: 0 10px 26px -22px var(--cor-sombra);
+}
+.term-graph {
+  display: flex; align-items: flex-end; gap: 4px; height: 110px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+.term-bar { flex: 0 0 22px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; }
+.term-bar i { width: 100%; border-radius: 6px 6px 3px 3px; min-height: 6px; transition: height 0.2s ease; }
+.term-bar small { font-size: 0.62rem; color: var(--cor-texto-suave); font-weight: 700; }
+.term-pico { margin: 10px 0 0; font-size: 0.86rem; font-weight: 700; }
+.term-pico strong { color: var(--cor-primaria); }
+
+/* Escala de sofrimento no painel do episódio */
+.ep-feel { margin-top: 4px; padding-top: 8px; border-top: 1px dashed color-mix(in srgb, var(--cor-borda) 60%, transparent); }
+.ep-feel-label { font-size: 0.8rem; font-weight: 700; color: var(--cor-texto-suave); }
+.ep-feel-scale { display: flex; gap: 6px; margin-top: 5px; }
+.ep-feel-btn {
+  width: 40px; height: 40px; padding: 0; border-radius: 12px; font-size: 1.25rem; line-height: 1; cursor: pointer;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); filter: grayscale(0.5); opacity: 0.7;
+  transition: transform 0.1s ease, filter 0.1s ease, opacity 0.1s ease;
+}
+.ep-feel-btn.on { filter: none; opacity: 1; border-color: var(--cor-primaria); transform: translateY(-2px) scale(1.05); }
+.ep-feel-avg { display: inline-block; margin-top: 6px; font-size: 0.78rem; font-weight: 700; color: var(--cor-texto-suave); }
+.ep-feel-avg em { font-style: normal; }
+
 /* Palpites do dorama */
 .palpite-criar { margin-bottom: 12px; }
 .palpite-criar > summary { cursor: pointer; font-weight: 800; font-size: 0.86rem; color: var(--cor-primaria); padding: 6px 0; }
