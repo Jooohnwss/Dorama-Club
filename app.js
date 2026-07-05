@@ -20,6 +20,7 @@ import {
   setClubNotice,
   savePushSubscription,
   sendPush,
+  sendPushClub,
   saveTheme,
   loadDramas,
   upsertDrama,
@@ -424,7 +425,7 @@ let tutorialCasalChecked = false; // auto-abrir casal só 1x por sessão
 
 // Passos do tutorial geral (slides curtos). emoji + título + corpo.
 const TUTORIAL_STEPS = [
-  { emoji: "💜", title: "Bem-vinda ao Dorama Club", body: "Seu cantinho pra organizar doramas, marcar seus surtos e dividir tudo com as doramigas. Vou te mostrar o básico em alguns toques — leva menos de um minuto." },
+  { emoji: "💜", title: "Boas-vindas ao Dorama Club", body: "Seu cantinho pra organizar doramas, marcar seus surtos e dividir tudo com as doramigas. Vou te mostrar o básico em alguns toques — leva menos de um minuto." },
   { emoji: "➕", title: "Adicionar doramas", body: "Toque em <strong>Descobrir</strong> ou use a busca pra achar um dorama. Ao adicionar, ele entra nas suas <strong>Listas</strong> (quero ver, assistindo, terminei…)." },
   { emoji: "▶️", title: "Atualizar episódios", body: "Na sua lista, toque no número do episódio pra dizer onde parou. Dá pra somar de um em um ou colocar o número exato — sem ficar apertando o + mil vezes." },
   { emoji: "😭", title: "Registrar surtos", body: "Abrindo um dorama você marca se <strong>chorou</strong>, <strong>surtou</strong> ou <strong>passou raiva</strong>, dá sua nota e guarda o momento favorito. Tudo vira sua linha do tempo dorameira." },
@@ -703,15 +704,25 @@ let detailProgress = null;
 // ---------- Convite / indicação ----------
 const INVITE_KEY = "dorama-club-convite";
 
-// Captura ?c=CODIGO da URL (link de convite) e guarda pra usar no cadastro.
+// Captura ?c=CODIGO (indicação) e ?clube=CODIGO (entrar no clube) da URL.
+const PENDING_CLUB_KEY = "dorama-club-pending-clube";
 (function capturarConvite() {
   try {
-    const code = new URLSearchParams(location.search).get("c");
+    const p = new URLSearchParams(location.search);
+    const code = p.get("c");
     if (code) localStorage.setItem(INVITE_KEY, code.trim().toUpperCase());
+    const clube = p.get("clube");
+    if (clube) localStorage.setItem(PENDING_CLUB_KEY, clube.trim().toUpperCase());
   } catch {
     /* ignore */
   }
 })();
+function getPendingClube() {
+  try { return localStorage.getItem(PENDING_CLUB_KEY) || ""; } catch { return ""; }
+}
+function limparPendingClube() {
+  try { localStorage.removeItem(PENDING_CLUB_KEY); } catch { /* ignore */ }
+}
 
 function getPendingInvite() {
   try {
@@ -2285,7 +2296,7 @@ function clubFormsTemplate() {
       <form id="join-club-form" class="form-grid">
         <div class="field full">
           <label for="club-code">Entrar com código</label>
-          <input id="club-code" name="code" placeholder="DORAMA-1234" autocomplete="off" required />
+          <input id="club-code" name="code" placeholder="DORAMA-1234" autocomplete="off" value="${esc(getPendingClube())}" required />
         </div>
         <div class="actions field full"><button class="btn secondary" type="submit">Entrar no clube</button></div>
       </form>
@@ -2678,6 +2689,7 @@ function clubAboutTemplate() {
       <div class="sobre-vibe-txt">
         <strong>${esc(state.club.name)}</strong>
         <p>${esc(state.club.description || "Caprichem na descrição — é a vibe do clube. 💜 (toque em Editar)")}</p>
+        ${(state.club.tags || []).length ? `<div class="sobre-tags">${state.club.tags.map((t) => `<span class="sobre-tag">${esc(t)}</span>`).join("")}</div>` : ""}
       </div>
     </section>
 
@@ -2695,7 +2707,8 @@ function clubAboutTemplate() {
 
     <div class="section-title compact"><h2>Convidar e gerenciar</h2></div>
     <section class="grid cards">
-      <button class="card" data-share-club><strong>Chamar gente no WhatsApp</strong><p class="muted">Envia o código ${esc(state.club.code)}</p></button>
+      <button class="card" data-share-club><strong>💬 Chamar no WhatsApp</strong><p class="muted">Manda um convite com link pronto.</p></button>
+      <button class="card" data-copy-club-link><strong>🔗 Copiar link do clube</strong><p class="muted">Abre o app já com o código ${esc(state.club.code)}.</p></button>
       ${souDono ? `<button class="card" data-rename-club><strong>Renomear clube</strong><p class="muted">Ajusta o nome que aparece no topo.</p></button>` : ""}
       <button class="card" data-leave-club><strong>Sair do clube</strong><p class="muted">${souDono ? "O membro mais antigo vira o dono." : "Você deixa de ver este clube."}</p></button>
       ${souDono ? `<button class="card card-danger" data-delete-club><strong>🗑️ Excluir clube</strong><p class="muted">Apaga o clube pra todos. Não dá pra desfazer.</p></button>` : ""}
@@ -4340,7 +4353,9 @@ function parceiraMembro() {
 // Texto no gênero da parceira/o (masc/fem/neutro). Fallback neutro quando não escolheu.
 function gxP(masc, fem, neutro) {
   const g = parceiraMembro()?.gender;
-  return g === "masc" ? masc : g === "fem" ? fem : (neutro != null ? neutro : fem);
+  if (g === "ele") return masc;
+  if (g === "neutro") return neutro != null ? neutro : fem;
+  return fem; // "ela" ou não definido
 }
 // Exemplo de placeholder usando o nome da parceira do casal (ou neutro).
 function diarioExemplo() {
@@ -8058,6 +8073,7 @@ function bindShell() {
   listen(document.querySelector("[data-copy-code]"), "click", copyClubCode);
   listen(document.querySelector("[data-logout]"), "click", handleLogout);
   listen(document.querySelector("[data-share-club]"), "click", shareClub);
+  listen(document.querySelector("[data-copy-club-link]"), "click", copiarLinkClube);
   listen(document.querySelector("[data-leave-club]"), "click", handleLeaveClub);
   listen(document.querySelector("[data-delete-club]"), "click", handleDeleteClub);
   listen(document.querySelector("[data-invite-share]"), "click", shareInvite);
@@ -9890,6 +9906,7 @@ async function handleSetClubFeaturedFromList(listId) {
     clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
     await registrarAtividade(`🎬 ${state.profile?.name || "Alguém"} fixou ${item.title} como dorama do clube`);
     clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
+    sendPushClub(state.club.id, "🎬 Novo dorama do clube!", `${item.title} é o dorama da vez. Bora assistir juntas! 💜`);
     clubTab = "doramas";
     render();
     toast(`${item.title} virou o dorama do clube.`);
@@ -10340,6 +10357,8 @@ async function handlePostComment(event) {
     clubFeedFor = null;
     // Manda pra aba do que acabou de postar (episódio > teoria/meme > geral).
     clubMuralTab = spoilerEpisode >= 1 ? "episodios" : (kind === "teoria" ? "teorias" : kind === "meme" ? "memes" : "geral");
+    const meuNome = state.profile?.name || state.profile?.nickname || "Alguém";
+    sendPushClub(state.club.id, `😱 ${meuNome} surtou no clube`, body ? corte(body, 90) : "Mandou uma foto no mural 📸");
     loadClubFeed();
     toast("Publicado no mural! 💜");
   } catch {
@@ -10385,6 +10404,7 @@ async function handleJoinClub(event) {
     trocarClubeAtivo(c);
     setState({ club: c });
     loadClubMembers();
+    limparPendingClube();
     toast(`Você entrou em ${club.name}.`);
   } catch (error) {
     toast(error?.message?.includes("não encontrado") ? "Código não encontrado." : "Não consegui entrar no clube.");
@@ -10458,9 +10478,12 @@ async function handleEditClubAbout() {
   if (description === null || description === undefined) return;
   const rules = await perguntar("Regras do clube:", state.club.rules || "", { ok: "Salvar" });
   if (rules === null || rules === undefined) return;
+  const tagsStr = await perguntar("Vibe do clube (tags separadas por vírgula):", (state.club.tags || []).join(", "), { ok: "Salvar", placeholder: "sofrência 😭, comédia 😂, 22h" });
+  if (tagsStr === null || tagsStr === undefined) return;
+  const tags = String(tagsStr).split(",").map((t) => t.trim()).filter(Boolean).slice(0, 8);
   try {
-    await updateClubDetails(state.club.id, { description: description.trim(), rules: rules.trim() });
-    state.club = { ...state.club, description: description.trim(), rules: rules.trim() };
+    await updateClubDetails(state.club.id, { description: description.trim(), rules: rules.trim(), tags });
+    state.club = { ...state.club, description: description.trim(), rules: rules.trim(), tags };
     state.clubs = (state.clubs || []).map((club) => (club.id === state.club.id ? state.club : club));
     setState({ club: state.club, clubs: state.clubs });
     toast("Sobre do clube atualizado.");
@@ -10479,15 +10502,26 @@ function handleComentarSurto(id) {
   setState({ view: "club" });
 }
 
+// Link direto do clube: abre o app já com o código preenchido (+ indicação).
+function clubeLink() {
+  if (!state.club) return location.origin;
+  const ref = state.profile?.inviteCode ? `&c=${state.profile.inviteCode}` : "";
+  return `${location.origin}/?clube=${encodeURIComponent(state.club.code)}${ref}`;
+}
 function shareClub() {
   if (!state.club) return;
-  const link = inviteLink();
   const text =
-    `Vem pro meu clube de doramas, o ${state.club.name}! 💜\n\n` +
-    `1) Abre o app: ${link}\n` +
-    `2) Cria sua conta\n` +
-    `3) Vai em Doramigas → Entrar com código e usa: ${state.club.code}`;
+    `Entra no meu clube de doramas, o ${state.club.name}! 💜\n\n` +
+    `É só abrir esse link, criar a conta e confirmar — o código já vai preenchido:\n${clubeLink()}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+}
+async function copiarLinkClube() {
+  try {
+    await navigator.clipboard.writeText(clubeLink());
+    toast("Link do clube copiado! 🔗");
+  } catch {
+    toast(clubeLink());
+  }
 }
 
 // ---------- Descobrir ----------

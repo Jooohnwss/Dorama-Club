@@ -1670,6 +1670,11 @@ textarea:focus {
   border: 1px solid color-mix(in srgb, var(--cor-primaria) 30%, var(--cor-borda));
   background: color-mix(in srgb, var(--cor-primaria) 8%, var(--cor-superficie));
 }
+.sobre-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.sobre-tag {
+  font-size: 0.74rem; font-weight: 800; padding: 3px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--cor-secundaria) 16%, transparent); color: var(--cor-secundaria);
+}
 .sobre-avatar {
   width: 56px; height: 56px; flex-shrink: 0; display: grid; place-items: center;
   font-size: 1.9rem; border-radius: 16px; background: var(--cor-superficie); border: 1px solid var(--cor-borda);

@@ -89,6 +89,12 @@ export async function sendPush(toUser, title, body, url) {
     await supabase.functions.invoke("send-push", { body: { toUser, title, body, url } });
   } catch { /* silencioso: se a função não estiver configurada, não atrapalha */ }
 }
+// Dispara um push pra todo o clube (menos quem chamou).
+export async function sendPushClub(toClub, title, body, url) {
+  try {
+    await supabase.functions.invoke("send-push", { body: { toClub, title, body, url } });
+  } catch { /* silencioso */ }
+}
 
 export async function setClubNotice(clubId, text) {
   const { error } = await supabase.rpc("set_club_notice", { p_club: clubId, p_text: text || "" });

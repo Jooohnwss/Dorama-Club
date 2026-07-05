@@ -22,9 +22,7 @@ const cors = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const { toUser, title, body, url } = await req.json();
-    if (!toUser) return new Response(JSON.stringify({ error: "toUser obrigatório" }), { status: 400, headers: cors });
-
+    const { toUser, toClub, title, body, url } = await req.json();
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
     // Quem chamou? (valida o JWT do Authorization)
@@ -34,20 +32,33 @@ Deno.serve(async (req) => {
     const caller = userData?.user?.id;
     if (!caller) return new Response(JSON.stringify({ error: "não autenticado" }), { status: 401, headers: cors });
 
-    // Anti-abuso: só manda push pra quem é do MESMO casal que você.
-    const { data: meus } = await admin.from("couple_members").select("couple_id").eq("user_id", caller);
-    const { data: dele } = await admin.from("couple_members").select("couple_id").eq("user_id", toUser);
-    const compartilham = (meus || []).some((a) => (dele || []).some((b) => b.couple_id === a.couple_id));
-    if (!compartilham) return new Response(JSON.stringify({ error: "sem vínculo" }), { status: 403, headers: cors });
+    // Descobre PRA QUEM enviar (lista de user_ids), validando vínculo com quem chamou.
+    let alvos: string[] = [];
+    if (toClub) {
+      // Só se o caller também for membro do clube. Manda pra todo mundo, menos ele.
+      const { data: membros } = await admin.from("club_members").select("user_id").eq("club_id", toClub);
+      const ids = (membros || []).map((m) => m.user_id);
+      if (!ids.includes(caller)) return new Response(JSON.stringify({ error: "sem vínculo" }), { status: 403, headers: cors });
+      alvos = ids.filter((id) => id !== caller);
+    } else if (toUser) {
+      // Só se compartilham um casal.
+      const { data: meus } = await admin.from("couple_members").select("couple_id").eq("user_id", caller);
+      const { data: dele } = await admin.from("couple_members").select("couple_id").eq("user_id", toUser);
+      const ok = (meus || []).some((a) => (dele || []).some((b) => b.couple_id === a.couple_id));
+      if (!ok) return new Response(JSON.stringify({ error: "sem vínculo" }), { status: 403, headers: cors });
+      alvos = [toUser];
+    } else {
+      return new Response(JSON.stringify({ error: "toUser ou toClub obrigatório" }), { status: 400, headers: cors });
+    }
+    if (!alvos.length) return new Response(JSON.stringify({ ok: true, sent: 0 }), { headers: { ...cors, "Content-Type": "application/json" } });
 
-    const { data: subs } = await admin.from("push_subscriptions").select("endpoint, subscription").eq("user_id", toUser);
+    const { data: subs } = await admin.from("push_subscriptions").select("endpoint, subscription, user_id").in("user_id", alvos);
     const payload = JSON.stringify({ title: title || "Dorama Club", body: body || "", url: url || "/" });
 
     await Promise.all((subs || []).map(async (s) => {
       try {
         await webpush.sendNotification(s.subscription, payload);
       } catch (e) {
-        // inscrição expirada/invalida -> limpa
         if (e?.statusCode === 404 || e?.statusCode === 410) {
           await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
         }
