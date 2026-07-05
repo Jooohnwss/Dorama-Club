@@ -1575,13 +1575,16 @@ textarea:focus {
 .ep-chat-msg b { font-weight: 800; }
 .ep-chat-msg small { color: var(--cor-texto-suave); font-weight: 700; font-size: 0.72rem; }
 
-.chat-ep {
-  display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto;
-  font-size: 0.9rem; color: var(--cor-texto-suave);
+.chat-epbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 8px; padding: 8px 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--cor-secundaria) 10%, var(--cor-superficie));
+  border: 1px solid color-mix(in srgb, var(--cor-secundaria) 30%, var(--cor-borda));
+  font-size: 0.86rem; font-weight: 700; color: var(--cor-texto);
 }
-.chat-ep input {
-  width: 46px; padding: 8px 6px; text-align: center; border-radius: 10px; font-size: 0.85rem;
-}
+.chat-epbar input { width: 64px; padding: 6px 8px; text-align: center; border-radius: 8px; }
+.chat-epbar small { color: var(--cor-texto-suave); font-weight: 600; font-size: 0.74rem; }
+.chat-epbar button { margin-left: auto; background: none; border: 0; color: var(--cor-texto-suave); font-size: 1.1rem; cursor: pointer; }
 
 .ep-detail-comments { display: grid; gap: 8px; }
 .ep-detail-ctitle { font-size: 0.9rem; }
@@ -2343,6 +2346,11 @@ textarea:focus {
   border: 1px solid var(--cor-borda); background: var(--cor-superficie-2);
 }
 .chat-composer .chat-spoiler-toggle.on { background: color-mix(in srgb, #f59e0b 22%, transparent); border-color: #f59e0b; }
+.chat-composer .chat-ep-toggle {
+  flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border-radius: 50%; font-size: 1.1rem;
+  border: 1px solid var(--cor-borda); background: var(--cor-superficie-2); cursor: pointer;
+}
+.chat-composer .chat-ep-toggle.on { background: color-mix(in srgb, var(--cor-secundaria) 22%, transparent); border-color: var(--cor-secundaria); }
 .chat-composer .chat-send {
   flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 0;
   border-radius: 50%; font-size: 1.2rem;

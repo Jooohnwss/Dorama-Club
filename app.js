@@ -420,6 +420,7 @@ let clubOnline = []; // [{user_id, name}] presentes agora
 let clubChatSpoilerOn = false; // toggle de spoiler no compositor do chat
 let chatDraft = ""; // texto do chat preservado entre re-renders
 let chatEpDraft = ""; // episódio marcado na mensagem do chat (opcional)
+let chatEpMode = false; // barra "sobre o ep" aberta no chat
 let revealedChat = new Set(); // mensagens de spoiler reveladas pelo leitor
 let chatReactPicker = null; // id da mensagem com o seletor de reação aberto
 let commentDraft = null; // id do dorama pré-selecionado ao "comentar surto"
@@ -3478,13 +3479,17 @@ function clubeChatTemplate() {
   const replyBar = replyMsg
     ? `<div class="chat-replying"><span>Respondendo <strong>${esc(replyMsg.author || "mensagem")}</strong>: ${esc(corte(replyMsg.body, 72))}</span><button type="button" data-cancel-chat-reply>×</button></div>`
     : "";
+  const epBar = chatEpMode
+    ? `<div class="chat-epbar">📺 Sobre o episódio <input id="clubChatEp" name="episode" type="number" min="1" inputmode="numeric" placeholder="nº" value="${esc(chatEpDraft)}" /> <small>aparece no Modo Episódio</small><button type="button" data-chat-ep-toggle>×</button></div>`
+    : "";
   const composer = `
     ${replyBar}
     ${hint}
+    ${epBar}
     <form id="club-chat-form" class="chat-composer">
       <button type="button" class="chat-spoiler-toggle ${clubChatSpoilerOn ? "on" : ""}" data-chat-spoiler title="${clubChatSpoilerOn ? "Spoiler ligado (toque pra desligar)" : "Marcar a mensagem como spoiler"}" aria-label="Marcar spoiler">🔒</button>
+      <button type="button" class="chat-ep-toggle ${chatEpMode ? "on" : ""}" data-chat-ep-toggle title="Marcar que é sobre um episódio" aria-label="Marcar episódio">📺</button>
       <input id="clubChatBody" name="body" placeholder="${clubChatSpoilerOn ? "Mensagem com spoiler…" : "Mensagem ao vivo…"}" autocomplete="off" value="${esc(chatDraft)}" required />
-      <label class="chat-ep" title="Marcar que é sobre um episódio (aparece no Modo Episódio)">📺<input id="clubChatEp" name="episode" type="number" min="0" inputmode="numeric" placeholder="ep" value="${esc(chatEpDraft)}" /></label>
       <input type="hidden" name="hasSpoiler" value="${clubChatSpoilerOn ? "1" : ""}" />
       <input type="hidden" name="replyTo" value="${esc(chatReplyTo || "")}" />
       <button class="btn chat-send" type="submit" aria-label="Enviar">➤</button>
@@ -8602,6 +8607,7 @@ function bindShell() {
     listen(chatEpInput, "input", () => { chatEpDraft = chatEpInput.value; });
   }
   listen(document.querySelector("[data-chat-spoiler]"), "click", () => { clubChatSpoilerOn = !clubChatSpoilerOn; render(); });
+  listen(document.querySelector("[data-chat-ep-toggle]"), "click", () => { chatEpMode = !chatEpMode; if (!chatEpMode) chatEpDraft = ""; render(); });
   listen(document.querySelector("[data-cancel-chat-reply]"), "click", () => { chatReplyTo = null; render(); });
   document.querySelectorAll("[data-reveal-chat]").forEach((b) => listen(b, "click", () => { revealedChat.add(b.dataset.revealChat); render(); }));
   document.querySelectorAll("[data-react-chat]").forEach((button) => {
@@ -10656,9 +10662,10 @@ async function handleCreateClubChatMessage(event) {
   const body = String(data.body || "").trim();
   if (!body) return;
   const spoiler = Boolean(data.hasSpoiler);
-  const episodeNumber = Math.max(0, Number(data.episode) || 0);
+  const episodeNumber = chatEpMode ? Math.max(0, Number(chatEpDraft) || 0) : 0;
   chatDraft = "";
   chatEpDraft = "";
+  chatEpMode = false;
   clubChatSpoilerOn = false;
   try {
     await createClubChatMessage(state.club.id, { body, hasSpoiler: spoiler, episodeNumber });
