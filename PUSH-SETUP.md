@@ -8,41 +8,30 @@ continua funcionando com avisos só com o app aberto/2º plano.
 ## 1) Rodar a migração 62
 No Supabase → SQL Editor, rode `supabase/62 - push-subscriptions.sql`.
 
-## 2) Gerar as chaves VAPID
-No seu PC (precisa do Node):
+## 2) ✅ FEITO — chaves VAPID geradas
+- Public: `BKf935uAUSYdxVWGszdFsacS7uU7_lta7N8S1zwaSV1k5U9OrKOsKlMzTnbRKTcSrGIxt9Kr_zlNK9xXi7Qs5kM`
+- Private (SEGREDO): `h8OxOk74o2AS0qSq1gitKjHqLW2oPDM63dDum6Vy4XM`
 
+## 3) ✅ FEITO — chave pública já no app
+Está no `config.js` e no gerador do build (`scripts/generate-config.mjs`).
+
+## 4) Subir a função de envio — jeito FÁCIL (pelo painel, sem CLI)
+No **Supabase → Edge Functions**:
+1. **Create a new function** → nome: `send-push`.
+2. Cole o código de `supabase/functions/send-push/index.ts` → **Deploy**.
+3. Vá em **Edge Functions → Secrets** (ou Project Settings → Edge Functions) e
+   adicione:
+   - `VAPID_PUBLIC_KEY` = `BKf935uAUSYdxVWGszdFsacS7uU7_lta7N8S1zwaSV1k5U9OrKOsKlMzTnbRKTcSrGIxt9Kr_zlNK9xXi7Qs5kM`
+   - `VAPID_PRIVATE_KEY` = `h8OxOk74o2AS0qSq1gitKjHqLW2oPDM63dDum6Vy4XM`
+   - `VAPID_SUBJECT` = `mailto:seu-email@exemplo.com`
+   (`SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` já existem sozinhos.)
+
+### Alternativa (CLI, se preferir)
 ```
-npx web-push generate-vapid-keys
-```
-
-Vai imprimir uma **Public Key** e uma **Private Key**. Guarde as duas.
-
-## 3) Colocar a chave PÚBLICA no app
-Abra `config.js` e cole a **Public Key**:
-
-```js
-export const VAPID_PUBLIC_KEY = "COLE_A_PUBLIC_KEY_AQUI";
-```
-
-Faça commit/deploy (Vercel). Pronto do lado do app.
-
-> Obs.: se o seu build **regenera** o config.js a partir de variáveis de
-> ambiente, adicione `VAPID_PUBLIC_KEY` também nas envs do Vercel e no gerador.
-
-## 4) Subir a função de envio (Supabase CLI)
-Instale a CLI (se não tiver): https://supabase.com/docs/guides/cli
-
-```
-supabase login
-supabase link --project-ref ieikmuxqunkajqhuoios
-
-# segredos da função (a private NUNCA vai pro app):
-supabase secrets set VAPID_PUBLIC_KEY="SUA_PUBLIC_KEY"
-supabase secrets set VAPID_PRIVATE_KEY="SUA_PRIVATE_KEY"
-supabase secrets set VAPID_SUBJECT="mailto:seu-email@exemplo.com"
-
-# deploy da função (o código já está em supabase/functions/send-push):
-supabase functions deploy send-push
+npx supabase login
+npx supabase link --project-ref ieikmuxqunkajqhuoios
+npx supabase secrets set VAPID_PUBLIC_KEY="BKf9...5kM" VAPID_PRIVATE_KEY="h8Ox...4XM" VAPID_SUBJECT="mailto:seu-email@exemplo.com"
+npx supabase functions deploy send-push
 ```
 
 ---
