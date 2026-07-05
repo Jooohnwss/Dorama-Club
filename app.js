@@ -1,6 +1,6 @@
 import { searchDramas, getDramaDetails, getEpisodeRuntime, getWatchProviders, getBackdrop, trendingWeek, discoverDramas, tmdbReady } from "./tmdb.js";
 import { temas, acharTema, temaPadrao, categorias } from "./temas.js";
-import { VAPID_PUBLIC_KEY } from "./config.js";
+import { VAPID_PUBLIC_KEY, GIPHY_KEY } from "./config.js";
 import {
   supabaseReady,
   getCurrentUser,
@@ -630,7 +630,8 @@ let coupleLoading = false;
 let coupleSection = state.coupleSection || "inicio"; // seção interna do ambiente do casal (persistida)
 let nosTab = "hoje"; // sub-aba dentro do "Nós 🔥": hoje | brincar | desejos | progresso
 let cartaAtual = null; // carta puxada do baralho (ainda não enviada), local
-let clubCommentFoto = null; // foto (data URL) pendente pro surto do clube
+let clubCommentFoto = null; // foto (data URL) ou GIF (url) pendente pro surto do clube
+let gifBusca = { open: false, q: "", loading: false, results: [] }; // buscador de GIF do mural
 let coupleMemoryDraft = null; // dorama pré-selecionado ao "Registrar memória"
 let coupleDiaryKind = "livre"; // tipo de página do diário sendo criada
 let coupleDiaryDay = null; // dia (YYYY-MM-DD) aberto no caderno; null = hoje
@@ -3701,8 +3702,10 @@ function commentFormTemplate() {
           </select>
           <label class="mural-spoiler-field" title="0 = sem spoiler">🔒 ep <input id="commentSpoiler" name="spoiler" type="number" min="0" value="0" /></label>
           <label class="foto-btn">📷<input type="file" accept="image/*" data-comment-foto hidden /></label>
+          ${gifDisponivel() ? `<button type="button" class="foto-btn" data-gif-open>🎞️ GIF</button>` : ""}
           <button class="btn" type="submit">Publicar</button>
         </div>
+        ${gifPanelTemplate()}
         <div class="foto-anexo" id="comment-foto-wrap">${clubCommentFoto ? `<div class="foto-preview"><img src="${clubCommentFoto}" alt="" /><button type="button" class="foto-remove" data-comment-foto-remove>✕</button></div>` : ""}</div>
       </form>
     </section>
@@ -8134,6 +8137,10 @@ function bindShell() {
   document.querySelectorAll(".diary-entry-foto, .cartinha-foto, .mural-foto").forEach((img) => listen(img, "click", () => abrirFotoZoom(img.src)));
   listen(document.querySelector("[data-comment-foto]"), "change", (e) => handleCommentFoto(e.target));
   listen(document.querySelector("[data-comment-foto-remove]"), "click", () => { clubCommentFoto = null; const w = document.querySelector("#comment-foto-wrap"); if (w) w.innerHTML = ""; });
+  listen(document.querySelector("[data-gif-open]"), "click", abrirGif);
+  listen(document.querySelector("[data-gif-close]"), "click", () => { gifBusca = { open: false, q: "", loading: false, results: [] }; render(); });
+  listen(document.querySelector("#gif-search-form"), "submit", (e) => { e.preventDefault(); pesquisarGif(new FormData(e.currentTarget).get("q")); });
+  document.querySelectorAll("[data-gif-pick]").forEach((b) => listen(b, "click", () => escolherGif(b.dataset.gifPick)));
   listen(document.querySelector("[data-diary-foto]"), "change", (e) => handleDiaryFoto(e.target));
   listen(document.querySelector("[data-letter-foto]"), "change", (e) => handleLetterFoto(e.target));
   listen(document.querySelector("[data-diary-foto-remove]"), "click", () => { coupleDiaryFoto = null; const w = document.querySelector("#diary-foto-wrap"); if (w) w.innerHTML = ""; });
@@ -9616,6 +9623,60 @@ async function handleDiaryFoto(input) {
     if (b) b.onclick = () => { coupleDiaryFoto = null; wrap.innerHTML = ""; };
   }
 }
+// ===== Busca de GIF (Giphy) no mural do clube =====
+function gifDisponivel() { return Boolean(GIPHY_KEY); }
+async function buscarGifs(q) {
+  const termo = String(q || "").trim();
+  const base = "https://api.giphy.com/v1/gifs/";
+  const url = termo
+    ? `${base}search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(termo)}&limit=24&rating=pg-13&lang=pt`
+    : `${base}trending?api_key=${GIPHY_KEY}&limit=24&rating=pg-13`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("giphy");
+  const j = await r.json();
+  return (j.data || []).map((g) => ({
+    preview: g.images?.fixed_width_small?.url || g.images?.fixed_width?.url,
+    full: g.images?.downsized_medium?.url || g.images?.fixed_width?.url || g.images?.original?.url,
+  })).filter((g) => g.full);
+}
+function gifPanelTemplate() {
+  if (!gifBusca.open) return "";
+  const grid = gifBusca.loading
+    ? `<div class="gif-loading">Buscando GIFs…</div>`
+    : gifBusca.results.length
+      ? `<div class="gif-grid">${gifBusca.results.map((g) => `<button type="button" class="gif-cell" data-gif-pick="${esc(g.full)}"><img src="${esc(g.preview)}" alt="" loading="lazy" /></button>`).join("")}</div>`
+      : `<div class="gif-loading">Nada encontrado. Tenta outra busca 🎞️</div>`;
+  return `
+    <div class="gif-panel">
+      <form id="gif-search-form" class="gif-search">
+        <input name="q" placeholder="🔎 Buscar GIF (chorando, surtando…)" value="${esc(gifBusca.q)}" autocomplete="off" />
+        <button class="btn" type="submit">Buscar</button>
+        <button class="btn ghost" type="button" data-gif-close>✕</button>
+      </form>
+      ${grid}
+      <p class="gif-powered">Powered by GIPHY</p>
+    </div>`;
+}
+async function abrirGif() {
+  gifBusca = { open: true, q: "", loading: true, results: [] };
+  render();
+  try { gifBusca.results = await buscarGifs(""); } catch { gifBusca.results = []; }
+  gifBusca.loading = false;
+  render();
+}
+async function pesquisarGif(q) {
+  gifBusca = { ...gifBusca, q, loading: true };
+  render();
+  try { gifBusca.results = await buscarGifs(q); } catch { gifBusca.results = []; }
+  gifBusca.loading = false;
+  render();
+}
+function escolherGif(url) {
+  clubCommentFoto = url; // GIF é uma imagem; entra no mesmo campo de foto
+  gifBusca = { open: false, q: "", loading: false, results: [] };
+  render();
+}
+
 async function handleCommentFoto(input) {
   const f = input.files?.[0];
   if (!f) return;
