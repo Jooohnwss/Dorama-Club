@@ -5836,7 +5836,91 @@ const VERDADES_CAT = [
   { nivel: 5, texto: "Um desejo mais ousado que você nunca teve coragem de pedir?" },
   { nivel: 5, texto: "O que você quer que eu faça na nossa próxima vez?" },
   { nivel: 6, texto: "Sua fantasia mais secreta comigo — sem filtro." },
+  // --- mais verdades (baralho maior, menos repetição) ---
+  { nivel: 1, texto: "Qual música te lembra a gente?" },
+  { nivel: 1, texto: "Qual foi o dia que você mais sentiu minha falta?" },
+  { nivel: 1, texto: "O que você faria se a gente tivesse um dia inteiro livre?" },
+  { nivel: 1, texto: "Qual mania minha você acha fofa (e nunca falou)?" },
+  { nivel: 1, texto: "Se pudesse repetir um dia nosso, qual seria?" },
+  { nivel: 1, texto: "O que te deu mais borboleta na barriga até hoje?" },
+  { nivel: 2, texto: "Qual foi o beijo mais marcante que a gente deu?" },
+  { nivel: 2, texto: "Você prefere ser abraçado(a) por trás ou de frente?" },
+  { nivel: 2, texto: "Qual perfume/cheiro meu te desconcentra?" },
+  { nivel: 2, texto: "Qual foi a mensagem minha que mais te deixou sem reação?" },
+  { nivel: 2, texto: "O que eu faço que te dá calor sem ser nada demais?" },
+  { nivel: 2, texto: "Se eu chegasse agora de surpresa, qual seria a primeira coisa que você faria?" },
+  { nivel: 3, texto: "Já pensou em mim em algum momento inconveniente? Quando?" },
+  { nivel: 3, texto: "Qual é o seu lugar favorito pra ser beijado(a) devagar?" },
+  { nivel: 3, texto: "Qual foto minha você mais gosta de olhar quando está com saudade?" },
+  { nivel: 3, texto: "Prefere ser provocado(a) por mensagem ou pessoalmente? Por quê?" },
+  { nivel: 3, texto: "Uma coisa que eu faço e você quer que eu faça mais vezes?" },
+  { nivel: 4, texto: "Conta um pensamento seu comigo que te deu vergonha na hora." },
+  { nivel: 4, texto: "Qual cenário te deixa mais louco(a): a gente sozinho onde?" },
+  { nivel: 4, texto: "O que você quer ouvir de mim no seu ouvido?" },
+  { nivel: 4, texto: "Qual limite seu você toparia esticar comigo?" },
+  { nivel: 5, texto: "Descreve, sem cortes, como você me quer hoje." },
+  { nivel: 5, texto: "Uma vontade sua que você acha que eu não imagino." },
+  { nivel: 6, texto: "Fala uma coisa que você quer muito e nunca pediu — agora." },
 ];
+
+// ===== Baralho: desafios próprios (não mexe na loja de vales/desafios) =====
+const BARALHO_DESAFIOS = [
+  { nivel: 1, texto: "Manda um áudio agora dizendo o que sente por mim." },
+  { nivel: 1, texto: "Manda uma selfie fazendo a cara mais fofa que conseguir." },
+  { nivel: 1, texto: "Escreve em 1 frase por que você me escolheu." },
+  { nivel: 1, texto: "Manda a foto do que você está vendo agora." },
+  { nivel: 1, texto: "Diz 3 coisas que você ama em mim — sem pensar muito." },
+  { nivel: 1, texto: "Manda um print da última coisa que te fez rir." },
+  { nivel: 2, texto: "Manda uma foto do seu look agora." },
+  { nivel: 2, texto: "Áudio de 15s falando o que você faria comigo se eu estivesse aí." },
+  { nivel: 2, texto: "Manda uma mensagem de duplo sentido e finge que foi sem querer." },
+  { nivel: 2, texto: "Manda a playlist que te lembra a gente." },
+  { nivel: 2, texto: "Escreve um elogio safadinho (leve) e manda agora." },
+  { nivel: 3, texto: "Áudio sussurrando meu nome." },
+  { nivel: 3, texto: "Manda uma foto provocante (do jeitinho que eu gosto)." },
+  { nivel: 3, texto: "Descreve em detalhes o primeiro beijo do nosso próximo encontro." },
+  { nivel: 3, texto: "Chamada de vídeo de 2 minutos — só olhando, sem falar nada." },
+  { nivel: 3, texto: "Manda uma mensagem contando o que você faria comigo em 3 passos." },
+  { nivel: 4, texto: "Áudio íntimo (dentro do que vocês combinaram) pelo Telegram." },
+  { nivel: 4, texto: "Foto íntima leve, do jeito combinado, pelo Telegram." },
+  { nivel: 4, texto: "Chamada com o clima que você quiser — você comanda." },
+  { nivel: 4, texto: "Descreve uma fantasia sua e me deixa escolher um detalhe dela." },
+  { nivel: 5, texto: "Conteúdo íntimo combinado, pelo Telegram — você escolhe." },
+  { nivel: 5, texto: "Cumpre um pedido meu, dentro dos limites combinados." },
+  { nivel: 6, texto: "Carta branca: eu peço, você decide se topa (sempre pode dizer não)." },
+];
+
+// ===== Curingas: cartas-surpresa (efeito imprevisível) =====
+const CURINGAS = [
+  { nivel: 1, texto: "🎁 Curinga: a outra pessoa escolhe a próxima carta pra você." },
+  { nivel: 1, texto: "🎁 Troca de lugar: quem recebeu vira quem manda — devolve um desafio agora." },
+  { nivel: 1, texto: "🎁 Relâmpago: você tem 10 minutos pra cumprir o que ela pedir." },
+  { nivel: 2, texto: "🎁 Dobro: cumpra e a próxima carta vale em dobro." },
+  { nivel: 2, texto: "🎁 Roleta: ela escolhe 2 opções, você faz as duas." },
+  { nivel: 2, texto: "🎁 Segredo: conte algo que ela ainda não sabe sobre você." },
+  { nivel: 3, texto: "🎁 Refém: ela escolhe UMA regra que você segue até amanhã." },
+  { nivel: 3, texto: "🎁 Sem aviso: mande algo agora, do nada, e não explique." },
+  { nivel: 4, texto: "🎁 Carta branca (leve): ela pede o que quiser, dentro dos limites." },
+  { nivel: 5, texto: "🎁 Carta branca: ela decide o combinado de hoje — você só topa ou não." },
+];
+
+// ===== Carta da semana: muda toda semana (igual pros dois) =====
+const CARTAS_SEMANA = [
+  "Essa semana: bom dia provocante todo dia ☀️😏",
+  "Essa semana: uma foto por dia, sem repetir o ângulo 📸",
+  "Essa semana: cada um escreve uma cartinha e programa pro fim de semana 💌",
+  "Essa semana: um elogio novo por dia — nada de repetir 💬",
+  "Essa semana: um áudio de boa noite todo dia 🌙",
+  "Essa semana: quem acordar primeiro manda uma provocação 😈",
+  "Essa semana: um desafio nível acima do de sempre (se os dois toparem) 🔥",
+  "Essa semana: contem um segredo novo cada um 🤫",
+  "Essa semana: montem juntos a lista do próximo date 🍿",
+  "Essa semana: um 'eu te amo' em horário aleatório, todo dia 💜",
+];
+function cartaDaSemana() {
+  const s = semanaAtual();
+  return CARTAS_SEMANA[hashStr(s) % CARTAS_SEMANA.length];
+}
 
 function adulto18Ok() {
   try { return localStorage.getItem(ADULTO18_KEY) === "1"; } catch { return false; }
@@ -6714,15 +6798,42 @@ function nomeParceiroCurto() {
   const p = parceiraMembro();
   return (p?.nickname || p?.name || "sua pessoa").split(" ")[0];
 }
+// Últimas cartas tiradas (evita repetir).
+const CARTAS_RECENTES_KEY = "dorama-club-cartas-recentes";
+function cartasRecentes() {
+  try { return JSON.parse(localStorage.getItem(CARTAS_RECENTES_KEY) || "[]"); } catch { return []; }
+}
+function marcarCartaUsada(texto) {
+  try {
+    const lista = [texto, ...cartasRecentes().filter((t) => t !== texto)].slice(0, 12);
+    localStorage.setItem(CARTAS_RECENTES_KEY, JSON.stringify(lista));
+  } catch { /* ignore */ }
+}
+
 function puxarCarta(tipo) {
   const lim = intensidadePermitida();
   const verdades = VERDADES_CAT.filter((v) => v.nivel <= lim).map((v) => ({ tipo: "verdade", texto: v.texto, nivel: v.nivel }));
-  const desafios = DESAFIOS_CAT.filter((d) => d.nivel <= lim).map((d) => ({ tipo: "desafio", texto: d.desc, nome: d.nome, nivel: d.nivel }));
-  const pool = tipo === "verdade" ? verdades : tipo === "desafio" ? desafios : verdades.concat(desafios);
+  const desafios = BARALHO_DESAFIOS.filter((d) => d.nivel <= lim).map((d) => ({ tipo: "desafio", texto: d.texto, nivel: d.nivel }));
+  const curingas = CURINGAS.filter((c) => c.nivel <= lim).map((c) => ({ tipo: "curinga", texto: c.texto, nivel: c.nivel }));
+
+  let pool;
+  if (tipo === "verdade") pool = verdades;
+  else if (tipo === "desafio") pool = desafios;
+  else if (tipo === "curinga") pool = curingas;
+  else {
+    // "ambos": mistura, com ~15% de chance de vir um curinga surpresa
+    pool = Math.random() < 0.15 && curingas.length ? curingas : verdades.concat(desafios);
+  }
   if (!pool.length) { toast("Definam os limites no ‘clima’ pra liberar as cartas 🔥"); return; }
-  let nova; let i = 0;
-  do { nova = pool[Math.floor(Math.random() * pool.length)]; i++; } while (cartaAtual && nova.texto === cartaAtual.texto && pool.length > 1 && i < 8);
+
+  // Evita as últimas tiradas (se sobrar opção).
+  const recentes = new Set([...cartasRecentes(), cartaAtual?.texto].filter(Boolean));
+  const frescas = pool.filter((c) => !recentes.has(c.texto));
+  const usar = frescas.length ? frescas : pool;
+  const nova = usar[Math.floor(Math.random() * usar.length)];
+
   cartaAtual = nova;
+  marcarCartaUsada(nova.texto);
   render();
 }
 async function enviarCarta() {
@@ -6776,8 +6887,8 @@ function baralhoHistoricoTemplate() {
 
 // Card visual de uma carta.
 function cartaFaceHtml(c, { compacta } = {}) {
-  const cor = c.tipo === "verdade" ? "verdade" : "desafio";
-  const selo = c.tipo === "verdade" ? "💬 Verdade" : "😈 Desafio";
+  const cor = c.tipo === "verdade" ? "verdade" : c.tipo === "curinga" ? "curinga" : "desafio";
+  const selo = c.tipo === "verdade" ? "💬 Verdade" : c.tipo === "curinga" ? "🎁 Surpresa" : "😈 Desafio";
   return `
     <div class="carta-face ${cor} ${compacta ? "compacta" : ""}">
       <span class="carta-selo">${selo}</span>
@@ -6818,19 +6929,22 @@ function baralhoTemplate() {
       </section>`;
   }
   // Sem carta em jogo: puxar do baralho.
+  const total = VERDADES_CAT.length + BARALHO_DESAFIOS.length + CURINGAS.length;
   return `
     <section class="baralho">
-      <div class="baralho-head"><strong>🃏 Verdade ou Desafio</strong><small>puxe e mande pra ${esc(nomeParceiroCurto())}</small></div>
+      <div class="baralho-head"><strong>🃏 Verdade ou Desafio</strong><small>${total} cartas · puxe e mande pra ${esc(nomeParceiroCurto())}</small></div>
+      <div class="carta-semana">🌟 <strong>Carta da semana</strong> — ${esc(cartaDaSemana())}</div>
       ${cartaAtual
         ? `${cartaFaceHtml(cartaAtual)}
            <div class="baralho-acoes">
              <button class="btn" type="button" data-carta-enviar>💌 Mandar pra ${esc(nomeParceiroCurto())}</button>
              <button class="btn ghost" type="button" data-carta-puxar="${cartaAtual.tipo}">🎲 Outra</button>
            </div>`
-        : `<div class="baralho-deck" data-carta-puxar="ambos"><span>🔥</span><b>Toque pra puxar uma carta</b></div>
+        : `<div class="baralho-deck" data-carta-puxar="ambos"><span>🔥</span><b>Toque pra puxar uma carta</b><small>pode vir surpresa 🎁</small></div>
            <div class="baralho-tipos">
              <button class="btn ghost" type="button" data-carta-puxar="verdade">💬 Verdade</button>
              <button class="btn ghost" type="button" data-carta-puxar="desafio">😈 Desafio</button>
+             <button class="btn ghost" type="button" data-carta-puxar="curinga">🎁 Surpresa</button>
            </div>`}
     </section>`;
 }

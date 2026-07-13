@@ -3298,8 +3298,22 @@ textarea:focus {
 @keyframes cartaIn { from { transform: rotateX(12deg) translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
 .carta-face.verdade { background: linear-gradient(160deg, #fff1f6, #ffd9e6); border: 1px solid #ffb3cd; }
 .carta-face.desafio { background: linear-gradient(160deg, #fff0ea, #ffd7c2); border: 1px solid #ffb08c; }
+.carta-face.curinga {
+  background: linear-gradient(160deg, #efe6ff, #d9c6ff); border: 1px solid #b79aef;
+  box-shadow: 0 20px 44px -18px rgba(138, 92, 246, 0.6);
+}
 .carta-selo { font-size: 0.74rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; color: #b23c86; }
 .carta-face.desafio .carta-selo { color: #c2410c; }
+.carta-face.curinga .carta-selo { color: #6d28d9; }
+
+.carta-semana {
+  margin-bottom: 4px; padding: 10px 12px; border-radius: 12px;
+  font-size: 0.84rem; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.06));
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.carta-semana strong { color: #ffd97a; }
+.baralho-deck small { font-size: 0.74rem; opacity: 0.85; font-weight: 700; }
 .carta-nivel { position: absolute; top: 16px; right: 18px; font-size: 0.72rem; font-weight: 800; opacity: 0.7; }
 .carta-nome { font-size: 1.05rem; }
 .carta-texto { margin: 0; font-family: "Caveat", cursive; font-size: 1.9rem; line-height: 1.15; font-weight: 700; }
