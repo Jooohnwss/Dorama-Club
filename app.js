@@ -5386,6 +5386,7 @@ async function handleDesafioDone(raw) {
       toast(`Recebido e concluído! +${pts} pts 🎯`);
     } else {
       render();
+      if (!recebendo) avisarParceiro("😈 Novo desafio pra você 🔥", `${meuNomeCurto()} te desafiou: ${nome}`);
       toast(recebendo ? "Recebido! Esperando atualizar 💞" : "Desafio enviado! Esperando a outra pessoa receber 💞");
     }
   } catch { toast("Não consegui registrar."); }
@@ -5465,6 +5466,7 @@ async function handleNosCreate(event) {
     await addCoupleReward(state.couple.id, authUser.id, { title, kind: d.kind, cost: Number(d.cost) || 10 });
     nosRewards = await loadCoupleRewards(state.couple.id);
     render();
+    avisarParceiro("🎟️ Vale novo na loja 💞", `${meuNomeCurto()} criou: ${title}`);
     toast("Vale criado 💞");
   } catch { toast("Não consegui criar o vale."); }
 }
@@ -5478,6 +5480,15 @@ async function handleNosPreset(i) {
     toast("Vale adicionado 💞");
   } catch { toast("Não consegui adicionar."); }
 }
+// Avisa a outra pessoa do casal (push). Silencioso se não tiver push configurado.
+function avisarParceiro(titulo, corpo) {
+  const p = parceiraMembro();
+  if (p) sendPush(p.user_id, titulo, corpo);
+}
+function meuNomeCurto() {
+  return (state.profile?.nickname || state.profile?.name || "Alguém").split(" ")[0];
+}
+
 async function handleNosClaim(id) {
   const r = nosRewards.find((x) => x.id === id);
   if (!r || !state.couple) return;
@@ -5489,6 +5500,7 @@ async function handleNosClaim(id) {
     await gastarPontos(Number(r.cost || 0), `vale: ${r.title}`, "claim", claimId || `${r.id}:${Date.now()}`);
     nosClaims = await loadCoupleClaims(state.couple.id);
     render();
+    avisarParceiro("🎟️ Vale resgatado 🔥", `${meuNomeCurto()} resgatou “${r.title}”. Tá esperando seu aceite 😏`);
     toast("Resgatado! 🔥 Aguardando o aceite da sua pessoa.");
   } catch { toast("Não consegui resgatar."); }
 }
@@ -5504,6 +5516,7 @@ async function handleSurpresaCreate(e) {
     coupleSurprises = await loadCoupleSurprises(state.couple.id);
     f.reset();
     render();
+    avisarParceiro("🎁 Tem surpresa te esperando 🤫", `${meuNomeCurto()} guardou uma surpresa pra você. Abre no dia combinado!`);
     toast("Surpresa guardada! 🤫 Abre no dia.");
   } catch { toast("Não consegui guardar."); }
 }
@@ -5534,6 +5547,7 @@ async function handleSecretMissionCreate(event) {
     });
     secretMissions = await loadSecretMissions(state.couple.id);
     render();
+    avisarParceiro("🤫 Missão secreta pra você 🔥", `${meuNomeCurto()} criou uma missão. Corre ver 😈`);
     toast("Missão secreta criada 🔥");
   } catch {
     toast("Não consegui criar. Rode a migração 29 no Supabase.");
@@ -5577,6 +5591,7 @@ async function handleDesireCreate(event) {
     });
     coupleDesires = await loadCoupleDesires(state.couple.id);
     render();
+    avisarParceiro("🔒 Desejo novo no cofrinho", `${meuNomeCurto()} guardou um desejo. Guarda o seu também pra ver se dá match 😏`);
     toast("Desejo guardado no cofrinho 🔒");
   } catch {
     toast("Não consegui guardar. Rode a migração 29 no Supabase.");
@@ -10018,6 +10033,7 @@ async function handleCoupleLetter(event) {
     form.reset();
     coupleLetters = await loadCoupleLetters(state.couple.id);
     render();
+    avisarParceiro(revealAt ? "💌 Cartinha programada pra você ⏳" : "💌 Cartinha nova pra você", revealAt ? `${meuNomeCurto()} deixou uma cartinha lacrada. Abre no dia! 🥹` : `${meuNomeCurto()} escreveu algo pra você 💜`);
     toast(revealAt ? "Cartinha programada! 💌⏳" : "Cartinha guardada. 💌");
   } catch (error) {
     console.error("cartinha:", error);
