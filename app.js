@@ -2894,7 +2894,7 @@ function clubAboutTemplate() {
       <div class="actions" style="margin:0">
         ${notifSuportada() && Notification.permission === "granted"
           ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Permissão concedida</span>
-             <button class="btn secondary" type="button" data-testar-notif>Testar / reparar avisos</button>`
+             <button class="btn secondary" type="button" data-testar-notif>Testar notificações</button>`
           : `<button class="btn secondary" type="button" data-ativar-notif>🔔 Ativar avisos</button>`}
       </div>
     </section>
@@ -5044,7 +5044,7 @@ function coupleAjustesSection() {
       <div class="actions" style="margin:0">
         ${notifSuportada() && Notification.permission === "granted"
           ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Permissão concedida</span>
-             <button class="btn secondary" type="button" data-testar-notif>Testar / reparar avisos</button>`
+             <button class="btn secondary" type="button" data-testar-notif>Testar notificações</button>`
           : `<button class="btn secondary" type="button" data-ativar-notif>🔔 Ativar avisos</button>`}
       </div>
     </section>
