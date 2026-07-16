@@ -86,14 +86,42 @@ export async function savePushSubscription(userId, sub) {
 // Dispara um push pra outra pessoa (via função Edge send-push).
 export async function sendPush(toUser, title, body, url) {
   try {
-    await supabase.functions.invoke("send-push", { body: { toUser, title, body, url } });
-  } catch { /* silencioso: se a função não estiver configurada, não atrapalha */ }
+    const { data, error } = await supabase.functions.invoke("send-push", { body: { toUser, title, body, url } });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("[push] Falha ao enviar notificação:", error);
+    return null;
+  }
 }
+// Teste de push: NÃO engole o erro (pra diagnosticar).
+export async function sendPushDebug(toUser, title, body) {
+  const { data, error } = await supabase.functions.invoke("send-push", { body: { toUser, title, body } });
+  if (error) {
+    let detail = error.message || "A função send-push falhou.";
+    try {
+      const response = error.context;
+      if (response?.clone) {
+        const payload = await response.clone().json();
+        if (payload?.error) detail = typeof payload.error === "string" ? payload.error : JSON.stringify(payload.error);
+        else if (payload?.message) detail = payload.message;
+      }
+    } catch { /* usa a mensagem original */ }
+    throw new Error(detail);
+  }
+  return data;
+}
+
 // Dispara um push pra todo o clube (menos quem chamou).
 export async function sendPushClub(toClub, title, body, url) {
   try {
-    await supabase.functions.invoke("send-push", { body: { toClub, title, body, url } });
-  } catch { /* silencioso */ }
+    const { data, error } = await supabase.functions.invoke("send-push", { body: { toClub, title, body, url } });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("[push] Falha ao enviar notificação do clube:", error);
+    return null;
+  }
 }
 
 // ---------- Palpites do dorama ----------

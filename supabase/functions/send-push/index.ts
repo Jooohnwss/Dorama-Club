@@ -42,9 +42,12 @@ Deno.serve(async (req) => {
       alvos = ids.filter((id) => id !== caller);
     } else if (toUser) {
       // Só se compartilham um casal.
+      // Enviar para si mesmo é permitido para o botão de diagnóstico.
       const { data: meus } = await admin.from("couple_members").select("couple_id").eq("user_id", caller);
-      const { data: dele } = await admin.from("couple_members").select("couple_id").eq("user_id", toUser);
-      const ok = (meus || []).some((a) => (dele || []).some((b) => b.couple_id === a.couple_id));
+      const { data: dele } = caller === toUser
+        ? { data: meus }
+        : await admin.from("couple_members").select("couple_id").eq("user_id", toUser);
+      const ok = caller === toUser || (meus || []).some((a) => (dele || []).some((b) => b.couple_id === a.couple_id));
       if (!ok) return new Response(JSON.stringify({ error: "sem vínculo" }), { status: 403, headers: cors });
       alvos = [toUser];
     } else {
@@ -55,17 +58,30 @@ Deno.serve(async (req) => {
     const { data: subs } = await admin.from("push_subscriptions").select("endpoint, subscription, user_id").in("user_id", alvos);
     const payload = JSON.stringify({ title: title || "Dorama Club", body: body || "", url: url || "/" });
 
-    await Promise.all((subs || []).map(async (s) => {
+    const resultados = await Promise.all((subs || []).map(async (s) => {
       try {
         await webpush.sendNotification(s.subscription, payload);
+        return { ok: true };
       } catch (e) {
         if (e?.statusCode === 404 || e?.statusCode === 410) {
           await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
         }
+        return { ok: false, status: e?.statusCode || 0, error: e?.body || e?.message || String(e) };
       }
     }));
 
-    return new Response(JSON.stringify({ ok: true, sent: (subs || []).length }), { headers: { ...cors, "Content-Type": "application/json" } });
+    const sent = resultados.filter((r) => r.ok).length;
+    const failures = resultados.filter((r) => !r.ok);
+    return new Response(JSON.stringify({
+      ok: failures.length === 0,
+      sent,
+      failed: failures.length,
+      error: failures[0]?.error || null,
+      errors: failures.slice(0, 3),
+    }), {
+      status: failures.length && sent === 0 ? 502 : 200,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: cors });
   }

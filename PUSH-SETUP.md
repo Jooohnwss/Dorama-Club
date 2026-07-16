@@ -9,8 +9,8 @@ continua funcionando com avisos só com o app aberto/2º plano.
 No Supabase → SQL Editor, rode `supabase/62 - push-subscriptions.sql`.
 
 ## 2) ✅ FEITO — chaves VAPID geradas
-- Public: `BKf935uAUSYdxVWGszdFsacS7uU7_lta7N8S1zwaSV1k5U9OrKOsKlMzTnbRKTcSrGIxt9Kr_zlNK9xXi7Qs5kM`
-- Private (SEGREDO): `h8OxOk74o2AS0qSq1gitKjHqLW2oPDM63dDum6Vy4XM`
+- Public: `BWxJTRjGZh3XttOSu4wWK6oVlXjfCWW86DAzR6yVOgGAUC0g0yXe_Pf0A0Z7sFVypB-oEikI6RoPO3R2hghTFCE`
+- Private: armazenada somente nos Secrets da Edge Function. Nunca salve a chave privada no repositório.
 
 ## 3) ✅ FEITO — chave pública já no app
 Está no `config.js` e no gerador do build (`scripts/generate-config.mjs`).
@@ -21,8 +21,8 @@ No **Supabase → Edge Functions**:
 2. Cole o código de `supabase/functions/send-push/index.ts` → **Deploy**.
 3. Vá em **Edge Functions → Secrets** (ou Project Settings → Edge Functions) e
    adicione:
-   - `VAPID_PUBLIC_KEY` = `BKf935uAUSYdxVWGszdFsacS7uU7_lta7N8S1zwaSV1k5U9OrKOsKlMzTnbRKTcSrGIxt9Kr_zlNK9xXi7Qs5kM`
-   - `VAPID_PRIVATE_KEY` = `h8OxOk74o2AS0qSq1gitKjHqLW2oPDM63dDum6Vy4XM`
+   - `VAPID_PUBLIC_KEY` = a chave pública configurada em `scripts/generate-config.mjs`
+   - `VAPID_PRIVATE_KEY` = a chave privada correspondente (não coloque no repositório)
    - `VAPID_SUBJECT` = `mailto:seu-email@exemplo.com`
    (`SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` já existem sozinhos.)
 
@@ -30,7 +30,7 @@ No **Supabase → Edge Functions**:
 ```
 npx supabase login
 npx supabase link --project-ref ieikmuxqunkajqhuoios
-npx supabase secrets set VAPID_PUBLIC_KEY="BKf9...5kM" VAPID_PRIVATE_KEY="h8Ox...4XM" VAPID_SUBJECT="mailto:seu-email@exemplo.com"
+npx supabase secrets set VAPID_PUBLIC_KEY="..." VAPID_PRIVATE_KEY="..." VAPID_SUBJECT="mailto:seu-email@exemplo.com"
 npx supabase functions deploy send-push
 ```
 

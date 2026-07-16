@@ -8,7 +8,7 @@ const {
   SUPABASE_ANON_KEY = "",
   // Chave PÚBLICA VAPID (não é segredo) — default garante push em produção
   // mesmo sem env var. A PRIVADA fica só no segredo da função Edge.
-  VAPID_PUBLIC_KEY = "BKf935uAUSYdxVWGszdFsacS7uU7_lta7N8S1zwaSV1k5U9OrKOsKlMzTnbRKTcSrGIxt9Kr_zlNK9xXi7Qs5kM",
+  VAPID_PUBLIC_KEY = "BWxJTRjGZh3XttOSu4wWK6oVlXjfCWW86DAzR6yVOgGAUC0g0yXe_Pf0A0Z7sFVypB-oEikI6RoPO3R2hghTFCE",
   GIPHY_KEY = "4XwLH4zQ4uvcW05H188R5gEolCsLtOgy",
 } = process.env;
 

@@ -27,6 +27,7 @@ import {
   clubHallList,
   savePushSubscription,
   sendPush,
+  sendPushDebug,
   sendPushClub,
   saveTheme,
   loadDramas,
@@ -2892,7 +2893,8 @@ function clubAboutTemplate() {
       <p class="muted" style="margin:0 0 10px">Receba notificação quando alguém surtar no mural ou entrar um dorama novo — mesmo com o app em outra aba/fechado.</p>
       <div class="actions" style="margin:0">
         ${notifSuportada() && Notification.permission === "granted"
-          ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Avisos ativados</span>`
+          ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Permissão concedida</span>
+             <button class="btn secondary" type="button" data-testar-notif>Testar / reparar avisos</button>`
           : `<button class="btn secondary" type="button" data-ativar-notif>🔔 Ativar avisos</button>`}
       </div>
     </section>
@@ -5041,7 +5043,8 @@ function coupleAjustesSection() {
       <p class="muted" style="margin:0 0 10px">Receba um aviso do sistema quando ${gxP("seu parceiro", "sua parceira", "sua pessoa")} te mandar uma carta ou aparecer novidade — mesmo com o app aberto em outra aba.</p>
       <div class="actions" style="margin:0">
         ${notifSuportada() && Notification.permission === "granted"
-          ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Avisos ativados</span>`
+          ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Permissão concedida</span>
+             <button class="btn secondary" type="button" data-testar-notif>Testar / reparar avisos</button>`
           : `<button class="btn secondary" type="button" data-ativar-notif>🔔 Ativar avisos</button>`}
       </div>
     </section>
@@ -8522,7 +8525,8 @@ function bindShell() {
   listen(document.querySelector("[data-diary-hoje]"), "click", () => { coupleDiaryDay = new Date().toISOString().slice(0, 10); coupleDiaryFoto = null; renderMantendoScroll(); });
   listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; coupleDiaryFoto = null; renderMantendoScroll(); } });
   document.querySelectorAll("[data-nos-tab]").forEach((b) => listen(b, "click", () => { nosTab = b.dataset.nosTab; render(); }));
-  listen(document.querySelector("[data-ativar-notif]"), "click", ativarNotificacoes);
+  document.querySelectorAll("[data-ativar-notif]").forEach((b) => listen(b, "click", ativarNotificacoes));
+  document.querySelectorAll("[data-testar-notif]").forEach((b) => listen(b, "click", testarNotificacoes));
   document.querySelectorAll("[data-carta-puxar]").forEach((b) => listen(b, "click", () => puxarCarta(b.dataset.cartaPuxar)));
   listen(document.querySelector("[data-carta-enviar]"), "click", enviarCarta);
   listen(document.querySelector("[data-carta-cumpri]"), "click", () => limparCarta(true));
@@ -9943,26 +9947,62 @@ function urlBase64ToUint8Array(base64) {
   for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
   return out;
 }
-// Inscreve no push (app fechado) se a chave VAPID estiver configurada.
+function mesmaChavePush(atual, esperada) {
+  if (!atual) return false;
+  const a = new Uint8Array(atual);
+  if (a.length !== esperada.length) return false;
+  return a.every((byte, i) => byte === esperada[i]);
+}
+async function serviceWorkerPronto() {
+  let reg = await navigator.serviceWorker.getRegistration("/");
+  if (!reg) reg = await navigator.serviceWorker.register("/sw.js");
+  return await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("O service worker não ficou pronto.")), 10000)),
+  ]);
+}
+// Inscreve no push (app fechado) e confirma que a inscrição foi salva.
 async function inscreverPush() {
-  if (!VAPID_PUBLIC_KEY || !("serviceWorker" in navigator) || !("PushManager" in window) || !authUser) return;
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
-    }
-    await savePushSubscription(authUser.id, sub);
-  } catch { /* push opcional — se falhar, segue com aviso em 1º plano */ }
+  if (!VAPID_PUBLIC_KEY) throw new Error("A chave pública de notificação não está configurada.");
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("Este navegador não oferece push em segundo plano.");
+  if (!window.isSecureContext) throw new Error("As notificações exigem HTTPS.");
+  if (!authUser) throw new Error("Entre na sua conta antes de ativar os avisos.");
+
+  const reg = await serviceWorkerPronto();
+  const chave = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+  let sub = await reg.pushManager.getSubscription();
+  // Uma inscrição antiga pode estar presa a outra chave VAPID. Nesse caso,
+  // o provedor rejeita todos os envios até ela ser recriada.
+  if (sub && !mesmaChavePush(sub.options?.applicationServerKey, chave)) {
+    await sub.unsubscribe();
+    sub = null;
+  }
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chave });
+  await savePushSubscription(authUser.id, sub);
+  return sub;
 }
 async function ativarNotificacoes() {
   if (!notifSuportada()) { toast("Seu navegador não suporta avisos."); return; }
   try {
     const p = await Notification.requestPermission();
-    if (p === "granted") { await inscreverPush(); toast("Avisos ativados! 🔔"); }
+    if (p === "granted") { await inscreverPush(); toast("Avisos ativados e aparelho registrado! 🔔"); }
     else toast("Você bloqueou os avisos (dá pra reativar nas config. do navegador).");
     render();
-  } catch { toast("Não consegui ativar os avisos."); }
+  } catch (error) { toast(`Não consegui ativar: ${error?.message || "erro desconhecido"}`); }
+}
+async function testarNotificacoes() {
+  try {
+    await inscreverPush();
+    toast("Enviando aviso de teste…");
+    const resultado = await sendPushDebug(authUser.id, "🔔 Teste do Dorama Club", "Se este aviso apareceu, as notificações estão funcionando. 💜");
+    if (!resultado?.sent) {
+      const detalhe = resultado?.failed ? `${resultado.failed} envio(s) falharam` : "nenhuma inscrição encontrada";
+      throw new Error(detalhe);
+    }
+    toast("Teste enviado! O aviso deve aparecer em instantes. 🔔");
+  } catch (error) {
+    toast(`Teste falhou: ${error?.message || "erro desconhecido"}`);
+  }
 }
 function notificar(titulo, corpo) {
   try {
