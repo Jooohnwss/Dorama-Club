@@ -5550,7 +5550,7 @@ async function handleSecretMissionCreate(event) {
     const envio = await avisarParceiro("🤫 Missão secreta pra você 🔥", `${meuNomeCurto()} criou uma missão. Corre ver 😈`);
     toast(envio?.sent
       ? "Missão secreta criada e aviso enviado 🔥"
-      : "Missão criada, mas o aviso não saiu. Peça para ela abrir o app e reparar os avisos.");
+      : "Missão criada, mas a notificação não foi enviada. Ela precisa abrir o app atualizado uma vez.");
   } catch {
     toast("Não consegui criar. Rode a migração 29 no Supabase.");
   }
@@ -9968,15 +9968,17 @@ async function inscreverPush() {
 
   const reg = await serviceWorkerPronto();
   const chave = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+  const chaveSalva = localStorage.getItem("dorama-club-vapid-public-key");
   let sub = await reg.pushManager.getSubscription();
   // Uma inscrição antiga pode estar presa a outra chave VAPID. Nesse caso,
   // o provedor rejeita todos os envios até ela ser recriada.
-  if (sub && !mesmaChavePush(sub.options?.applicationServerKey, chave)) {
+  if (sub && (chaveSalva !== VAPID_PUBLIC_KEY || !mesmaChavePush(sub.options?.applicationServerKey, chave))) {
     await sub.unsubscribe();
     sub = null;
   }
   if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chave });
   await savePushSubscription(authUser.id, sub);
+  localStorage.setItem("dorama-club-vapid-public-key", VAPID_PUBLIC_KEY);
   return sub;
 }
 async function ativarNotificacoes() {

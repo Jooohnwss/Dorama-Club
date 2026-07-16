@@ -77,9 +77,16 @@ export async function updateClubDetails(clubId, payload) {
 // ---------- Push (notificações com app fechado) ----------
 export async function savePushSubscription(userId, sub) {
   const j = sub.toJSON ? sub.toJSON() : sub;
-  const { error } = await supabase.from("push_subscriptions").upsert(
+  // A tabela permite INSERT e DELETE do próprio usuário, mas não UPDATE.
+  // Remover antes evita que um upsert de endpoint reutilizado falhe pela RLS.
+  const { error: deleteError } = await supabase
+    .from("push_subscriptions")
+    .delete()
+    .eq("user_id", userId)
+    .eq("endpoint", j.endpoint);
+  if (deleteError) throw deleteError;
+  const { error } = await supabase.from("push_subscriptions").insert(
     { user_id: userId, endpoint: j.endpoint, subscription: j },
-    { onConflict: "endpoint" },
   );
   if (error) throw error;
 }
