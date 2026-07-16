@@ -9,7 +9,7 @@ continua funcionando com avisos só com o app aberto/2º plano.
 No Supabase → SQL Editor, rode `supabase/62 - push-subscriptions.sql`.
 
 ## 2) ✅ FEITO — chaves VAPID geradas
-- Public: `BWxJTRjGZh3XttOSu4wWK6oVlXjfCWW86DAzR6yVOgGAUC0g0yXe_Pf0A0Z7sFVypB-oEikI6RoPO3R2hghTFCE`
+- Public: `BDqoVq7j7Cl5f2-a_khfb5XMYTTLqGaL9FwQEgT72BqvlkrDQ45l2BfctEw3gZtPWjkS0tsHLY44YYayNwYYgGU`
 - Private: armazenada somente nos Secrets da Edge Function. Nunca salve a chave privada no repositório.
 
 ## 3) ✅ FEITO — chave pública já no app

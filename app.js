@@ -5484,9 +5484,9 @@ async function handleNosPreset(i) {
   } catch { toast("Não consegui adicionar."); }
 }
 // Avisa a outra pessoa do casal (push). Silencioso se não tiver push configurado.
-function avisarParceiro(titulo, corpo) {
+async function avisarParceiro(titulo, corpo) {
   const p = parceiraMembro();
-  if (p) sendPush(p.user_id, titulo, corpo);
+  return p ? await sendPush(p.user_id, titulo, corpo) : null;
 }
 function meuNomeCurto() {
   return (state.profile?.nickname || state.profile?.name || "Alguém").split(" ")[0];
@@ -5550,8 +5550,10 @@ async function handleSecretMissionCreate(event) {
     });
     secretMissions = await loadSecretMissions(state.couple.id);
     render();
-    avisarParceiro("🤫 Missão secreta pra você 🔥", `${meuNomeCurto()} criou uma missão. Corre ver 😈`);
-    toast("Missão secreta criada 🔥");
+    const envio = await avisarParceiro("🤫 Missão secreta pra você 🔥", `${meuNomeCurto()} criou uma missão. Corre ver 😈`);
+    toast(envio?.sent
+      ? "Missão secreta criada e aviso enviado 🔥"
+      : "Missão criada, mas o aviso não saiu. Peça para ela abrir o app e reparar os avisos.");
   } catch {
     toast("Não consegui criar. Rode a migração 29 no Supabase.");
   }
@@ -10004,6 +10006,10 @@ async function testarNotificacoes() {
     toast(`Teste falhou: ${error?.message || "erro desconhecido"}`);
   }
 }
+function sincronizarPushPermitido() {
+  if (!authUser || !notifSuportada() || Notification.permission !== "granted") return;
+  inscreverPush().catch((error) => console.error("[push] Não consegui renovar a inscrição:", error));
+}
 function notificar(titulo, corpo) {
   try {
     if (!notifSuportada() || Notification.permission !== "granted") return;
@@ -11227,7 +11233,10 @@ async function init() {
   if (supabaseReady()) {
     try {
       authUser = await getCurrentUser();
-      if (authUser) await hydrateFromCloud();
+      if (authUser) {
+        await hydrateFromCloud();
+        sincronizarPushPermitido();
+      }
     } catch {
       // Sem conexão: cai no estado local até reconectar.
     }
@@ -11245,6 +11254,7 @@ async function init() {
       if (user && user.id !== previousId) {
         try {
           await hydrateFromCloud();
+          sincronizarPushPermitido();
         } catch {
           // mantém estado local
         }

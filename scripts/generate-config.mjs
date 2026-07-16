@@ -6,11 +6,12 @@ const {
   TMDB_BEARER = "",
   SUPABASE_URL = "",
   SUPABASE_ANON_KEY = "",
-  // Chave PÚBLICA VAPID (não é segredo) — default garante push em produção
-  // mesmo sem env var. A PRIVADA fica só no segredo da função Edge.
-  VAPID_PUBLIC_KEY = "BWxJTRjGZh3XttOSu4wWK6oVlXjfCWW86DAzR6yVOgGAUC0g0yXe_Pf0A0Z7sFVypB-oEikI6RoPO3R2hghTFCE",
   GIPHY_KEY = "4XwLH4zQ4uvcW05H188R5gEolCsLtOgy",
 } = process.env;
+
+// A chave VAPID pública não é segredo e precisa ser exatamente a mesma
+// em todos os deploys. Não aceita override de env antigo, que quebraria o par.
+const VAPID_PUBLIC_KEY = "BDqoVq7j7Cl5f2-a_khfb5XMYTTLqGaL9FwQEgT72BqvlkrDQ45l2BfctEw3gZtPWjkS0tsHLY44YYayNwYYgGU";
 
 const missing = [];
 if (!TMDB_BEARER) missing.push("TMDB_BEARER");
