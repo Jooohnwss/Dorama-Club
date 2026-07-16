@@ -1,5 +1,5 @@
-const CACHE = "dorama-club-v98";
-const SHELL = ["/", "/index.html", "/styles.css?v=98", "/app.js?v=98", "/manifest.webmanifest", "/icon.svg"];
+const CACHE = "dorama-club-v99";
+const SHELL = ["/", "/index.html", "/styles.css?v=99", "/app.js?v=99", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));

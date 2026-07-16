@@ -27,7 +27,6 @@ import {
   clubHallList,
   savePushSubscription,
   sendPush,
-  sendPushDebug,
   sendPushClub,
   saveTheme,
   loadDramas,
@@ -2893,8 +2892,7 @@ function clubAboutTemplate() {
       <p class="muted" style="margin:0 0 10px">Receba notificação quando alguém surtar no mural ou entrar um dorama novo — mesmo com o app em outra aba/fechado.</p>
       <div class="actions" style="margin:0">
         ${notifSuportada() && Notification.permission === "granted"
-          ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Permissão concedida</span>
-             <button class="btn secondary" type="button" data-testar-notif>Testar notificações</button>`
+          ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Notificações ativadas</span>`
           : `<button class="btn secondary" type="button" data-ativar-notif>🔔 Ativar avisos</button>`}
       </div>
     </section>
@@ -5043,8 +5041,7 @@ function coupleAjustesSection() {
       <p class="muted" style="margin:0 0 10px">Receba um aviso do sistema quando ${gxP("seu parceiro", "sua parceira", "sua pessoa")} te mandar uma carta ou aparecer novidade — mesmo com o app aberto em outra aba.</p>
       <div class="actions" style="margin:0">
         ${notifSuportada() && Notification.permission === "granted"
-          ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Permissão concedida</span>
-             <button class="btn secondary" type="button" data-testar-notif>Testar notificações</button>`
+          ? `<span class="chip" style="background:color-mix(in srgb,#22c55e 16%,transparent);color:#15803d">🔔 Notificações ativadas</span>`
           : `<button class="btn secondary" type="button" data-ativar-notif>🔔 Ativar avisos</button>`}
       </div>
     </section>
@@ -8528,7 +8525,6 @@ function bindShell() {
   listen(document.querySelector("[data-diary-goto]"), "change", (e) => { if (e.target.value) { coupleDiaryDay = e.target.value; coupleDiaryFoto = null; renderMantendoScroll(); } });
   document.querySelectorAll("[data-nos-tab]").forEach((b) => listen(b, "click", () => { nosTab = b.dataset.nosTab; render(); }));
   document.querySelectorAll("[data-ativar-notif]").forEach((b) => listen(b, "click", ativarNotificacoes));
-  document.querySelectorAll("[data-testar-notif]").forEach((b) => listen(b, "click", testarNotificacoes));
   document.querySelectorAll("[data-carta-puxar]").forEach((b) => listen(b, "click", () => puxarCarta(b.dataset.cartaPuxar)));
   listen(document.querySelector("[data-carta-enviar]"), "click", enviarCarta);
   listen(document.querySelector("[data-carta-cumpri]"), "click", () => limparCarta(true));
@@ -9991,20 +9987,6 @@ async function ativarNotificacoes() {
     else toast("Você bloqueou os avisos (dá pra reativar nas config. do navegador).");
     render();
   } catch (error) { toast(`Não consegui ativar: ${error?.message || "erro desconhecido"}`); }
-}
-async function testarNotificacoes() {
-  try {
-    await inscreverPush();
-    toast("Enviando aviso de teste…");
-    const resultado = await sendPushDebug(authUser.id, "🔔 Teste do Dorama Club", "Se este aviso apareceu, as notificações estão funcionando. 💜");
-    if (!resultado?.sent) {
-      const detalhe = resultado?.failed ? `${resultado.failed} envio(s) falharam` : "nenhuma inscrição encontrada";
-      throw new Error(detalhe);
-    }
-    toast("Teste enviado! O aviso deve aparecer em instantes. 🔔");
-  } catch (error) {
-    toast(`Teste falhou: ${error?.message || "erro desconhecido"}`);
-  }
 }
 function sincronizarPushPermitido() {
   if (!authUser || !notifSuportada() || Notification.permission !== "granted") return;
