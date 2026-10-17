@@ -70,6 +70,7 @@ import {
   clubCycle,
   clubOpenVoting,
   clubCloseVoting,
+  clubDropFeatured,
   setClubFeaturedDrama,
   saveClubDramaCheckin,
   clubEpisodeRatings,
@@ -3132,6 +3133,7 @@ function clubeCicloTemplate() {
           <small>${terminaram}/${membros} do clube terminaram — só troca quando <strong>todos</strong> terminarem</small>
         </div>
         <p class="ciclo-hint muted">Marque seus episódios no <strong>Modo Episódio</strong> abaixo 👇 — cada um dá <strong>+1 no ranking</strong> 🎬.</p>
+        ${canManage ? `<button class="btn ghost" type="button" data-club-drop-featured>🗑️ Dropar este dorama</button>` : ""}
       </section>`
     : `<section class="ciclo-now"><span class="clf-eyebrow">🎬 Assistindo agora</span><p class="muted" style="margin:8px 0 0">Nenhum dorama oficial ainda. ${canManage ? "Sugiram abaixo e fixem o primeiro (botão Fixar)." : "Sugiram o primeiro abaixo."}</p></section>`;
 
@@ -3208,7 +3210,9 @@ function listaCompartilhadaTemplate(votingOpen = true, minhasSug = 0, canManage 
         <h3>${votingOpen ? "🗳️ Votação dos próximos" : "💡 Sugeridos pra votação"}</h3>
         <span class="choice-count">${total} dorama${total === 1 ? "" : "s"}</span>
       </div>
-      <p class="choice-sub">${votingOpen ? "Todo mundo sugeriu! O mais votado entra quando o clube terminar o atual." : `Cada um sugere 2 doramas. Quando todos sugerirem, a votação abre sozinha.`} ${progresso}</p>
+      <p class="choice-sub">${votingOpen ? (clubSocial.featured ? "Todo mundo sugeriu! O mais votado entra quando o clube terminar o atual." : "Todo mundo sugeriu! Votem — o mais votado vira o dorama do clube.") : `Cada um sugere 2 doramas. Quando todos sugerirem, a votação abre sozinha.`} ${progresso}</p>
+      ${canManage && !clubSocial.featured && liderId ? `<button class="btn" type="button" data-list-feature="${liderId}">🏆 Fechar votação e fixar o mais votado</button>` : ""}
+      ${canManage && !clubSocial.featured && total && !votingOpen ? `<p class="choice-sub">Sem dorama no momento: dono/moderador pode fixar direto no 📌 de qualquer sugerido.</p>` : ""}
       ${busca}
       ${total ? `<div class="choice-cards">${cards}</div>` : `<div class="empty" style="margin-top:10px">Ninguém sugeriu ainda. Seja ${gx("o primeiro", "a primeira", "a primeira pessoa")}! 🎬</div>`}
     </section>`;
@@ -8680,6 +8684,7 @@ function bindShell() {
   }));
   listen(document.querySelector("[data-club-open-voting]"), "click", handleClubOpenVoting);
   listen(document.querySelector("[data-club-close-voting]"), "click", handleClubCloseVoting);
+  listen(document.querySelector("[data-club-drop-featured]"), "click", handleClubDropFeatured);
   document.querySelectorAll("[data-list-vote]").forEach((button) => {
     listen(button, "click", () => handleListVote(button.dataset.listVote, button.dataset.vote));
   });
@@ -10611,6 +10616,27 @@ async function handleClubOpenVoting() {
     render();
     toast("Votação aberta 🗳️");
   } catch (e) { console.error(e); toast("Só dono/moderador pode abrir a votação."); }
+}
+async function handleClubDropFeatured() {
+  if (!state.club || !clubSocial.featured) return;
+  const titulo = clubSocial.featured.title;
+  const ok = await confirmar(`Dropar ${titulo}?`, {
+    sub: "Ninguém quis ver? Ele não vai pro Hall da Fama e os pontos que ele gerou são removidos. Depois é só fixar outro dos Sugeridos. 📌",
+    ok: "Dropar",
+  });
+  if (!ok) return;
+  try {
+    await clubDropFeatured(state.club.id);
+    clubSocial.featured = await clubCurrentFeaturedDrama(state.club.id).catch(() => null);
+    clubSocial.cycle = await clubCycle(state.club.id).catch(() => clubSocial.cycle);
+    await registrarAtividade(`🗑️ ${state.profile?.name || "Alguém"} dropou ${titulo}`);
+    clubSocial.activities = await clubActivities(state.club.id).catch(() => clubSocial.activities);
+    render();
+    toast("Dorama dropado. Fixem o próximo dos Sugeridos! 📌");
+  } catch (e) {
+    console.error("clubDropFeatured", e);
+    toast(e?.message?.includes("permiss") ? "Só dono ou moderador pode dropar." : "Não consegui dropar agora.");
+  }
 }
 async function handleClubCloseVoting() {
   if (!state.club) return;

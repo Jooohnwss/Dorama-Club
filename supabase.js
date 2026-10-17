@@ -1245,6 +1245,11 @@ export async function clubCloseVoting(clubId) {
   if (error) throw error;
 }
 
+export async function clubDropFeatured(clubId) {
+  const { error } = await supabase.rpc("club_drop_featured", { p_club: clubId });
+  if (error) throw error;
+}
+
 export async function setClubFeaturedDrama(clubId, drama, periodType = "week") {
   const { data, error } = await supabase.rpc("set_club_featured_drama", {
     p_club: clubId,
